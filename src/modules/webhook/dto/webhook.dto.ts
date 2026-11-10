@@ -149,7 +149,7 @@ export class CreateWebhookDto {
     // Both bounds are spelled out because @MinLength/@MaxLength do not reach the published schema on
     // their own, and the example must satisfy them: the previous 15-character one was rejected by the
     // very route that offered it, so pasting it back from Swagger answered 400
-    // ([#1491](https://github.com/devashir768/zaplink/issues/1491)).
+    // ([#1491](https://github.com/dev-ashir768/zaplink/issues/1491)).
     minLength: 16,
     maxLength: 255,
     example: 'your-webhook-signing-secret',

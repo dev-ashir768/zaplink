@@ -26,7 +26,7 @@ export interface UpdateCheck {
 
 // GitHub's `/releases/latest` skips drafts and prereleases, so only a published release is offered.
 const LATEST_RELEASE_URL = 'https://api.github.com/repos/dev-ashir768/zaplink/releases/latest';
-const RELEASE_PAGE_URL = 'https://github.com/devashir768/zaplink/releases/tag/';
+const RELEASE_PAGE_URL = 'https://github.com/dev-ashir768/zaplink/releases/tag/';
 // One unauthenticated request per process per window stays far inside GitHub's 60 per hour per IP,
 // while a long-running instance still notices a new release the same day.
 const SUCCESS_TTL_MS = 6 * 60 * 60_000;

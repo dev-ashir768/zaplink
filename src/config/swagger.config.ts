@@ -245,7 +245,7 @@ export function createSwaggerConfig(): Omit<OpenAPIObject, 'paths'> {
       // Apply the scheme globally so Swagger UI sends the key with every request
       // (mirrors the global ApiKeyGuard). Without this, "Authorize" is cosmetic.
       .addSecurityRequirements(API_KEY_SECURITY_SCHEME)
-      .setContact('ZapLink', 'https://github.com/devashir768/zaplink', 'yudhi@rmyndharis.com')
+      .setContact('ZapLink', 'https://github.com/dev-ashir768/zaplink', 'yudhi@rmyndharis.com')
       .addTag('sessions', 'WhatsApp session management')
       .addTag('messages', 'Send and manage messages')
       .addTag('webhooks', 'Webhook configuration')

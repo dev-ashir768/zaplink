@@ -96,4 +96,4 @@ VITE_WS_URL=http://localhost:2785
 
 ## 📄 License
 
-MIT License - Part of the [ZapLink](https://github.com/devashir768/zaplink) project.
+MIT License - Part of the [ZapLink](https://github.com/dev-ashir768/zaplink) project.

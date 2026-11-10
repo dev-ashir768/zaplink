@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/devashir768/zaplink/actions/workflows/ci.yml"><img src="https://github.com/devashir768/zaplink/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
+  <a href="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml"><img src="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
   <img src="https://img.shields.io/github/package-json/v/dev-ashir768/zaplink?label=version&color=blue" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/>
   <img src="https://img.shields.io/badge/node-22_LTS-brightgreen.svg" alt="Node"/>
@@ -105,9 +105,9 @@ These are practical guardrails, not guarantees — but they materially reduce th
 
 A few things that look like bugs but are actually server-side WhatsApp policy, not ZapLink defects — we track them separately so we can distinguish them from real bugs:
 
-- **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves ZapLink, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of ZapLink. Background in [#830](https://github.com/devashir768/zaplink/issues/830).
+- **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves ZapLink, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of ZapLink. Background in [#830](https://github.com/dev-ashir768/zaplink/issues/830).
 - **Accounts that get restricted cannot be "unrestricted" by us.** If WhatsApp disables a number, you need to appeal through their channels — ZapLink has no lever to pull.
-- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See the FAQ entry; background in [#560](https://github.com/devashir768/zaplink/issues/560).
+- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See the FAQ entry; background in [#560](https://github.com/dev-ashir768/zaplink/issues/560).
 
 ### Compliance
 
@@ -176,8 +176,8 @@ For any deployment where ethical, legal, or regulatory compliance matters (healt
 
 ```bash
 # Clone and start
-git clone https://github.com/devashir768/zaplink.git
-cd ZapLink
+git clone https://github.com/dev-ashir768/zaplink.git
+cd zaplink
 docker compose -f docker-compose.dev.yml up -d
 
 # Access (the dashboard is bundled into the API image and served on the same port)
@@ -209,8 +209,8 @@ Source installs on Linux x64/arm64 hosts using glibc need **glibc 2.34 or newer*
 
 ```bash
 # Clone repository
-git clone https://github.com/devashir768/zaplink.git
-cd ZapLink
+git clone https://github.com/dev-ashir768/zaplink.git
+cd zaplink
 
 # Install the locked dependencies (includes dashboard)
 npm ci
@@ -501,7 +501,7 @@ See [LICENSE](./LICENSE) for details.
 
 **ZapLink** – Free, Open Source WhatsApp API Gateway
 
-[🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/devashir768/zaplink/issues) · [💡 Request Feature](https://github.com/devashir768/zaplink/issues)
+[🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/dev-ashir768/zaplink/issues) · [💡 Request Feature](https://github.com/dev-ashir768/zaplink/issues)
 
 <br/>
 
