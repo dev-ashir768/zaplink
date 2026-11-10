@@ -1,7 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateWebhookDto, UpdateWebhookDto, WEBHOOK_EVENTS } from './webhook.dto';
-import { CreateAutomationRuleDto, UpdateAutomationRuleDto } from '../../automation/dto/automation-rule.dto';
 import { collectFilterErrors } from '../filters/filter-validation';
 import { TABLE_IMPORTERS } from '../../infra/table-importers';
 
@@ -42,8 +41,6 @@ describe('webhook configuration size bounds', () => {
   it.each([
     ['CreateWebhookDto', CreateWebhookDto, { url }, 'filters'],
     ['UpdateWebhookDto', UpdateWebhookDto, {}, 'filters'],
-    ['CreateAutomationRuleDto', CreateAutomationRuleDto, { name: 'Reply', replyText: 'Hello' }, 'conditions'],
-    ['UpdateAutomationRuleDto', UpdateAutomationRuleDto, {}, 'conditions'],
   ] as const)('%s bounds id and idArray filter values', async (_name, cls, base, property) => {
     for (const field of ['sender', 'recipient', 'chatId', 'mentions']) {
       for (const length of [128, 129]) {

@@ -2,8 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PluginLoaderService } from './plugin-loader.service';
 import { PluginStorageService } from './plugin-storage.service';
-import { ConversationMapping } from '../../modules/integration/entities/conversation-mapping.entity';
-import { ConversationMappingService } from '../../modules/integration/conversation-mapping.service';
+import { ConversationMapping } from '../../database/retained-entities/conversation-mapping.entity';
+import { ConversationMappingService } from './conversation-mapping.service';
 import { PLUGIN_CONVERSATION_MAPPING_PORT } from './plugin-host-ports';
 
 @Global() // Make plugin services available everywhere

@@ -1,5 +1,5 @@
 import { ConversationSendEnvelope, PluginContext } from '../plugin.interfaces';
-import { HandoverState } from '../../../modules/integration/entities/conversation-mapping.entity';
+import { HandoverState } from '../../../database/retained-entities/conversation-mapping.entity';
 
 /** The subset of the plugin context a sandboxed plugin reaches across the bridge. */
 export type CapabilityContext = Pick<PluginContext, 'messages' | 'engine' | 'storage' | 'net'> & {

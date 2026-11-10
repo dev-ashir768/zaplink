@@ -6,7 +6,7 @@ import { ApiKeyRole } from '../../modules/auth/entities/api-key.entity';
 import { AuditService } from '../../modules/audit/audit.service';
 import { AuditAction } from '../../modules/audit/entities/audit-log.entity';
 import { allowUnauthenticatedAuditRow } from '../../modules/audit/auth-failure-audit-limiter';
-import { KeyRateLimiter, readIpRateLimitConfig } from '../../modules/mcp/mcp-rate-limit';
+import { KeyRateLimiter, readIpRateLimitConfig } from '../throttler/key-rate-limit';
 import { limiterKeyForIp, resolveClientIp } from '../utils/ip';
 import { presentedApiKey } from './bearer-token';
 import { setRequestActor } from '../services/request-context';

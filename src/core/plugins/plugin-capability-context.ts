@@ -4,7 +4,7 @@ import type { HookManager, HookEvent } from '../hooks';
 import type { LidMappingStore } from '../../engine/identity/lid-mapping-store.service';
 import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
 import { parseWaId, toNeutralJid } from '../../engine/identity/wa-id';
-import { ConversationMappingConflict } from '../../modules/integration/conversation-mapping.service';
+import { ConversationMappingConflict } from './conversation-mapping.service';
 import { createLogger, UNPRINTABLE } from '../../common/services/logger.service';
 import { isPluginActiveForSession, resolvePluginConfig } from './plugin-activation';
 import { effectiveNetAllow, isNetHostAllowed, performPluginFetch } from './plugin-net';

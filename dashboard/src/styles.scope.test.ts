@@ -96,7 +96,6 @@ const SEARCH_BOXES: Record<string, string> = {
   'Logs.css': '.logs-page .search-input',
   'Chats.css': '.chats-page .chat-search-input',
   'Templates.css': '.templates-page .templates-search',
-  'Plugins.css': '.plugins-page .catalog-search',
 };
 
 test('every page search box shows keyboard focus on its frame', () => {

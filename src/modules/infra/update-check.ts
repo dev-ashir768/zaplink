@@ -1,5 +1,5 @@
-import { fetchSafeBuffer } from '../plugins/plugin-download';
-import { compareSemver } from '../plugins/catalog';
+import { fetchSafeBuffer } from '../../core/plugins/plugin-download';
+import { compareSemver } from '../../core/plugins/catalog';
 import { redactSsrfError } from '../../common/security/ssrf-guard';
 import { createLogger } from '../../common/services/logger.service';
 

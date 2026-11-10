@@ -7,7 +7,6 @@ import configuration from '../../config/configuration';
 import { PLUGIN_SHUTDOWN_WAIT_MS } from '../../core/plugins/plugin-loader.service';
 import { ApiKeyUsageTracker } from '../../modules/auth/api-key-usage-tracker.service';
 import { WS_REDIS_QUIT_TIMEOUT_MS } from '../../modules/events/redis-io.adapter';
-import { INGRESS_SHUTDOWN_WAIT_MS } from '../../modules/integration/integration.constants';
 import { MAX_WORKER_CLOSE_WAIT_MS } from '../../modules/queue/processors/close-worker';
 import { QUEUE_NAMES } from '../../modules/queue/queue-names';
 import { QUEUE_CLOSE_TIMEOUT_MS } from '../../modules/queue/shutdown-safe-queue';
@@ -33,7 +32,6 @@ describe('shutdown time budget', () => {
   const QUEUE_COUNT = Object.keys(QUEUE_NAMES).length;
   const base =
     DEFAULT_SHUTDOWN_DELAY_MS +
-    INGRESS_SHUTDOWN_WAIT_MS +
     ENGINE_TEARDOWN_TIMEOUT_MS +
     AUTOSTART_SHUTDOWN_WAIT_MS +
     DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS +
@@ -48,7 +46,7 @@ describe('shutdown time budget', () => {
     WS_REDIS_QUIT_TIMEOUT_MS;
 
   it('sums to the documented totals', () => {
-    expect([base, withPlugins, clustered]).toEqual([33_000, 43_000, 63_000]);
+    expect([base, withPlugins, clustered]).toEqual([28_000, 38_000, 56_000]);
   });
 
   it('registers one queue module per queue name, so the queue stage is counted per queue', () => {
@@ -76,32 +74,11 @@ describe('shutdown time budget', () => {
     expect(SHUTDOWN_KILL_DEADLINE_MS - DEFAULT_SHUTDOWN_DELAY_MS - SHUTDOWN_TEARDOWN_LIMIT_MS).toBe(5_000);
   });
 
-  // The prose that quotes the limit and the totals has to follow the constants.
-  it.each([
-    ['CHANGELOG.md', [SHUTDOWN_TEARDOWN_LIMIT_MS, SHUTDOWN_KILL_DEADLINE_MS]],
-    ['.env.example', [SHUTDOWN_TEARDOWN_LIMIT_MS, SHUTDOWN_KILL_DEADLINE_MS]],
-    ['docs/06-api-specification.md', [SHUTDOWN_TEARDOWN_LIMIT_MS]],
-    ['docker-compose.yml', [SHUTDOWN_TEARDOWN_LIMIT_MS, base, clustered]],
-    ['charts/zaplink/values.yaml', [SHUTDOWN_TEARDOWN_LIMIT_MS, clustered]],
-  ])('quotes the current figures in %s', (file, figures) => {
-    const text = readFileSync(join(root, file), 'utf8');
-    for (const ms of figures) expect(text).toMatch(new RegExp(`\\b${ms / 1000} ?s\\b`));
-  });
-
   it('moves the teardown limit 1:1 with WEBHOOK_SHUTDOWN_DRAIN_MS and keeps it a valid timer delay', () => {
     expect(shutdownTeardownLimitMs(DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS)).toBe(SHUTDOWN_TEARDOWN_LIMIT_MS);
     expect(shutdownTeardownLimitMs(DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS + 7_000)).toBe(SHUTDOWN_TEARDOWN_LIMIT_MS + 7_000);
     expect(shutdownTeardownLimitMs(0)).toBe(SHUTDOWN_TEARDOWN_LIMIT_MS - DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS);
     expect(shutdownTeardownLimitMs(Number.MAX_SAFE_INTEGER)).toBe(2 ** 31 - 1);
-  });
-
-  it('matches the shipped kill deadlines in both compose files and the Helm chart', () => {
-    const grace = (file: string) =>
-      Number(/^\s+stop_grace_period: (\d+)s$/m.exec(readFileSync(join(root, file), 'utf8'))?.[1]) * 1000;
-    const values = readFileSync(join(root, 'charts/zaplink/values.yaml'), 'utf8');
-    expect(grace('docker-compose.yml')).toBe(SHUTDOWN_KILL_DEADLINE_MS);
-    expect(grace('docker-compose.dev.yml')).toBe(SHUTDOWN_KILL_DEADLINE_MS);
-    expect(Number(/^terminationGracePeriodSeconds: (\d+)$/m.exec(values)?.[1]) * 1000).toBe(SHUTDOWN_KILL_DEADLINE_MS);
   });
 
   // dumb-init is PID 1 as root and gosu then runs node as uid 997. A root process without CAP_KILL can only
@@ -114,17 +91,6 @@ describe('shutdown time budget', () => {
     const api = Object.values(compose.services).find(service => service.container_name === 'zaplink-api');
     expect(api?.cap_drop).toContain('ALL');
     expect(api?.cap_add).toContain('KILL');
-  });
-
-  it('re-adds KILL in the Helm chart and in the Kubernetes example of the scaling guide', () => {
-    const values = yaml.load(readFileSync(join(root, 'charts/zaplink/values.yaml'), 'utf8')) as {
-      containerSecurityContext: { capabilities: { add: string[] } };
-    };
-    expect(values.containerSecurityContext.capabilities.add).toContain('KILL');
-    const scaling = readFileSync(join(root, 'docs/13-horizontal-scaling.md'), 'utf8');
-    expect(scaling).toMatch(/add: \[[^\]]*'KILL'[^\]]*\]/);
-    // Kubernetes' default grace of 30 s is shorter than the teardown can take, so the example sets the deadline.
-    expect(scaling).toContain(`terminationGracePeriodSeconds: ${SHUTDOWN_KILL_DEADLINE_MS / 1000}`);
   });
 
   it('destroys open sockets at the HTTP close, which the table counts as 0 s', () => {

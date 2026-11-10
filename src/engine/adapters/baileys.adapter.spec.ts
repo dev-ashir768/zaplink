@@ -7740,7 +7740,6 @@ describe('BaileysAdapter contact + chat reads', () => {
             resolver,
             undefined,
             undefined,
-            undefined,
             store,
           );
           const drainProjection = async () => {

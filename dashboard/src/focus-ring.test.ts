@@ -141,7 +141,6 @@ test('fields that repaint their own border and native checkboxes draw their own 
     ['.filter-row select:focus', /border-color:\s*var\(--focus-ring\)/],
     [".chats-page .status-compose-modal input[type='color']:focus", /border-color:\s*var\(--focus-ring\)/],
     [".sessions-page .proxy-form-section input[type='text']:focus", /border-color:\s*var\(--focus-ring\)/],
-    ['.plugins-page .sessions-select:focus', /border-color:\s*var\(--focus-ring\)/],
     [".filter-text input[type='text']:focus", /border-color:\s*var\(--focus-ring\)/],
     ['.chips-row .chips-text:focus', /border-color:\s*var\(--focus-ring\)/],
     ['.login-container .input-wrapper input.error:focus', /outline:\s*2px solid var\(--focus-ring\)/],

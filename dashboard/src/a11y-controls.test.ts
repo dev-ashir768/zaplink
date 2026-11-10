@@ -42,7 +42,6 @@ import ts from 'typescript';
 // a silent loss of coverage.
 
 const SRC = dirname(fileURLToPath(import.meta.url));
-const PAGES = join(SRC, 'pages');
 
 /** Every .tsx under src/, recursively: the patterns below are not confined to pages/. */
 function tsxFiles(dir: string): string[] {
@@ -265,72 +264,6 @@ test('an id referenced by aria-labelledby is defined exactly once in its file', 
   }
 
   assert.deepEqual([...new Set(duplicates)], [], duplicates.join('\n'));
-});
-
-/**
- * ConfigField (Plugins) renders one control per schema property and recurses, so caption and control
- * have to be tied together PER INSTANCE, which is why the id comes from React.useId rather than a
- * constant. Only the boolean branch did that; every other field type rendered a bare label beside a
- * control with no id.
- *
- * Walked as an AST for the same reason as above: the regex version of this check looked at the FIRST
- * `<input` in the function, which is the boolean branch's checkbox, so the text/number/secret input
- * (by far the most common plugin field) was never examined at all.
- */
-test('every ConfigField caption is bound, and every single control carries the per-instance id', () => {
-  const file = 'Plugins.tsx';
-  const source = ts.createSourceFile(
-    file,
-    readFileSync(join(PAGES, file), 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
-
-  let fn: ts.Node | undefined;
-  const findFn = (node: ts.Node): void => {
-    if (ts.isFunctionDeclaration(node) && node.name?.getText() === 'ConfigField') fn = node;
-    ts.forEachChild(node, findFn);
-  };
-  findFn(source);
-  assert.ok(fn, 'ConfigField not found');
-
-  const inside: JsxNode[] = [];
-  const collect = (n: ts.Node): void => {
-    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) inside.push(n);
-    ts.forEachChild(n, collect);
-  };
-  collect(fn);
-
-  const problems: string[] = [];
-
-  // A label with no htmlFor names nothing, whatever other attributes it carries.
-  for (const node of inside) {
-    if (tagName(node) !== 'label') continue;
-    if (classes(node).includes('toggle-switch')) continue; // wraps its control, checked above
-    if (attr(node, 'htmlFor') === undefined) {
-      problems.push(`${file}:${line(source, node)}: <label> in ConfigField with no htmlFor`);
-    }
-  }
-
-  // Every single-value control must carry the id those captions point at. Checked per element, not
-  // by counting: a count is satisfied by the branch that was already correct.
-  let controls = 0;
-  for (const node of inside) {
-    const tag = tagName(node);
-    if (tag !== 'select' && tag !== 'textarea' && tag !== 'input') continue;
-    if (literalAttr(node, 'type') === 'checkbox' && attr(node, 'id') !== undefined) {
-      controls++;
-      continue;
-    }
-    controls++;
-    if (attr(node, 'id') === undefined) {
-      problems.push(`${file}:${line(source, node)}: <${tag}> in ConfigField has no id`);
-    }
-  }
-
-  assert.ok(controls >= 4, `expected ConfigField to render controls, found ${controls}`);
-  assert.deepEqual(problems, [], problems.join('\n'));
 });
 
 /**

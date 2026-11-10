@@ -133,7 +133,6 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
       { resolveSenderPhone: jest.fn().mockResolvedValue(null) } as unknown as SessionLidResolver,
       undefined,
       undefined,
-      undefined,
       findPhoneForLid ? ({ findPhoneForLid } as never) : undefined,
     );
   };

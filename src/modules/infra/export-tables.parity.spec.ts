@@ -35,9 +35,8 @@ const DATA_ENTITY_ROOTS = [
   'modules/message',
   'modules/template',
   'engine',
-  'modules/integration',
+  'database/retained-entities',
   'modules/status-store',
-  'modules/automation',
 ];
 // The main-connection (auth/audit) roots; their tables are not this endpoint's payload.
 const MAIN_ENTITY_ROOTS = ['modules/auth', 'modules/audit'];

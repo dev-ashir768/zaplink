@@ -1,7 +1,7 @@
 import { WorkerToHostMessage, HostToWorkerMessage } from './protocol';
 import { hookConfigStore } from './worker-hooks';
 import { ConversationSendEnvelope } from '../plugin.interfaces';
-import { HandoverState } from '../../../modules/integration/entities/conversation-mapping.entity';
+import { HandoverState } from '../../../database/retained-entities/conversation-mapping.entity';
 
 /**
  * Worker-side correlation for capability calls. Each `call` posts a `cap` request and resolves when

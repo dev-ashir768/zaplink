@@ -1,6 +1,6 @@
-jest.mock('../plugins/plugin-download', () => ({ fetchSafeBuffer: jest.fn() }));
+jest.mock('../../core/plugins/plugin-download', () => ({ fetchSafeBuffer: jest.fn() }));
 
-import { fetchSafeBuffer } from '../plugins/plugin-download';
+import { fetchSafeBuffer } from '../../core/plugins/plugin-download';
 import { __resetUpdateCheckCache, checkForUpdate, isNewerRelease } from './update-check';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

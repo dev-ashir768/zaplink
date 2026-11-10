@@ -109,7 +109,6 @@ export class MetricsService implements OnModuleDestroy {
     private readonly statsService: StatsService,
     // Registered only with QUEUE_ENABLED=true (see metrics.module.ts); absent otherwise.
     @Optional() @InjectQueue(QUEUE_NAMES.WEBHOOK) private readonly webhookQueue?: Queue,
-    @Optional() @InjectQueue(QUEUE_NAMES.INGRESS) private readonly ingressQueue?: Queue,
   ) {}
 
   onModuleDestroy(): void {
@@ -353,10 +352,7 @@ export class MetricsService implements OnModuleDestroy {
    * scrape from leaving a read pending on a Redis that has never connected.
    */
   private async readQueueCounts(): Promise<Array<[string, Record<string, number>]>> {
-    const queues = [
-      [QUEUE_NAMES.WEBHOOK, this.webhookQueue],
-      [QUEUE_NAMES.INGRESS, this.ingressQueue],
-    ] as const;
+    const queues = [[QUEUE_NAMES.WEBHOOK, this.webhookQueue]] as const;
     const results: Array<[string, Record<string, number>]> = [];
     for (const [name, queue] of queues) {
       if (!queue) continue;

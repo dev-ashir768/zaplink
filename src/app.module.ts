@@ -37,14 +37,10 @@ import { StatusModule } from './modules/status/status.module';
 import { MediaModule } from './modules/media/media.module';
 import { StatusStoreModule } from './modules/status-store/status-store.module';
 import { ChatMediaModule } from './modules/chat-media/chat-media.module';
-import { AutomationModule } from './modules/automation/automation.module';
 import { TakeoverModule } from './modules/takeover/takeover.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { HooksModule } from './core/hooks';
 import { PluginsModule } from './core/plugins';
-import { PluginsApiModule } from './modules/plugins/plugins.module';
-import { AgentToolsModule } from './core/agent-tools/agent-tools.module';
-import { IntegrationModule } from './modules/integration/integration.module';
 import { SearchModule } from './modules/search/search.module';
 import { SqlitePermissionsBoot } from './database/sqlite-file-permissions';
 
@@ -64,22 +60,6 @@ if (process.env.QUEUE_ENABLED === 'true') {
 const searchModules: Array<Type | DynamicModule> = [];
 if (process.env.SEARCH_ENABLED !== 'false') {
   searchModules.push(SearchModule);
-}
-
-// Only mount the MCP server if explicitly enabled to avoid startup cost and
-// the SDK import (which pulls in @modelcontextprotocol/sdk) in non-MCP deployments.
-const mcpModules: Array<Type | DynamicModule> = [];
-if (process.env.MCP_ENABLED === 'true') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { McpModule } = require('./modules/mcp/mcp.module') as typeof import('./modules/mcp/mcp.module');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { version } = require('../package.json') as { version: string };
-  mcpModules.push(
-    McpModule.forRoot({
-      basePath: '/mcp',
-      serverInfo: { name: 'zaplink', version },
-    }),
-  );
 }
 
 // Serve the bundled dashboard SPA from this same NestJS process/port when a build is
@@ -157,9 +137,8 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
             __dirname + '/modules/message/**/*.entity{.ts,.js}',
             __dirname + '/modules/template/**/*.entity{.ts,.js}',
             __dirname + '/engine/**/*.entity{.ts,.js}',
-            __dirname + '/modules/integration/**/*.entity{.ts,.js}',
+            __dirname + '/database/retained-entities/*.entity{.ts,.js}',
             __dirname + '/modules/status-store/**/*.entity{.ts,.js}',
-            __dirname + '/modules/automation/**/*.entity{.ts,.js}',
           ],
           migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
           logging: configService.get<boolean>('dataDatabase.logging', false),
@@ -303,14 +282,9 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
     MediaModule, // Server-side media conversion (opt-in)
     StatusStoreModule, // Phase 3: inbound status/story TTL store (24h purge + media persistence)
     ChatMediaModule, // opt-in chat-media archive (retention purge + orphan sweep)
-    AutomationModule, // single-message autoreply rules, evaluated on the inbound dispatch
     TakeoverModule, // adopts sessions whose holder's lease lapsed (crashed peer / recreated node)
     CatalogModule, // Phase 3: Catalog API (WhatsApp Business)
-    PluginsApiModule, // Phase 5: Plugins API
-    AgentToolsModule, // Agent-invocable tool registry (protocol-neutral)
-    IntegrationModule, // Integration Fabric: @Public provider-webhook ingress + fast-ack pipeline
     ...searchModules, // Global message search (opt-out via SEARCH_ENABLED=false; default ON)
-    ...mcpModules, // MCP Streamable-HTTP server (opt-in via MCP_ENABLED=true)
     ...serveStaticModules, // Bundled dashboard SPA (production single-port setup)
   ],
   // Runs after every DataSource has initialized (they initialize eagerly in their provider

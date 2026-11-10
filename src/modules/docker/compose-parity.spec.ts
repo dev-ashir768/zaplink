@@ -500,23 +500,6 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     expect(placeholder!.length).toBeLessThan(8);
   });
 
-  it.each(['README.md', 'docs/08-development-guidelines.md'])(
-    '%s tells a fresh install not to pair the minio profile with the dashboard built-in storage',
-    file => {
-      // The dashboard route writes its credentials to data/.env.generated, which compose never reads,
-      // so a compose minio started next to it has no password and never comes up. startService then
-      // finds that container by its label and only restarts it, so the built-in option cannot recover.
-      const text = readFileSync(join(__dirname, '../../..', file), 'utf8').replace(/\s+/g, ' ');
-      expect(text).toContain('do not also start the `minio` or `full` profile');
-      expect(text).toContain('docker rm -f zaplink-minio');
-      // Built-in PostgreSQL and Redis also create their own containers. The compose postgres service
-      // refuses to initialize without DATABASE_PASSWORD, and startService would only restart it, so
-      // the dashboard route must not be told to start any profile.
-      expect(text).toContain('each built-in option creates its own container');
-      expect(text).not.toContain('--profile postgres --profile redis');
-    },
-  );
-
   it('minio: prefers the canonical S3 credential env vars, then the legacy ones', async () => {
     process.env.S3_ACCESS_KEY = 'legacy-user';
     process.env.S3_SECRET_KEY = 'legacy-secret';

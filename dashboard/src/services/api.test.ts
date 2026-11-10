@@ -6,7 +6,6 @@ import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 let sessionApi: (typeof import('./api.ts'))['sessionApi'];
-let pluginsApi: (typeof import('./api.ts'))['pluginsApi'];
 const navigations: string[] = [];
 
 before(async () => {
@@ -18,7 +17,7 @@ before(async () => {
     configurable: true,
     writable: true,
   });
-  ({ sessionApi, pluginsApi } = await import('./api.ts'));
+  ({ sessionApi } = await import('./api.ts'));
 });
 
 beforeEach(() => {
@@ -73,7 +72,6 @@ test('a role 403 keeps the key and rejects with the status', async () => {
 // Each response shape the client reads, so the key check covers every path into the failure handler.
 const shapes = [
   ['JSON', () => sessionApi.list()],
-  ['text', () => pluginsApi.getConfigUi('p1')],
   ['blob', () => sessionApi.getMessageMediaBlob('s1', '100@c.us', 'WA1')],
 ] as const;
 
@@ -157,7 +155,7 @@ for (const [status, message] of keyFailures) {
     const pending = deferAnswers(status, message);
     const results = shapes.map(([, call]) => call());
     await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual(pending.sentKeys, ['stored-key', 'stored-key', 'stored-key']);
+    assert.deepEqual(pending.sentKeys, ['stored-key', 'stored-key']);
     pending.release();
     for (const result of results) {
       assert.equal(await settled(result), false, 'the call settled, so its caller would render the failure');

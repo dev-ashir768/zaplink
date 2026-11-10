@@ -377,7 +377,7 @@ test('an admin key scoped to sessions is not offered the pages that refuse it', 
 
 test('an unscoped admin key still checks for a newer release', async () => {
   renderLayout();
-  assert.ok(rtl.screen.getByRole('link', { name: 'Plugins' }));
+  assert.ok(rtl.screen.getByRole('link', { name: 'Infrastructure' }));
   await rtl.waitFor(() => assert.ok(requested.some(url => url.includes('/infra/update-check'))));
 });
 

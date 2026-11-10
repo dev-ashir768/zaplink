@@ -7,15 +7,12 @@ import {
   auditApi,
   infraApi,
   pluginsApi,
-  pluginInstancesApi,
   statsApi,
   type CreateWebhookRequest,
   type UpdateWebhookRequest,
   type MessageTemplate,
   type TemplatePayload,
   type StatsPeriod,
-  type CreateInstanceInput,
-  type UpdateInstanceInput,
 } from '../services/api';
 
 // ── Query Keys ────────────────────────────────────────────────────────
@@ -30,8 +27,6 @@ export const queryKeys = {
   apiKeys: ['apiKeys'] as const,
   logs: (params: { severity?: string; page: number; limit: number }) => ['logs', params] as const,
   infraStatus: ['infra', 'status'] as const,
-  plugins: ['plugins'] as const,
-  pluginInstances: (pluginId: string) => ['plugins', pluginId, 'instances'] as const,
   engines: ['engines'] as const,
   currentEngine: ['engines', 'current'] as const,
   statsOverview: ['stats', 'overview'] as const,
@@ -294,66 +289,6 @@ export function useInfraConfigQuery() {
     queryKey: ['infra', 'config'],
     queryFn: infraApi.getConfig,
     staleTime: 30_000,
-  });
-}
-
-// ── Plugin Queries ────────────────────────────────────────────────────
-
-export function usePluginsQuery() {
-  return useQuery({
-    queryKey: queryKeys.plugins,
-    queryFn: pluginsApi.list,
-    staleTime: 30_000,
-  });
-}
-
-export function usePluginInstancesQuery(pluginId: string, enabled: boolean) {
-  return useQuery({
-    queryKey: queryKeys.pluginInstances(pluginId),
-    queryFn: () => pluginInstancesApi.list(pluginId),
-    enabled,
-    staleTime: 30_000,
-  });
-}
-
-export function useCreateInstanceMutation(pluginId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CreateInstanceInput) => pluginInstancesApi.create(pluginId, body),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pluginInstances(pluginId) });
-    },
-  });
-}
-
-export function useRegenerateInstanceSecretMutation(pluginId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (instanceId: string) => pluginInstancesApi.regenerateSecret(pluginId, instanceId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pluginInstances(pluginId) });
-    },
-  });
-}
-
-export function useUpdateInstanceMutation(pluginId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (params: { instanceId: string; body: UpdateInstanceInput }) =>
-      pluginInstancesApi.update(pluginId, params.instanceId, params.body),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pluginInstances(pluginId) });
-    },
-  });
-}
-
-export function useDeleteInstanceMutation(pluginId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (instanceId: string) => pluginInstancesApi.remove(pluginId, instanceId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pluginInstances(pluginId) });
-    },
   });
 }
 

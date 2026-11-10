@@ -3,7 +3,7 @@ import { PluginCapabilityContext } from './plugin-capability-context';
 import { PluginHostServices } from './plugin-host-services';
 import { PluginStorageService } from './plugin-storage.service';
 import { PluginInstance as LoadedPlugin, PluginManifest, PluginStatus, PluginType } from './plugin.interfaces';
-import { PluginInstance as InstanceRow } from '../../modules/integration/entities/plugin-instance.entity';
+import { PluginInstance as InstanceRow } from '../../database/retained-entities/plugin-instance.entity';
 import { createLogger } from '../../common/services/logger.service';
 
 /**

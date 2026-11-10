@@ -1251,8 +1251,4 @@ describe('body-parser inflate backstop', () => {
 
     expect(source.match(/^\s+inflate: false,$/gm)).toHaveLength(2);
   });
-
-  it('mirrors the global cap and disabled inflate on the MCP route-level fallback parser', () => {
-    expect(read('../modules/mcp/mcp.server.ts')).toContain('express.json({ limit: bodyLimit, inflate: false })');
-  });
 });

@@ -11,7 +11,16 @@ const INHERITED = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'va
 // Every host spelling the shared table lists, plus generated ones: letter cases, trailing dots and spaces around the
 // alias, the container name and a few other names, bare and inside endpoint URLs.
 function candidates(): string[] {
-  const names = ['postgres', 'redis', 'minio', 'zaplink-postgres', 'zaplink-redis', 'zaplink-minio', 'localhost', 'db.x'];
+  const names = [
+    'postgres',
+    'redis',
+    'minio',
+    'zaplink-postgres',
+    'zaplink-redis',
+    'zaplink-minio',
+    'localhost',
+    'db.x',
+  ];
   const cases = (n: string) => [n, n.toUpperCase(), n[0].toUpperCase() + n.slice(1)];
   const hosts = names.flatMap(cases).flatMap(h => ['', '.', '..', ' ', '. '].map(tail => h + tail));
   const urls = hosts.flatMap(h =>

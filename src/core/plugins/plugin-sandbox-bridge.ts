@@ -19,9 +19,9 @@ import { shouldDispatchToPlugin } from './handover-gate';
 import { countMetaValues, metaText } from './sandbox-log-meta';
 import { makeOnWebhookSubscribe } from './webhook-subscribe.util';
 import { registerPluginSearchProvider, unregisterPluginSearchProvider } from './search-provider-registration.util';
-import { INGRESS_DISPATCH_TIMEOUT_MS } from '../../modules/integration/integration.constants';
-import { ingressDeliveryVerified, isQueryBorne } from '../../modules/integration/ingress-signature';
-import type { IngressJobData } from '../../modules/queue/processors/ingress.processor';
+import { INGRESS_DISPATCH_TIMEOUT_MS } from './integration.constants';
+import { ingressDeliveryVerified, isQueryBorne } from './ingress-signature';
+import type { IngressJobData } from './integration.constants';
 import { resolveFeatureFlags } from '../../config/feature-flags';
 
 /** Time budget for a sandboxed plugin's hook handler before the chain proceeds without it. */

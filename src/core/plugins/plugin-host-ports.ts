@@ -2,7 +2,7 @@ import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.in
 // Type-only, on purpose: they keep the port signatures aligned with the real services without
 // creating any runtime module edge from core back into a feature module.
 import type { MessageResponseDto } from '../../modules/message/dto';
-import type { HandoverState } from '../../modules/integration/entities/conversation-mapping.entity';
+import type { HandoverState } from '../../database/retained-entities/conversation-mapping.entity';
 
 /**
  * The narrow slices of host feature services that plugin capability code invokes — one port per

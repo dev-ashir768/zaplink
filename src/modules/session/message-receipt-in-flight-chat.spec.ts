@@ -84,7 +84,6 @@ describe('a receipt naming a chat for an own message still in flight', () => {
       {} as SessionLidResolver,
       undefined,
       undefined,
-      undefined,
       lidStore,
     );
   });

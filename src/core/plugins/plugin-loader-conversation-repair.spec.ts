@@ -5,7 +5,7 @@ import { PluginLoaderService } from './plugin-loader.service';
 import { PluginStorageService } from './plugin-storage.service';
 import { HookManager } from '../hooks';
 import { PluginContext, PluginInstance, PluginManifest, PluginStatus, PluginType } from './plugin.interfaces';
-import { ConversationMappingConflict } from '../../modules/integration/conversation-mapping.service';
+import { ConversationMappingConflict } from './conversation-mapping.service';
 import { PLUGIN_CONVERSATION_MAPPING_PORT, PLUGIN_SESSION_PORT } from './plugin-host-ports';
 
 /**

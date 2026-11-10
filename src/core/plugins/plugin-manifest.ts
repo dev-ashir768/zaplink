@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { PluginManifest, PluginType } from './plugin.interfaces';
-import { compareSemver } from '../../modules/plugins/catalog';
+import { compareSemver } from './catalog';
 
 // The version of the running code (same source as /api/health), the default floor check target.
 // eslint-disable-next-line @typescript-eslint/no-require-imports

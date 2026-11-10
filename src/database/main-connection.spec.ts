@@ -1,8 +1,7 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs';
+import { mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { ConfigService } from '@nestjs/config';
-import { load } from 'js-yaml';
 import { DataSource } from 'typeorm';
 import { ApiKey } from '../modules/auth/entities/api-key.entity';
 import { AuditLog } from '../modules/audit/entities/audit-log.entity';
@@ -284,40 +283,6 @@ describe('main connection', () => {
       } finally {
         await ds.destroy();
       }
-    });
-
-    it('documents that remedy for a source install and for the compose deployment', () => {
-      const root = join(__dirname, '..', '..');
-      const doc = readFileSync(join(root, 'docs', '05-database-design.md'), 'utf8');
-      const remedy = doc.split('\n').find(line => line.includes(forgetLostColumn)) ?? '';
-      // The refusal names the configured path, which the remedy must send the operator to.
-      expect(remedy).toContain('MAIN_DATABASE_NAME');
-      expect(remedy).toContain(`sqlite3 data/main.sqlite "${forgetLostColumn}"`);
-
-      // On compose the file lives in a named volume, so a host path cannot reach it and the
-      // stopped (or crash-looping) container cannot be exec'd into: a one-off run of the service can.
-      const compose = load(readFileSync(join(root, 'docker-compose.yml'), 'utf8')) as {
-        services: Record<string, { volumes?: string[] }>;
-      };
-      const [service, mount] = Object.entries(compose.services)
-        .flatMap(([name, svc]) =>
-          (svc.volumes ?? []).filter(v => v.startsWith('zaplink-data:')).map(v => [name, v.split(':')[1]]),
-        )
-        .at(0) ?? ['', ''];
-      expect(service).not.toBe('');
-      expect(remedy).toContain(`docker compose stop ${service}`);
-      expect(remedy).toContain(
-        `docker compose run --rm --no-deps ${service} sqlite3 ${mount}/main.sqlite "${forgetLostColumn}"`,
-      );
-    });
-
-    it('is described in the upgrade guide as running the main chain at every boot', () => {
-      const guide = readFileSync(join(__dirname, '..', '..', 'docs', '14-migration-guide.md'), 'utf8').replace(
-        /\s+/g,
-        ' ',
-      );
-      expect(guide).toContain('The Main (auth/audit) connection runs its own `migrations-main/` chain at every boot.');
-      expect(guide).not.toMatch(/Main \(auth\/audit\) connection defaults to synchronize/);
     });
 
     it('closes the connection it opened when it refuses', async () => {

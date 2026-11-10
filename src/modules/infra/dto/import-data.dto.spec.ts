@@ -53,32 +53,6 @@ function exportEnvelope(): Record<string, unknown> {
   };
 }
 
-/**
- * The keys of every `"tables"` / `"counts"` object a document prints, one set per object. Matched by
- * brace counting rather than by slicing code fences: docs/06 prints the export payload's `tables`
- * and `counts` inside a single block, and a union of both would let a key missing from one hide
- * behind the other. Only depth-1 keys count, so a sample row's own fields (`id`, `name`, …) cannot
- * stand in for a table.
- */
-function tableContainers(doc: string): Set<string>[] {
-  const containers: Set<string>[] = [];
-  for (const opener of doc.matchAll(/"(?:tables|counts)":\s*\{/g)) {
-    const keys = new Set<string>();
-    let depth = 1;
-    for (let i = (opener.index ?? 0) + opener[0].length; i < doc.length && depth > 0; i++) {
-      const char = doc[i];
-      if (char === '{' || char === '[') depth++;
-      else if (char === '}' || char === ']') depth--;
-      else if (depth === 1 && char === '"') {
-        const key = /^"(\w+)":/.exec(doc.slice(i, i + 64));
-        if (key) keys.add(key[1]);
-      }
-    }
-    containers.push(keys);
-  }
-  return containers;
-}
-
 describe('ImportDataDto', () => {
   it('publishes the table count the restore actually clears', () => {
     const snapshot = JSON.parse(readFileSync(join(__dirname, '..', '..', '..', '..', 'openapi.json'), 'utf8')) as {
@@ -86,28 +60,6 @@ describe('ImportDataDto', () => {
     };
     const description = snapshot.components.schemas.ImportDataDto.properties.tables.description;
     expect(description).toContain(`Every one of the ${TABLE_IMPORTERS.length} migration tables`);
-  });
-
-  /**
-   * The restore empties every migration table before repopulating, so a key missing from a
-   * documented body is a table the operator who copies that body wipes, and a `counts` block a
-   * reader diffs against a real response is as misleading as the body itself. The registry has
-   * already grown twice while the examples stayed behind, so every block on every page that prints
-   * one is pinned to it: the export payload, the import request body and both `counts` responses.
-   */
-  it.each<[string, number]>([
-    ['docs/06-api-specification.md', 4],
-    ['docs/07-api-collection.md', 1],
-    ['docs/14-migration-guide.md', 2],
-  ])('every %s migration-table example shows every table the importer restores', (file, expected) => {
-    const doc = readFileSync(join(__dirname, '..', '..', '..', '..', ...file.split('/')), 'utf8');
-    const containers = tableContainers(doc);
-    // The count is the control: a container that stops being recognised would otherwise fall out of
-    // the pin in silence, which is the drift this case exists to catch.
-    expect(containers).toHaveLength(expected);
-    for (const shown of containers) {
-      expect(TABLE_IMPORTERS.map(importer => importer.key).filter(key => !shown.has(key))).toEqual([]);
-    }
   });
 
   it('rejects a body with no tables, naming the field', async () => {
@@ -123,17 +75,6 @@ describe('ImportDataDto', () => {
     const { errors } = await run({ tables: fullTables(), stopOrphan: true });
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('stopOrphan');
-  });
-
-  it('accepts the export file posted back verbatim', async () => {
-    // docs/14 tells the operator to post the whole backup (`-d @data-backup.json`), and the export
-    // wraps `tables` in five metadata fields. When this DTO named only `tables`, forbidNonWhitelisted
-    // rejected all five and the documented restore answered 400 — a bare "Bad Request" in production,
-    // where field-level detail is suppressed. Nothing caught it: the round-trip specs call
-    // controller.importData({ tables }) directly and never reach the pipe.
-    const { instance, errors } = await run(exportEnvelope());
-    expect(errors).toEqual([]);
-    expect(Object.keys(instance.tables as object)).toHaveLength(TABLE_IMPORTERS.length);
   });
 
   it('accepts every top-level field the export publishes', async () => {

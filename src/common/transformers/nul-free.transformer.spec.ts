@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { Message } from '../../modules/message/entities/message.entity';
 import { StatusUpdate } from '../../modules/status-store/entities/status-update.entity';
-import { IntegrationDeliveryFailure } from '../../modules/integration/entities/integration-delivery-failure.entity';
+import { IntegrationDeliveryFailure } from '../../database/retained-entities/integration-delivery-failure.entity';
 import { WebhookDeliveryFailure } from '../../modules/webhook/entities/webhook-delivery-failure.entity';
 import { Session } from '../../modules/session/entities/session.entity';
 import { readyRowUpdate } from '../../modules/session/session-engine-lifecycle.service';

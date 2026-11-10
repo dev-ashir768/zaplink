@@ -214,7 +214,6 @@ describe('PUBLIC_PATHS drift guard', () => {
   const EXPECTED_PUBLIC_CONTROLLERS = [
     'src/modules/health/health.controller.ts',
     'src/modules/infra/infra-status.controller.ts',
-    'src/modules/integration/ingress.controller.ts',
     'src/modules/metrics/metrics.controller.ts',
   ];
 

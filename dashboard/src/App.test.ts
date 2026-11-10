@@ -103,9 +103,9 @@ test('an operator opening /number-checker gets the Number Checker page', async (
   assert.equal(window.location.pathname, '/number-checker');
 });
 
-// API keys, Infrastructure and Plugins read routes that refuse any session-scoped key, so a scoped
+// API keys and Infrastructure read routes that refuse any session-scoped key, so a scoped
 // admin opening one by URL or reload must be sent home rather than mount a page whose reads all 403.
-for (const page of ['api-keys', 'infrastructure', 'plugins']) {
+for (const page of ['api-keys', 'infrastructure']) {
   test(`a session-scoped admin opening /${page} is sent home without calling its routes`, async () => {
     scoped = true;
     window.sessionStorage.setItem('zaplink_key_scoped', 'true');

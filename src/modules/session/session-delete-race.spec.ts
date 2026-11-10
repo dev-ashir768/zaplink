@@ -16,7 +16,7 @@ import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.ent
 import { Webhook } from '../webhook/entities/webhook.entity';
 import { WebhookOutboxEvent } from '../webhook/entities/webhook-outbox-event.entity';
 import { WebhookDeliveryFailure } from '../webhook/entities/webhook-delivery-failure.entity';
-import { IntegrationDeliveryFailure } from '../integration/entities/integration-delivery-failure.entity';
+import { IntegrationDeliveryFailure } from '../../database/retained-entities/integration-delivery-failure.entity';
 import { Template } from '../template/entities/template.entity';
 import { BaileysStoredMessage } from '../../engine/adapters/baileys-stored-message.entity';
 import { ChatState } from '../../engine/adapters/baileys-chat-state.entity';

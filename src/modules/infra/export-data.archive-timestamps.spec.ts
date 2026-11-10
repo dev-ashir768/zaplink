@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { readFileSync, readdirSync } from 'fs';
+import { readdirSync } from 'fs';
 import { join } from 'path';
 import { DataSource } from 'typeorm';
 import { InfraDataService } from './infra-data.service';
@@ -11,15 +11,15 @@ import { Template } from '../template/entities/template.entity';
 import { BaileysStoredMessage } from '../../engine/adapters/baileys-stored-message.entity';
 import { LidMapping } from '../../engine/identity/lid-mapping.entity';
 import { ChatState } from '../../engine/adapters/baileys-chat-state.entity';
-import { PluginInstance } from '../integration/entities/plugin-instance.entity';
-import { ConversationMapping } from '../integration/entities/conversation-mapping.entity';
-import { IngressEvent } from '../integration/entities/ingress-event.entity';
+import { PluginInstance } from '../../database/retained-entities/plugin-instance.entity';
+import { ConversationMapping } from '../../database/retained-entities/conversation-mapping.entity';
+import { IngressEvent } from '../../database/retained-entities/ingress-event.entity';
 import { WebhookDeliveryFailure } from '../webhook/entities/webhook-delivery-failure.entity';
 import { WebhookOutboxEvent } from '../webhook/entities/webhook-outbox-event.entity';
-import { IntegrationDeliveryFailure } from '../integration/entities/integration-delivery-failure.entity';
+import { IntegrationDeliveryFailure } from '../../database/retained-entities/integration-delivery-failure.entity';
 import { StatusUpdate } from '../status-store/entities/status-update.entity';
 import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.entity';
-import { AutomationRule } from '../automation/entities/automation-rule.entity';
+import { AutomationRule } from '../../database/retained-entities/automation-rule.entity';
 
 /**
  * What docs/14 (Timestamps travel as UTC) says a SQLite-made archive holds, checked against an export from
@@ -106,12 +106,5 @@ describe('a SQLite-made export archive', () => {
       expect.stringMatching(SQLITE_TEXT),
     ]);
     expect(session.connectedAt).toMatch(ISO_UTC);
-  });
-
-  it('is described as it is in docs/14', () => {
-    const doc = readFileSync(join(__dirname, '..', '..', '..', 'docs', '14-migration-guide.md'), 'utf8');
-    const note = doc.slice(doc.indexOf('**Timestamps travel as UTC.**')).split('\n\n')[0];
-    expect(note).toContain('`YYYY-MM-DD HH:MM:SS`');
-    expect(note).not.toMatch(/Every stamp in the archive is ISO 8601/);
   });
 });

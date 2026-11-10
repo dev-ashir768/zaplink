@@ -107,7 +107,6 @@ describe('reported identities before a tombstone delivery reaches its hooks', ()
       { resolveSenderPhone: jest.fn().mockResolvedValue(null) } as unknown as SessionLidResolver,
       undefined,
       undefined,
-      undefined,
       mappings,
     );
   });

@@ -39,7 +39,6 @@ test('the Infrastructure radio inputs stay focusable and the card shows the focu
 // sight, not removed, so Tab reaches it; the label it sits in shows the focus.
 test('the file inputs under the plugin drop zone and the Import data button stay focusable and ring their label', () => {
   for (const [file, input, ring] of [
-    ['pages/Plugins.css', /\.install-drop input\[type='file'\]$/, /\.install-drop:has\(input:focus-visible\)$/],
     ['pages/Infrastructure.css', /\.hidden-file-input$/, /label:has\(> \.hidden-file-input:focus-visible\)$/],
   ] as const) {
     const all = rules(file);
@@ -65,8 +64,8 @@ test('every stylesheet that hides a toggle checkbox rings its slider on keyboard
   const hiding = cssFiles().filter(file =>
     rules(file).some(r => r.selectors.some(s => /\.toggle-switch input$/.test(s))),
   );
-  // Vacuity floor: Sessions, Webhooks, Infrastructure and Plugins each carry their own copy.
-  assert.ok(hiding.length >= 4, `only ${hiding.length} stylesheets hide a toggle checkbox`);
+  // Vacuity floor: Sessions, Webhooks and Infrastructure each carry their own copy.
+  assert.ok(hiding.length >= 3, `only ${hiding.length} stylesheets hide a toggle checkbox`);
   const missing = hiding.filter(file => {
     const ring = rules(file).find(r =>
       r.selectors.some(s => /\.toggle-switch input:focus-visible \+ \.toggle-slider$/.test(s)),

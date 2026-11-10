@@ -3,8 +3,6 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA } from '@nestjs/common/constants';
 import { REQUIRED_ROLE_KEY } from './decorators/auth.decorators';
 import { ApiKeyRole } from './entities/api-key.entity';
-import { IntegrationInstanceController } from '../integration/integration-instance.controller';
-import { RedriveController } from '../integration/redrive.controller';
 import { GroupController } from '../group/group.controller';
 import { ContactController } from '../contact/contact.controller';
 import { ChannelController } from '../channel/channel.controller';
@@ -13,20 +11,6 @@ import { ProfileController } from '../profile/profile.controller';
 import { CatalogController } from '../catalog/catalog.controller';
 import { MessageController } from '../message/message.controller';
 import { SessionController } from '../session/session.controller';
-import { allAgentTools } from '../../core/agent-tools/tools';
-
-// The dashboard's client-side role (seeded from localStorage) is cosmetic UX only — the ACTUAL
-// authorization boundary is the backend @RequireRole guard. These assertions lock that the sensitive
-// ADMIN-only integration provisioning / redrive surfaces are role-gated server-side at the class level,
-// so a tampered client role can never reach them regardless of what the browser claims.
-describe('admin controller role coverage (server-side authorization is the real gate)', () => {
-  it.each([
-    ['IntegrationInstanceController', IntegrationInstanceController],
-    ['RedriveController', RedriveController],
-  ])('%s requires the ADMIN role at the class level', (_name, controller) => {
-    expect(Reflect.getMetadata(REQUIRED_ROLE_KEY, controller)).toBe(ApiKeyRole.ADMIN);
-  });
-});
 
 // A group invite code is a bearer capability, not read data: whoever holds the link joins the group
 // on WhatsApp with no ZapLink credential at all, and that membership survives revoking the key that
@@ -204,22 +188,5 @@ describe('role of every message and session route', () => {
     ['SessionController', SessionController, SESSION_ROLES],
   ])('%s carries exactly the roles in its table', (_name, controller, table) => {
     expect(rolesOf(controller)).toEqual(table);
-  });
-});
-
-// The MCP invoker enforces a tool's requiredRole through hasPermission and nothing else: declaring the tool
-// tier 'write' implies no role. A write tool that loses requiredRole is therefore callable over MCP by a
-// read-only VIEWER key, so every write tool must declare OPERATOR or higher.
-describe('MCP write tools', () => {
-  // Handlers are never invoked, so stub services are fine: only the declarations are read.
-  const writeTools = allAgentTools({} as never).filter(tool => tool.tier === 'write');
-
-  it('walks the write tools (a filter that matched none would pass for the wrong reason)', () => {
-    // 26 when written: session 4, message 12, contact 2, group 4, label 4.
-    expect(writeTools.length).toBeGreaterThanOrEqual(26);
-  });
-
-  it('declares requiredRole OPERATOR or higher on every write tool', () => {
-    expect(writeTools.filter(tool => !atLeastOperator(tool.requiredRole)).map(tool => tool.name)).toEqual([]);
   });
 });

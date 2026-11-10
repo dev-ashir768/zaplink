@@ -7,7 +7,7 @@ import { HookManager, HookEvent, HookHandler } from '../hooks';
 import type { MessageResponseDto } from '../../modules/message/dto';
 import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
 import type { PluginNetRequestInit, PluginNetResponse } from './plugin-net';
-import type { HandoverState } from '../../modules/integration/entities/conversation-mapping.entity';
+import type { HandoverState } from '../../database/retained-entities/conversation-mapping.entity';
 import type { WebhookRequest, WebhookResponse, WebhookHandler } from './sandbox/worker-webhooks';
 
 // Re-export the ingress webhook types on the public SDK surface so plugin authors can type their

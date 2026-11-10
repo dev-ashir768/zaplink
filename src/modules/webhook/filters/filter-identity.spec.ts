@@ -1,5 +1,4 @@
 import { ConfigService } from '@nestjs/config';
-import { ModuleRef } from '@nestjs/core';
 import { DataSource, Repository } from 'typeorm';
 import { createLogger } from '../../../common/services/logger.service';
 import { HookManager } from '../../../core/hooks';
@@ -14,9 +13,6 @@ import {
 } from '../../../core/plugins/plugin.interfaces';
 import { LidMapping } from '../../../engine/identity/lid-mapping.entity';
 import { LidMappingStoreService } from '../../../engine/identity/lid-mapping-store.service';
-import { AutomationRulesService } from '../../automation/automation-rules.service';
-import { AutomationRule } from '../../automation/entities/automation-rule.entity';
-import { Session } from '../../session/entities/session.entity';
 import { Webhook } from '../entities/webhook.entity';
 import { WebhookDeliveryFailure } from '../entities/webhook-delivery-failure.entity';
 import { WebhookDeliveryService } from '../webhook-delivery.service';
@@ -74,23 +70,6 @@ describe('Identity readers after a peer changes a mapping', () => {
     );
   }
 
-  async function automationSends(jid: string, field = 'sender', operator: 'is' | 'isNot' = 'is'): Promise<jest.Mock> {
-    const sendText = jest.fn().mockResolvedValue({});
-    const rules = new AutomationRulesService(
-      {
-        find: () =>
-          Promise.resolve([
-            { id: 'r', conditions: filtersFor(jid, field, operator), replyText: 'reply', cooldownSeconds: 0 },
-          ]),
-      } as unknown as Repository<AutomationRule>,
-      {} as Repository<Session>,
-      { get: () => ({ sendText }) } as unknown as ModuleRef,
-      reader,
-    );
-    await rules.evaluateInbound('s', message);
-    return sendText;
-  }
-
   function pluginCapability(): PluginEngineReadCapability {
     const context = new PluginCapabilityContext(
       createLogger('PluginIdentity'),
@@ -126,12 +105,6 @@ describe('Identity readers after a peer changes a mapping', () => {
     expect(await webhookMatches(LID)).toHaveLength(1);
   });
 
-  it('does not reply under a phone rule after a peer revokes the alias', async () => {
-    await peer.rememberIfUnknown('484848', '628222', 'peer');
-    expect(await automationSends(P)).not.toHaveBeenCalled();
-    expect(await automationSends(LID)).toHaveBeenCalledTimes(1);
-  });
-
   it('returns the raw LID to a plugin after a peer revokes the alias', async () => {
     await peer.rememberIfUnknown('484848', '628222', 'peer');
     expect(await pluginCapability().canonicalChatId('s', LID)).toBe(LID);
@@ -142,14 +115,11 @@ describe('Identity readers after a peer changes a mapping', () => {
     expect(reader.getCached('484848')).toBe('628111');
     expect(await webhookMatches(P)).toHaveLength(0);
     expect(await webhookMatches(Q)).toHaveLength(1);
-    expect(await automationSends(P)).not.toHaveBeenCalled();
-    expect(await automationSends(Q)).toHaveBeenCalledTimes(1);
     expect(await pluginCapability().canonicalChatId('s', LID)).toBe(Q);
   });
 
   it('preserves matching reported aliases and exact phone inputs', async () => {
     expect(await webhookMatches(P)).toHaveLength(1);
-    expect(await automationSends(P)).toHaveBeenCalledTimes(1);
     expect(await pluginCapability().canonicalChatId('s', LID)).toBe(P);
     expect(await pluginCapability().canonicalChatId('s', Q)).toBe(Q);
   });
@@ -164,10 +134,7 @@ describe('Identity readers after a peer changes a mapping', () => {
     await peer.remember('595959', '628111', 'peer');
     const matches = operator === 'is' ? 0 : 1;
     expect(await webhookMatches(other, field, operator)).toHaveLength(matches);
-    expect(await automationSends(other, field, operator)).toHaveBeenCalledTimes(matches);
     expect(await webhookMatches(P, field)).toHaveLength(1);
-    expect(await automationSends(P, field)).toHaveBeenCalledTimes(1);
     expect(await webhookMatches(LID, field)).toHaveLength(1);
-    expect(await automationSends(LID, field)).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo/zaplink_logo.webp" alt="ZapLink Logo" width="200"/>
+  <img src="dashboard/public/zaplink_logo.webp" alt="ZapLink Logo" width="200"/>
 </p>
 
 <h1 align="center">ZapLink</h1>
@@ -34,18 +34,15 @@
 
 Built on a **pluggable architecture**, ZapLink lets you select database engines (SQLite/PostgreSQL), media storage backends (Local/S3), and an optional Redis (queue, rate limits, WebSocket fan-out) through configuration rather than application-code changes. The storage backend is the live store for status media and, when chat-media archiving is enabled, archived chat media; other message media is returned inline to API and webhook consumers. Of the media, `scripts/backup.sh` archives only the local media directory, so an S3 bucket needs a backup of its own.
 
-|                               |                                                                                                                                             |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🔓 **100% Open Source**       | No licensing fees, no feature locks, full source code access                                                                                |
-| 🏗️ **Pluggable Architecture** | Swap adapters for database and storage via config                                                                                           |
-| 🖥️ **Full Dashboard**         | Modern React UI for session, webhook, and API key management                                                                                |
-| 🔹 **Multi-Session Ready**    | Run multiple WhatsApp sessions concurrently on one instance                                                                                 |
-| 🐳 **Docker Native**          | Production-ready with zero configuration                                                                                                    |
-| 🧩 **Official Plugins**       | Chatwoot, Typebot & more as sandboxed plugins on the Integration Fabric — [ZapLink-plugins](https://github.com/devashir768/zaplink-plugins) |
-| 🔗 **n8n Integration**        | Community nodes for workflow automation                                                                                                     |
-| 🧩 **Community Adapters**     | Third-party integrations (e.g. ioBroker) — see [docs](./docs/23-community-integrations.md)                                                  |
-| 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                                |
-| 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own       |
+|                               |                                                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔓 **100% Open Source**       | No licensing fees, no feature locks, full source code access                                                                          |
+| 🏗️ **Pluggable Architecture** | Swap adapters for database and storage via config                                                                                     |
+| 🖥️ **Full Dashboard**         | Modern React UI for session, webhook, and API key management                                                                          |
+| 🔹 **Multi-Session Ready**    | Run multiple WhatsApp sessions concurrently on one instance                                                                           |
+| 🐳 **Docker Native**          | Production-ready with zero configuration                                                                                              |
+| 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                          |
+| 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own |
 
 ### Session-scoped operator & viewer tokens
 
@@ -68,7 +65,7 @@ This lets you point an **AI agent or third-party integration at a shared account
 
 Identity is matched through the lid mapping table: a contact allowlisted by phone number also matches the same person's `@lid` privacy id once the table maps the two, and an unmapped `@lid` is refused rather than guessed. A lid's digits are never mistaken for a phone number, so `555000111@lid` does not admit `555000111@c.us`. When a session reports a privacy id new to the gateway for a number the table already maps to another reported id, as when the number passes to someone else, the gateway logs a warning and writes a `phone_second_lid_reported` audit row under that session, so the keys that name either can be reviewed. An id the gateway no longer holds in its mapping cache (`LID_MAPPING_CACHE_MAX`) counts as new, so on a larger table a known pair can be reported again.
 
-The default covers REST routes only. Surfaces that authenticate outside the REST guard do not inherit it, so each one that can return chat data applies the fence with its own check: the `/events` WebSocket delivers only events inside the key's chats, the MCP mount authorizes each tool call against them, and the Bull Board queue dashboard refuses the key. Five list routes are usable, each filtered to the key's chats before paging: `GET /sessions/{sessionId}/chats`, `GET /sessions/{sessionId}/groups` (id, name and community parent id only), `GET /sessions/{sessionId}/contacts`, `GET /sessions/{sessionId}/labels/{labelId}/chats` and `GET /api/search` (the built-in provider; a search plugin answers `403`).
+The default covers REST routes only. Surfaces that authenticate outside the REST guard do not inherit it, so each one that can return chat data applies the fence with its own check: the `/events` WebSocket delivers only events inside the key's chats, and the Bull Board queue dashboard refuses the key. Five list routes are usable, each filtered to the key's chats before paging: `GET /sessions/{sessionId}/chats`, `GET /sessions/{sessionId}/groups` (id, name and community parent id only), `GET /sessions/{sessionId}/contacts`, `GET /sessions/{sessionId}/labels/{labelId}/chats` and `GET /api/search` (the built-in provider; a search plugin answers `403`).
 
 The API also accepts `allowedChats` on an admin key, but no admin-only route is open to a chat-scoped key, and the last usable admin key cannot be scoped this way.
 
@@ -99,7 +96,7 @@ These are practical guardrails, not guarantees — but they materially reduce th
 
 1. **Warm up fresh numbers.** For the first several days, behave like a normal human user: scan the QR, exchange a handful of messages with saved contacts, join a group or two, set a profile photo. Don't blast on day one.
 2. **Don't cold-blast strangers.** Sending the first-ever message to a large batch of numbers that have never messaged you is the single most reliable way to get restricted — on either engine.
-3. **Pace sends per session.** Set `SEND_PACING_ENABLED=true` (off by default) for a per-session daily cap: an allowance that grows with the session's age (`SEND_PACING_WARMUP_SCHEDULE`), a separate cap on new conversations (`SEND_PACING_COLD_DAILY_CAP`) and a consecutive-failure breaker; [R002 in the risk guide](docs/16-risk-management.md#r002-user-account-banned) lists what it counts. No per-minute cap is enforced, so spacing within a day is up to the caller: bulk sends wait `delayBetweenMessages` between messages, and single text sends pause behind a typing indicator (`SIMULATE_TYPING`, on by default). A few messages per minute per session is sustainable; "thousands in an hour" is not. The `RATE_LIMIT_*` variables are API abuse protection, counted per route and client IP, not a send cap: they throttle dashboard and read traffic too.
+3. **Pace sends per session.** Set `SEND_PACING_ENABLED=true` (off by default) for a per-session daily cap: an allowance that grows with the session's age (`SEND_PACING_WARMUP_SCHEDULE`), a separate cap on new conversations (`SEND_PACING_COLD_DAILY_CAP`) and a consecutive-failure breaker; R002 in the risk guide lists what it counts. No per-minute cap is enforced, so spacing within a day is up to the caller: bulk sends wait `delayBetweenMessages` between messages, and single text sends pause behind a typing indicator (`SIMULATE_TYPING`, on by default). A few messages per minute per session is sustainable; "thousands in an hour" is not. The `RATE_LIMIT_*` variables are API abuse protection, counted per route and client IP, not a send cap: they throttle dashboard and read traffic too.
 4. **Use opted-in recipients.** The safest workloads are replies and alerts to people who already expect to hear from you (OTP to your own users, order updates, support replies).
 5. **Keep a fallback.** For anything auth-critical or revenue-critical, keep an SMS / email / official-Cloud-API path. Do not bet a login flow solely on an unofficial client.
 6. **Mind the hosting IP.** Cheap datacenter IPs are flagged more aggressively than residential ones. A residential proxy (supported per-session via the proxy settings) can help; it is not a license to spam.
@@ -110,13 +107,13 @@ A few things that look like bugs but are actually server-side WhatsApp policy, n
 
 - **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves ZapLink, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of ZapLink. Background in [#830](https://github.com/devashir768/zaplink/issues/830).
 - **Accounts that get restricted cannot be "unrestricted" by us.** If WhatsApp disables a number, you need to appeal through their channels — ZapLink has no lever to pull.
-- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See [the FAQ entry](docs/12-troubleshooting-faq.md#issue-linking-asks-for-a-passkey-and-never-completes-both-engines); background in [#560](https://github.com/devashir768/zaplink/issues/560).
+- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See the FAQ entry; background in [#560](https://github.com/devashir768/zaplink/issues/560).
 
 ### Compliance
 
 For any deployment where ethical, legal, or regulatory compliance matters (healthcare, finance, large-scale commercial messaging, anything touching end users in the EU/EEA under DMA/GDPR framings), treat ZapLink as **not approved** and use Meta's [official WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api). ZapLink is an excellent fit for personal projects, internal tooling, automation hobbyists, and learning — it is not a drop-in replacement for the official API in regulated environments.
 
-📖 For the deeper, maintainer-side risk analysis (protocol-change exposure, dependency strategy, security posture), see [Risk Management (`docs/16`)](./docs/16-risk-management.md).
+📖 For the deeper, maintainer-side risk analysis (protocol-change exposure, dependency strategy, security posture), see Risk Management (the troubleshooting notes).
 
 ---
 
@@ -193,7 +190,7 @@ docker compose -f docker-compose.dev.yml up -d
 `/app/data/.api-key` inside the container. Read it with `docker exec zaplink-api cat /app/data/.api-key`
 (the file has no trailing newline, so the shell prompt follows the key on the same line; copy only the key),
 then use it to sign in to the dashboard and as the `X-API-Key` header wherever this README shows
-`YOUR_API_KEY`. Later boots log only a masked prefix. See [API Key](docs/README.md#api-key).
+`YOUR_API_KEY`. Later boots log only a masked prefix. See API Key.
 
 > **Using Podman instead of Docker?**
 > Podman rootless mode requires the socket to be running and `DOCKER_HOST` to be set:
@@ -208,7 +205,7 @@ then use it to sign in to the dashboard and as the `X-API-Key` header wherever t
 
 ### Option B: Local Development
 
-Source installs on Linux x64/arm64 hosts using glibc need **glibc 2.34 or newer** for the shipped `better-sqlite3` prebuild, including when PostgreSQL is selected. Use a newer host (Ubuntu 22.04+, Debian 12+, RHEL 9+) or the published Docker image on older hosts; see the [startup troubleshooting note](docs/12-troubleshooting-faq.md#issue-source-install-fails-with-a-glibc_2xx-not-found-error).
+Source installs on Linux x64/arm64 hosts using glibc need **glibc 2.34 or newer** for the shipped `better-sqlite3` prebuild, including when PostgreSQL is selected. Use a newer host (Ubuntu 22.04+, Debian 12+, RHEL 9+) or the published Docker image on older hosts; see the startup troubleshooting note.
 
 ```bash
 # Clone repository
@@ -312,7 +309,7 @@ without one, and a production boot rejects default credentials such as `zaplink`
 > The dashboard is bundled into the API image and served by NestJS on the API port, so it
 > needs no profile — it is always available wherever `zaplink-api` runs. For TLS/public exposure,
 > put your own reverse proxy (nginx, Caddy, a cloud load balancer, or a k8s Ingress) in front;
-> see the nginx example in `docs/12-troubleshooting-faq.md`.
+> see the nginx example in the troubleshooting notes.
 
 > **Development vs Production**
 >
@@ -410,43 +407,6 @@ curl -X POST http://localhost:2785/api/sessions/{sessionId}/webhooks \
 > specific groups or DMs (e.g. `{ "field": "chatId", "operator": "is", "value": ["120…@g.us"] }`).
 > See the API specification for the full schema.
 
-## 🤖 MCP Server (AI Agents)
-
-ZapLink can expose a **curated set of tools over the [Model Context Protocol](https://modelcontextprotocol.io)** so AI agents (Claude, Cursor, …) can drive WhatsApp. It is **off by default** and **additive** — every REST route keeps working unchanged.
-
-Set `MCP_ENABLED=true` to mount a stateless Streamable-HTTP transport at **`POST /mcp`** on the existing server (same port, no extra process). It mounts **26 read-only tools** by default — session, message, contact, group, webhook, label and automation-rule _reads_ — because the surface is read-only unless you opt out. Add `MCP_READONLY=false` to mount all **52 tools**, adding the write tier (send, reply, group operations). Either way it is a focused surface rather than the full API, so agents aren't overwhelmed.
-
-```bash
-MCP_ENABLED=true npm run start:prod   # or set MCP_ENABLED in your .env / compose
-```
-
-Point an MCP client at it (e.g. for Claude Code, a `.mcp.json` at your project root):
-
-```json
-{
-  "mcpServers": {
-    "zaplink": {
-      "type": "http",
-      "url": "http://localhost:2785/mcp",
-      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
-    }
-  }
-}
-```
-
-The key can be passed as `Authorization: Bearer …` or `X-API-Key: …`. Every tool call goes through the **same API-key auth, role, and per-session scoping** as REST.
-
-**Security guidance:**
-
-- **Mint a dedicated, least-privilege key** for the agent — a non-admin, **session-scoped** key (`OPERATOR` role at most). The plaintext key is shown only once on creation; to rotate, create a new key and delete the old one.
-- The key **must not** carry an IP allow-list (`allowedIps`) — there is no genuine client IP over MCP, so such a key is rejected.
-- Read-only is the default, so leave **`MCP_READONLY`** unset unless the agent must write. **`MCP_READONLY=false`** adds the write tools (sends, replies, group changes).
-- Set **`MCP_RATE_LIMIT_MAX`** (default `60`) to limit tool calls per API key per window.
-- Set **`MCP_RATE_LIMIT_WINDOW_MS`** (default `60000`) to control the sliding window size in milliseconds.
-- **Do not expose `/mcp` to the public internet** without a fronting auth proxy. For a self-hosted, locally-reached deployment the static API key is appropriate; public exposure should use OAuth 2.1 (not yet built).
-
----
-
 ## 🛠 Tech Stack
 
 | Layer         | Technology                                                      |
@@ -476,7 +436,7 @@ zaplink/
 │   │   └── storage/            # File storage (Local/S3)
 │   ├── core/                   # Core systems
 │   │   ├── hooks/              # Plugin hooks
-│   │   └── plugins/            # Plugin system
+│   │   └── plugins/            # Engine plugin host (loads the WhatsApp engines)
 │   ├── engine/                 # WhatsApp engine abstraction
 │   └── modules/
 │       ├── session/            # Session management
@@ -488,7 +448,6 @@ zaplink/
 │       ├── infra/              # Infrastructure management
 │       └── health/             # Health checks
 ├── dashboard/                  # React web dashboard
-├── docs/                      # Documentation
 ├── docker-compose.yml
 ├── Dockerfile
 └── package.json
@@ -498,18 +457,7 @@ zaplink/
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in the `docs/` folder:
-
-| Document                                                | Description                  |
-| ------------------------------------------------------- | ---------------------------- |
-| [Project Overview](./docs/01-project-overview.md)       | Introduction and goals       |
-| [Requirements](./docs/02-requirements-specification.md) | Feature specifications       |
-| [Architecture](./docs/03-system-architecture.md)        | System design                |
-| [Security](./docs/04-security-design.md)                | Security implementation      |
-| [Database](./docs/05-database-design.md)                | Data models and migrations   |
-| [API Spec](./docs/06-api-specification.md)              | Complete API reference       |
-| [Development](./docs/08-development-guidelines.md)      | Coding standards             |
-| [Migration Guide](./docs/14-migration-guide.md)         | Database & storage migration |
+The full, always-current API reference is served by the running app at `/api/docs` (Swagger UI); the machine-readable contract is [`openapi.json`](./openapi.json).
 
 ---
 
@@ -522,8 +470,6 @@ We welcome contributions! Here's how to get started:
 3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
 4. **Push** to the branch (`git push origin feat/amazing-feature`)
 5. **Open** a Pull Request
-
-Please read our [Development Guidelines](./docs/08-development-guidelines.md) for coding standards and best practices.
 
 ---
 
@@ -555,7 +501,7 @@ See [LICENSE](./LICENSE) for details.
 
 **ZapLink** – Free, Open Source WhatsApp API Gateway
 
-[📖 Documentation](./docs/README.md) · [🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/devashir768/zaplink/issues) · [💡 Request Feature](https://github.com/devashir768/zaplink/issues)
+[🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/devashir768/zaplink/issues) · [💡 Request Feature](https://github.com/devashir768/zaplink/issues)
 
 <br/>
 

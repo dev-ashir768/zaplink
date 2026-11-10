@@ -305,33 +305,6 @@ describe('every key the dashboard writes is commented out in .env.example', () =
     expect(uncommented.filter(key => dashboardOwned().includes(key))).toEqual([]);
   });
 
-  // docs/10 section 10.5 presents its .env block as an excerpt of .env.example, so operators copy it
-  // the same way and it has to follow the same rule. A published pepper is no secret either.
-  it('ships none of them uncommented in the docs/10 environment excerpt', () => {
-    const docs = fs.readFileSync(path.join(__dirname, '../../docs/10-devops-infrastructure.md'), 'utf8');
-    const section = docs.slice(docs.indexOf('## 10.5 Environment Configuration'));
-    const uncommented = assignedKeys(/```bash\n([\s\S]*?)```/.exec(section)?.[1] ?? '');
-    expect(uncommented).toContain('NODE_ENV'); // the block was found and does ship some keys uncommented
-    expect(uncommented.filter(key => dashboardOwned().includes(key))).toEqual([]);
-    expect(uncommented).not.toContain('API_KEY_PEPPER');
-  });
-
-  // The docs/08 and docs/03 env profiles are pasted into .env the same way.
-  it.each([
-    ['docs/08-development-guidelines.md', '### Environment Variables', '## 8.9', 2],
-    ['docs/03-system-architecture.md', '### Configuration Examples', '### Choosing a Profile', 3],
-  ])('ships none of them uncommented in the %s profiles', (file, from, to, blocks) => {
-    const docs = fs.readFileSync(path.join(__dirname, '../..', file), 'utf8');
-    const start = docs.indexOf(from);
-    const section = docs.slice(start, docs.indexOf(to, start));
-    const bodies = [...section.matchAll(/```bash\n([\s\S]*?)```/g)].map(match => match[1]);
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(bodies).toHaveLength(blocks); // the profiles were found
-    const uncommented = bodies.flatMap(assignedKeys);
-    expect(uncommented.filter(key => dashboardOwned().includes(key))).toEqual([]);
-    expect(uncommented).not.toContain('API_KEY_PEPPER');
-  });
-
   /**
    * `.env.minimal` is also copied to `.env` by the docs (docs/README.md), but its rule is NARROWER on
    * purpose: it describes itself as a development/personal config and deliberately pins the choices an

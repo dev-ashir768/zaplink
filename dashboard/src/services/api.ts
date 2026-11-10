@@ -872,20 +872,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return response.json();
 }
 
-/** Like {@link request} but returns the raw response text — e.g. a plugin's HTML config-UI bundle. */
-async function requestText(endpoint: string): Promise<string> {
-  const apiKey = sessionStorage.getItem('zaplink_api_key');
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
-  });
-
-  if (!response.ok) {
-    return handleErrorResponse<string>(response, apiKey);
-  }
-
-  return response.text();
-}
-
 /** Like {@link request} but returns a Blob — e.g. for status media downloads. */
 async function requestBlob(endpoint: string, signal?: AbortSignal): Promise<Blob> {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -1564,111 +1550,12 @@ export interface CatalogPlugin {
 }
 
 // =============================================================================
-// Plugins API
+// Engines API
 // =============================================================================
 
 export const pluginsApi = {
-  list: () => request<Plugin[]>('/plugins'),
-  get: (id: string) => request<Plugin>(`/plugins/${id}`),
-  enable: (id: string) =>
-    request<{ success: boolean; message: string }>(`/plugins/${id}/enable`, {
-      method: 'POST',
-    }),
-  disable: (id: string) =>
-    request<{ success: boolean; message: string }>(`/plugins/${id}/disable`, {
-      method: 'POST',
-    }),
-  updateConfig: (id: string, config: Record<string, unknown>) =>
-    request<{ success: boolean; message: string }>(`/plugins/${id}/config`, {
-      method: 'PUT',
-      body: JSON.stringify({ config }),
-    }),
-  /** Set which sessions a session-scoped plugin is activated for (['*'] = all). */
-  setSessions: (id: string, sessions: string[]) =>
-    request<Plugin>(`/plugins/${id}/sessions`, { method: 'PUT', body: JSON.stringify({ sessions }) }),
-  /** Set (or clear, with an empty object) a plugin's config override for one session. */
-  updateSessionConfig: (id: string, sessionId: string, config: Record<string, unknown>) =>
-    request<{ success: boolean; message: string }>(`/plugins/${id}/config/${encodeURIComponent(sessionId)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ config }),
-    }),
-  healthCheck: (id: string) => request<{ healthy: boolean; message?: string }>(`/plugins/${id}/health`),
-  install: (file: File) => {
-    const form = new FormData();
-    form.append('file', file);
-    return request<Plugin>('/plugins/install', { method: 'POST', body: form });
-  },
-  installFromUrl: (url: string) =>
-    request<Plugin>('/plugins/install-url', { method: 'POST', body: JSON.stringify({ url }) }),
-  updateFromUrl: (id: string, url: string) =>
-    request<Plugin>(`/plugins/${id}/update`, { method: 'POST', body: JSON.stringify({ url }) }),
-  catalog: () => request<CatalogPlugin[]>('/plugins/catalog'),
-  /** Fetch a plugin's sandboxed config-UI entry HTML (the API key stays here, in the parent). */
-  getConfigUi: (id: string) => requestText(`/plugins/${id}/config-ui`),
-  uninstall: (id: string) => request<{ success: boolean; message: string }>(`/plugins/${id}`, { method: 'DELETE' }),
   getEngines: () => request<Engine[]>('/infra/engines'),
   getCurrentEngine: () => request<{ engineType: string }>('/infra/engines/current'),
-};
-
-// =============================================================================
-// Plugin instances API (Integration Fabric provisioning; mirrors src/modules/integration)
-// =============================================================================
-
-export interface IngressUrl {
-  route: string;
-  url: string;
-}
-
-export interface InstanceView {
-  id: string;
-  pluginId: string;
-  instanceId: string;
-  sessionScope: string | null;
-  secret: string; // '***' on reads; plaintext once on create/regenerate
-  verifyToken: string | null;
-  config: Record<string, unknown> | null;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-  ingressUrls: IngressUrl[];
-}
-
-export type MintedInstance = InstanceView; // same shape; `secret` carries the plaintext once
-
-export interface CreateInstanceInput {
-  instanceId: string;
-  sessionScope?: string;
-  verifyToken?: string;
-  /** Provider-fixed webhook secret (e.g. Chatwoot's). Omit to auto-generate one (shown once). */
-  secret?: string;
-  config?: Record<string, unknown>;
-}
-
-export interface UpdateInstanceInput {
-  enabled?: boolean;
-  /** null resets a scoped instance to all sessions; omit to leave the scope unchanged. */
-  sessionScope?: string | null;
-  config?: Record<string, unknown>;
-}
-
-export const pluginInstancesApi = {
-  list: (pluginId: string) => request<InstanceView[]>(`/integration/plugins/${pluginId}/instances`),
-  create: (pluginId: string, body: CreateInstanceInput) =>
-    request<MintedInstance>(`/integration/plugins/${pluginId}/instances`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-  regenerateSecret: (pluginId: string, instanceId: string) =>
-    request<MintedInstance>(`/integration/plugins/${pluginId}/instances/${instanceId}/regenerate-secret`, {
-      method: 'POST',
-    }),
-  update: (pluginId: string, instanceId: string, body: UpdateInstanceInput) =>
-    request<InstanceView>(`/integration/plugins/${pluginId}/instances/${instanceId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    }),
-  remove: (pluginId: string, instanceId: string) =>
-    request<void>(`/integration/plugins/${pluginId}/instances/${instanceId}`, { method: 'DELETE' }),
 };
 
 // =============================================================================

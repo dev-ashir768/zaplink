@@ -100,7 +100,6 @@ describe('a delivery ack names the chat of the message it advances', () => {
       { resolveSenderPhone: jest.fn().mockResolvedValue(null) } as unknown as SessionLidResolver,
       undefined,
       undefined,
-      undefined,
       {
         findPhoneForLid: (jid: string) => Promise.resolve(lidPhones.get(jid.split('@')[0]) ?? null),
       } as unknown as LidMappingStoreService,

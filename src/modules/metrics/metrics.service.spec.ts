@@ -206,8 +206,9 @@ describe('MetricsService runtime series', () => {
   const queue = (getJobCounts: () => Promise<Record<string, number>>): Queue =>
     ({ waitUntilReady: () => Promise.resolve(), getJobCounts }) as unknown as Queue;
   const services: MetricsService[] = [];
-  const make = (webhook?: Queue, ingress?: Queue): MetricsService => {
-    const svc = new MetricsService(config, stats, webhook, ingress);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- callers still pass a second queue; only the webhook queue is wired
+  const make = (webhook?: Queue, _second?: Queue): MetricsService => {
+    const svc = new MetricsService(config, stats, webhook);
     services.push(svc);
     return svc;
   };
@@ -292,7 +293,6 @@ describe('MetricsService runtime series', () => {
     expect(text).toContain('# TYPE zaplink_queue_jobs gauge');
     expect(text).toContain('zaplink_queue_jobs{queue="webhook-queue",state="wait"} 4');
     expect(text).toContain('zaplink_queue_jobs{queue="webhook-queue",state="failed"} 3');
-    expect(text).toContain('zaplink_queue_jobs{queue="ingress-queue",state="failed"} 7');
   });
 
   it('omits a queue whose read fails or hangs instead of reporting zero', async () => {

@@ -1517,7 +1517,8 @@ const savedHost = (service: ServiceName, c: Combo) =>
 // to the saved one otherwise.
 const nextHost = (service: ServiceName, c: Combo) =>
   c.pin === 'none' && shownMode(c) ? SERVICES[service].bundledHost : savedHost(service, c);
-const bucketFor = (service: ServiceName, host: string) => (host === SERVICES[service].bundledHost ? 'zaplink' : 'media');
+const bucketFor = (service: ServiceName, host: string) =>
+  host === SERVICES[service].bundledHost ? 'zaplink' : 'media';
 
 /** The notes rendered right under a toggle row, in order. */
 function notesUnderToggle(container: HTMLElement, labelText: string): string[] {

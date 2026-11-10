@@ -6,7 +6,7 @@ import { AuthService, UnresolvedApiKeyException } from '../../modules/auth/auth.
 import { ApiKeyRole } from '../../modules/auth/entities/api-key.entity';
 import { AuditService } from '../../modules/audit/audit.service';
 import { AuditAction } from '../../modules/audit/entities/audit-log.entity';
-import { KeyRateLimiter } from '../../modules/mcp/mcp-rate-limit';
+import { KeyRateLimiter } from '../throttler/key-rate-limit';
 import { allowUnauthenticatedAuditRow } from '../../modules/audit/auth-failure-audit-limiter';
 import * as fs from 'fs';
 import * as path from 'path';

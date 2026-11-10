@@ -6,17 +6,13 @@ import { Test } from '@nestjs/testing';
 import { BullModule } from '@nestjs/bullmq';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Queue, Worker } from 'bullmq';
-import { IngressProcessor } from './processors/ingress.processor';
 import { WebhookProcessor } from './processors/webhook.processor';
 import { QUEUE_NAMES } from './queue-names';
 import { QueueModule } from './queue.module';
 import { MAX_WORKER_CLOSE_WAIT_MS } from './processors/close-worker';
 import { PluginLoaderService } from '../../core/plugins/plugin-loader.service';
 import { HookManager } from '../../core/hooks';
-import { ShutdownService } from '../../common/services/shutdown.service';
 import { LoggerModule } from '../../common/services/logger.module';
-import { IntegrationDeliveryFailure } from '../integration/entities/integration-delivery-failure.entity';
-import { IngressEvent } from '../integration/entities/ingress-event.entity';
 import { Webhook } from '../webhook/entities/webhook.entity';
 import { WebhookDeliveryFailure } from '../webhook/entities/webhook-delivery-failure.entity';
 import { WebhookOutboxService } from '../webhook/webhook-outbox.service';
@@ -73,15 +69,9 @@ function buildRootModule(openAtPluginTeardown: string[], openAtSessionTeardown: 
 
   const repo = {};
   @Module({
-    imports: [
-      BullModule.forRoot({ connection: {} }),
-      BullModule.registerQueue({ name: QUEUE_NAMES.WEBHOOK }, { name: QUEUE_NAMES.INGRESS }),
-    ],
+    imports: [BullModule.forRoot({ connection: {} }), BullModule.registerQueue({ name: QUEUE_NAMES.WEBHOOK })],
     providers: [
-      IngressProcessor,
       WebhookProcessor,
-      { provide: getRepositoryToken(IntegrationDeliveryFailure, 'data'), useValue: repo },
-      { provide: getRepositoryToken(IngressEvent, 'data'), useValue: repo },
       { provide: getRepositoryToken(Webhook, 'data'), useValue: repo },
       { provide: getRepositoryToken(WebhookDeliveryFailure, 'data'), useValue: repo },
       { provide: HookManager, useValue: {} },
@@ -124,37 +114,18 @@ describe('queue workers at shutdown', () => {
   it('keeps the processors in a module that is not global', () => {
     expect(Reflect.getMetadata(GLOBAL_MODULE_METADATA, QueueModule)).toBeUndefined();
     expect(Reflect.getMetadata(MODULE_METADATA.PROVIDERS, QueueModule)).toEqual(
-      expect.arrayContaining([IngressProcessor, WebhookProcessor]),
+      expect.arrayContaining([WebhookProcessor]),
     );
   });
 
   it('closes every worker before the plugins are torn down', async () => {
     const openAtPluginTeardown: string[] = [];
     const app = await NestFactory.createApplicationContext(buildRootModule(openAtPluginTeardown), { logger: false });
-    expect(FakeWorker.all.map(w => w.name).sort()).toEqual([QUEUE_NAMES.INGRESS, QUEUE_NAMES.WEBHOOK].sort());
+    expect(FakeWorker.all.map(w => w.name).sort()).toEqual([QUEUE_NAMES.WEBHOOK]);
 
     await app.close();
 
     expect(openAtPluginTeardown).toEqual([]);
-  });
-
-  // A plugin's ingress handler sends through the session engines, so a job taken once they are torn
-  // down fails and spends an attempt. The worker stops taking jobs when shutdown begins instead.
-  it('stops taking ingress jobs before the sessions are torn down', async () => {
-    const openAtSessionTeardown: string[] = [];
-    const app = await NestFactory.createApplicationContext(buildRootModule([], openAtSessionTeardown), {
-      logger: false,
-    });
-
-    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    try {
-      app.get(ShutdownService).markShuttingDown();
-      await app.close();
-    } finally {
-      log.mockRestore();
-    }
-
-    expect(openAtSessionTeardown).not.toContain(QUEUE_NAMES.INGRESS);
   });
 
   // The early close must not leave the plugins up forever when Redis is gone: past the bounded wait the
@@ -175,7 +146,7 @@ describe('queue workers at shutdown', () => {
       // close; it must not wait on the close that never settles.
       await expect(closing).resolves.toBeUndefined();
       const warned = warn.mock.calls.flat().join('\n');
-      expect(warned).toContain(QUEUE_NAMES.INGRESS);
+      expect(warned).toContain(QUEUE_NAMES.WEBHOOK);
       expect(warned).toContain(QUEUE_NAMES.WEBHOOK);
     } finally {
       jest.useRealTimers();

@@ -210,12 +210,10 @@ describe('API-key usage count at a window boundary', () => {
 describe('validateApiKey entrypoint coverage', () => {
   /** Every known caller, with the surface it authenticates. */
   const KNOWN_CALLERS = new Map<string, string>([
-    ['core/agent-tools/tool-invoker.ts', 'agent tool invocation'],
     ['common/security/bull-board-auth.middleware.ts', 'queue dashboard middleware'],
     ['modules/auth/guards/api-key.guard.ts', 'REST route guard'],
     ['modules/events/events.gateway.ts', 'websocket connect and per-subscribe re-validation'],
     ['modules/health/health.controller.ts', 'version disclosure on the public health check'],
-    ['modules/mcp/mcp.server.ts', 'MCP mount key gate'],
   ]);
 
   /** Where validateApiKey is declared, which is not a caller. */

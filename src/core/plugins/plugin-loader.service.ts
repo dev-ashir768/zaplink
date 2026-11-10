@@ -27,7 +27,7 @@ import { PluginWorkerHost } from './sandbox/plugin-worker-host';
 import { WorkerThreadChannel } from './sandbox/worker-thread-channel';
 import { PluginLogLevel } from './sandbox/protocol';
 import { resolvePluginMainPath } from './plugin-paths';
-import type { IngressJobData } from '../../modules/queue/processors/ingress.processor';
+import type { IngressJobData } from './integration.constants';
 
 // The shared path/containment helpers stay re-exported from this module: the feature-side installer
 // (PluginsService) and the specs import them from here / from the core barrel.
