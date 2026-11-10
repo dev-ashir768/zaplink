@@ -68,7 +68,7 @@
     "migration:show:main:prod": "npm run typeorm:prod -- migration:show -d dist/database/data-source-main.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1163.0",
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@bull-board/api": "^9.11.0",
     "@bull-board/express": "^9.11.0",
     "@bull-board/nestjs": "^9.11.0",
