@@ -5,7 +5,7 @@
  *
  * @example
  * ```typescript
- * import { ZapLinkClient, ZapLinkApiError } from '@rmyndharis/zaplink';
+ * import { ZapLinkClient, ZapLinkApiError } from '@dev-ashir768/zaplink';
  *
  * const client = new ZapLinkClient({
  *   baseUrl: 'http://localhost:2785',

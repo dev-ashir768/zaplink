@@ -4,8 +4,8 @@
 
 ZapLink provides official n8n community nodes for integrating WhatsApp automation into n8n workflows. This enables users to build powerful automations combining WhatsApp messaging with hundreds of other services available in n8n.
 
-**Repository:** https://github.com/rmyndharis/OpenWA-n8n
-**npm Package:** `@rmyndharis/n8n-nodes-zaplink`
+**Repository:** https://github.com/devashir768/zaplink-n8n
+**npm Package:** `@dev-ashir768/n8n-nodes-zaplink`
 
 ## Architecture
 
@@ -28,7 +28,7 @@ ZapLink provides official n8n community nodes for integrating WhatsApp automatio
 
 1. Go to **Settings > Community Nodes**
 2. Select **Install**
-3. Enter `@rmyndharis/n8n-nodes-zaplink`
+3. Enter `@dev-ashir768/n8n-nodes-zaplink`
 4. Agree to the risks and install
 5. Restart n8n
 
@@ -36,7 +36,7 @@ ZapLink provides official n8n community nodes for integrating WhatsApp automatio
 
 ```bash
 cd ~/.n8n/nodes
-npm install @rmyndharis/n8n-nodes-zaplink
+npm install @dev-ashir768/n8n-nodes-zaplink
 ```
 
 ## Nodes
@@ -312,7 +312,7 @@ Always use the correct format for chat IDs:
 ### Building from Source
 
 ```bash
-git clone https://github.com/rmyndharis/OpenWA-n8n.git
+git clone https://github.com/devashir768/zaplink-n8n.git
 cd ZapLink-n8n
 npm install
 npm run build

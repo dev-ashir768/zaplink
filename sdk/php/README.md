@@ -1,15 +1,15 @@
-# rmyndharis/zaplink
+# dev-ashir768/zaplink
 
 This document describes SDK 0.10.0. `messages->receipts` requires ZapLink 0.28.0 or later. `contacts->lid` requires ZapLink 0.27.1 or later. `groups->setMemberLabel` and the `match` search key require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later.
 
-Official PHP SDK for [ZapLink](https://github.com/dev-ashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
+Official PHP SDK for [ZapLink](https://github.com/devashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
 
 A synchronous client built on [Guzzle](https://docs.guzzlephp.org/), PSR-4 autoloaded.
 
 ## Install
 
 ```bash
-composer require rmyndharis/zaplink
+composer require dev-ashir768/zaplink
 ```
 
 Requires PHP 8.1+ and Guzzle 7.9+ or 8.x. The namespace is `ZapLink\`.
@@ -169,7 +169,7 @@ you have already handled is the same event arriving again.
 ## Releasing
 
 Packagist installs this SDK from the mirror repository
-[`rmyndharis/zaplink-php`](https://github.com/rmyndharis/openwa-php), not from the
+[`dev-ashir768/zaplink-php`](https://github.com/devashir768/zaplink-php), not from the
 monorepo — Composer needs `composer.json` at a repository root and does not
 support subdirectories. Two workflows keep that mirror correct:
 

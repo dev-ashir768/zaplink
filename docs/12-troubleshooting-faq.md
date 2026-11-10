@@ -283,7 +283,7 @@ fix, and nothing on the client side changes the outcome: switching engine, using
 of a QR, or presenting a different client identity (`BAILEYS_BROWSER_NAME` or otherwise) all end at the
 same gate. Re-registering the number as a different account type has also been tried by the community
 and did not hold; the block returned on its own within days. Background in
-[#560](https://github.com/dev-ashir768/zaplink/issues/560), upstream work in
+[#560](https://github.com/devashir768/zaplink/issues/560), upstream work in
 [WhiskeySockets/Baileys#2672](https://github.com/WhiskeySockets/Baileys/issues/2672); the only durable
 change will come from the engine libraries implementing the step.
 
@@ -1749,8 +1749,8 @@ When creating GitHub issue, include:
 
 ### Community Resources
 
-- **GitHub Issues**: [github.com/dev-ashir768/zaplink/issues](https://github.com/dev-ashir768/zaplink/issues)
-- **Discussions**: [github.com/dev-ashir768/zaplink/discussions](https://github.com/dev-ashir768/zaplink/discussions)
+- **GitHub Issues**: [github.com/devashir768/zaplink/issues](https://github.com/devashir768/zaplink/issues)
+- **Discussions**: [github.com/devashir768/zaplink/discussions](https://github.com/devashir768/zaplink/discussions)
 
 ---
 

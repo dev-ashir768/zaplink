@@ -590,7 +590,7 @@ function runGateOnCopy({
     if (lineEnding === '\n' && !Object.keys(sdk).length) {
       symlinkSync(join(gateRoot, 'sdk'), join(dir, 'sdk'));
     } else {
-      const modelDir = ['sdk', 'java', 'src', 'main', 'java', 'com', 'rmyndharis', 'zaplink', 'model'];
+      const modelDir = ['sdk', 'java', 'src', 'main', 'java', 'com', 'devashir768', 'zaplink', 'model'];
       const sources = [
         ['sdk', 'README.md'],
         ['sdk', 'javascript', 'src', 'types.ts'],
@@ -742,7 +742,7 @@ test('a schema that only the dashboard compares, or only an excluded pair holds,
   );
 });
 
-const javaModel = 'sdk/java/src/main/java/com/rmyndharis/zaplink/model';
+const javaModel = 'sdk/java/src/main/java/com/devashir768/zaplink/model';
 
 test('an excluded pair with a looser field type is still compared by field name', () => {
   // Each pair keeps a plain string (or a pointer) where the contract is stricter, so it is excluded from the
@@ -965,7 +965,7 @@ test('the CLI refuses numeric status fonts declared as strings in every typed SD
     ],
     [
       `${javaModel}/SendTextStatusRequest.java`,
-      () => `package com.rmyndharis.zaplink.model;
+      () => `package com.devashir768.zaplink.model;
 import java.util.List;
 import com.google.gson.annotations.SerializedName;
 public record SendTextStatusRequest(String text, List<String> recipients, String backgroundColor, FixtureFont font) {

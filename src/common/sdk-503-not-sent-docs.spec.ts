@@ -15,7 +15,7 @@ const SDK_503_TEXTS = [
   'sdk/go/README.md',
   'sdk/go/errors.go',
   'sdk/java/README.md',
-  'sdk/java/src/main/java/com/rmyndharis/zaplink/errors/ZapLinkServiceUnavailableError.java',
+  'sdk/java/src/main/java/com/devashir768/zaplink/errors/ZapLinkServiceUnavailableError.java',
   'sdk/php/README.md',
   'sdk/php/src/Exceptions/ZapLinkServiceUnavailableException.php',
   'sdk/javascript/README.md',

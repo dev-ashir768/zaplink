@@ -6,15 +6,15 @@
 
 ZapLink ships five official, hand-written client libraries for the REST API. They are not generated from an OpenAPI spec — each is written directly against the real API surface (paths, request DTOs, response shapes) and **unit-tested with a mocked HTTP transport that asserts on the exact request path, method, and body**, so drift in what an SDK _sends_ is caught at test time rather than in production. That mechanism says nothing about what an SDK expects _back_; see §18.6 for how response shapes are held to the contract.
 
-| Language                | Package                                                                                  | Install                               | Notes                                                                            |
-| ----------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
-| JavaScript / TypeScript | [`@rmyndharis/zaplink`](https://www.npmjs.com/package/@rmyndharis/zaplink)               | `npm install @rmyndharis/zaplink`     | Dual ESM + CJS, bundled `.d.ts` types, Node 18+                                  |
-| Python                  | [`rmyndharis-zaplink`](https://pypi.org/project/rmyndharis-zaplink/)                     | `pip install rmyndharis-zaplink`      | Synchronous (httpx), PEP 561 typed, Python 3.9+                                  |
-| PHP                     | [`rmyndharis/zaplink`](https://packagist.org/packages/rmyndharis/zaplink)                | `composer require rmyndharis/zaplink` | Synchronous (Guzzle 7.9+ or 8), PSR-4, PHP 8.1+                                  |
-| Java                    | [`com.rmyndharis:zaplink`](https://central.sonatype.com/artifact/com.rmyndharis/zaplink) | Maven Central                         | Sync, `java.net.http`. See [`sdk/java/README.md`](../sdk/java/README.md).        |
-| Go                      | [`github.com/dev-ashir768/zaplink/sdk/go`](../sdk/go)                                    | `go get`                              | Stdlib-only, no third-party deps. See [`sdk/go/README.md`](../sdk/go/README.md). |
+| Language                | Package                                                                                    | Install                                 | Notes                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------- | -------------------------------------------------------------------------------- |
+| JavaScript / TypeScript | [`@dev-ashir768/zaplink`](https://www.npmjs.com/package/@dev-ashir768/zaplink)             | `npm install @dev-ashir768/zaplink`     | Dual ESM + CJS, bundled `.d.ts` types, Node 18+                                  |
+| Python                  | [`dev-ashir768-zaplink`](https://pypi.org/project/dev-ashir768-zaplink/)                   | `pip install dev-ashir768-zaplink`      | Synchronous (httpx), PEP 561 typed, Python 3.9+                                  |
+| PHP                     | [`dev-ashir768/zaplink`](https://packagist.org/packages/dev-ashir768/zaplink)              | `composer require dev-ashir768/zaplink` | Synchronous (Guzzle 7.9+ or 8), PSR-4, PHP 8.1+                                  |
+| Java                    | [`com.devashir768:zaplink`](https://central.sonatype.com/artifact/com.devashir768/zaplink) | Maven Central                           | Sync, `java.net.http`. See [`sdk/java/README.md`](../sdk/java/README.md).        |
+| Go                      | [`github.com/devashir768/zaplink/sdk/go`](../sdk/go)                                       | `go get`                                | Stdlib-only, no third-party deps. See [`sdk/go/README.md`](../sdk/go/README.md). |
 
-> The import names differ from the dist names where the ecosystem requires it. Python installs `rmyndharis-zaplink` but imports `zaplink`; the client class is `ZapLinkClient` in JS/Python and `ZapLink\Client` in PHP.
+> The import names differ from the dist names where the ecosystem requires it. Python installs `dev-ashir768-zaplink` but imports `zaplink`; the client class is `ZapLinkClient` in JS/Python and `ZapLink\Client` in PHP.
 
 ### Design Principles
 
@@ -53,18 +53,18 @@ The twelve single-recipient send methods (text, image, video, audio, document, s
 
 ## 18.2 TypeScript / JavaScript SDK
 
-The official JavaScript/TypeScript SDK is published as **`@rmyndharis/zaplink`**. It is a pure promise-based HTTP client: a single `ZapLinkClient` exposes every API resource as a typed property. There is no event model — the SDK does not open WebSockets, emit events, or expose `client.on(...)`. To receive inbound messages and acks, configure a webhook (see the `webhooks` resource) and host your own HTTP receiver, checking each delivery with `await verifyWebhookSignature(rawBody, signature, secret)` and typing its parsed body as `WebhookDelivery`.
+The official JavaScript/TypeScript SDK is published as **`@dev-ashir768/zaplink`**. It is a pure promise-based HTTP client: a single `ZapLinkClient` exposes every API resource as a typed property. There is no event model — the SDK does not open WebSockets, emit events, or expose `client.on(...)`. To receive inbound messages and acks, configure a webhook (see the `webhooks` resource) and host your own HTTP receiver, checking each delivery with `await verifyWebhookSignature(rawBody, signature, secret)` and typing its parsed body as `WebhookDelivery`.
 
 The package ships **dual CJS + ESM** with bundled `.d.ts` types, so it is consumable from both `require()` and `import`.
 
 ### Installation
 
 ```bash
-npm install @rmyndharis/zaplink
+npm install @dev-ashir768/zaplink
 # or
-yarn add @rmyndharis/zaplink
+yarn add @dev-ashir768/zaplink
 # or
-pnpm add @rmyndharis/zaplink
+pnpm add @dev-ashir768/zaplink
 ```
 
 > **Node 18+ required.** The transport uses the global `fetch` (and `AbortController`), both built into Node 18 and later. To run on an older runtime, pass your own `fetch` implementation via the client constructor (see [Client Configuration](#client-configuration)).
@@ -72,7 +72,7 @@ pnpm add @rmyndharis/zaplink
 ### Quick Start
 
 ```typescript
-import { ZapLinkClient } from '@rmyndharis/zaplink';
+import { ZapLinkClient } from '@dev-ashir768/zaplink';
 
 const client = new ZapLinkClient({
   baseUrl: 'http://localhost:2785',
@@ -105,7 +105,7 @@ main();
 CommonJS consumers use the same API via `require`:
 
 ```javascript
-const { ZapLinkClient } = require('@rmyndharis/zaplink');
+const { ZapLinkClient } = require('@dev-ashir768/zaplink');
 ```
 
 ### Client Configuration
@@ -386,7 +386,7 @@ import {
   ZapLinkRateLimitError,
   ZapLinkTimeoutError,
   ZapLinkApiError,
-} from '@rmyndharis/zaplink';
+} from '@dev-ashir768/zaplink';
 
 try {
   await client.messages.sendText(sessionId, {
@@ -430,14 +430,14 @@ The Python SDK is a **synchronous** client built on [`httpx`](https://www.python
 The PyPI distribution name and the import package differ:
 
 ```bash
-pip install rmyndharis-zaplink
+pip install dev-ashir768-zaplink
 ```
 
 ```python
 from zaplink import ZapLinkClient
 ```
 
-- **Distribution (PyPI):** `rmyndharis-zaplink`
+- **Distribution (PyPI):** `dev-ashir768-zaplink`
 - **Import package:** `zaplink`
 - **Client class:** `ZapLinkClient`
 - **Python:** `>=3.9` (per `pyproject.toml`)
@@ -805,7 +805,7 @@ The PHP SDK is a hand-written, synchronous client built on Guzzle 7.9+ or 8. It 
 ### Installation
 
 ```bash
-composer require rmyndharis/zaplink
+composer require dev-ashir768/zaplink
 ```
 
 Requirements:
@@ -1151,7 +1151,7 @@ try {
 - **No automatic retries.** A failed request throws immediately; wrap calls in your own backoff if you need retries (notably for `429`). The injectable `httpClient` is the extension point for retry/observability middleware.
 - **Empty/204 response handling depends on the method.** The HTTP executor and raw `request()` return `null` for a `204` or empty body. Methods with `?? []`, such as `contacts->list` and `messages->pin`, coalesce this to `[]`; `messages->list` returns `{ messages: [], total: 0 }` and `catalog->products` returns `{ products: [], pagination: [] }`. The nullable `catalog->info`, `catalog->product` and `chats->getPresence` methods return `null`, and `void` methods return nothing. Other JSON methods with a non-nullable `array` return type, including single-item gets and sends, require a response body: an empty response raises `TypeError`. The gateway supplies a body for those routes.
 - **Testing without the network.** Inject a Guzzle client built on a `GuzzleHttp\Handler\MockHandler` via the `httpClient` config key — no global state, no live calls. The shipped test suite asserts on the exact path, method, and body.
-- **PSR-4 autoloading.** Everything lives under the `ZapLink\` namespace mapped to `src/`; `composer require rmyndharis/zaplink` wires up the autoloader.
+- **PSR-4 autoloading.** Everything lives under the `ZapLink\` namespace mapped to `src/`; `composer require dev-ashir768/zaplink` wires up the autoloader.
 
 ## 18.5 n8n Community Node
 
@@ -1168,13 +1168,13 @@ For installation and node-by-node configuration, see the dedicated [n8n Integrat
 
 The five SDKs are versioned **independently of the gateway** and of each other, each following SemVer. An SDK version does **not** track the gateway version — check the registry for the current one rather than inferring it from the gateway's. Pin the SDK version your code is tested against and treat a major SDK bump as potentially breaking.
 
-| SDK                   | Registry             | Package                                  |
-| --------------------- | -------------------- | ---------------------------------------- |
-| JavaScript/TypeScript | npm                  | `@rmyndharis/zaplink`                    |
-| Python                | PyPI                 | `rmyndharis-zaplink`                     |
-| PHP                   | Packagist            | `rmyndharis/zaplink`                     |
-| Java                  | Maven Central        | `com.rmyndharis:zaplink`                 |
-| Go                    | (none — module path) | `github.com/dev-ashir768/zaplink/sdk/go` |
+| SDK                   | Registry             | Package                                 |
+| --------------------- | -------------------- | --------------------------------------- |
+| JavaScript/TypeScript | npm                  | `@dev-ashir768/zaplink`                 |
+| Python                | PyPI                 | `dev-ashir768-zaplink`                  |
+| PHP                   | Packagist            | `dev-ashir768/zaplink`                  |
+| Java                  | Maven Central        | `com.devashir768:zaplink`               |
+| Go                    | (none — module path) | `github.com/devashir768/zaplink/sdk/go` |
 
 ### Contract-drift protection
 

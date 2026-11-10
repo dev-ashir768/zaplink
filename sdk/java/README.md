@@ -2,7 +2,7 @@
 
 This document describes SDK 0.10.0. `messages.receipts` requires ZapLink 0.28.0 or later. `contacts.lid` requires ZapLink 0.27.1 or later. `groups.setMemberLabel`, the `match` field of `SearchQuery`, and the `thumbnailUrl` and `thumbnailBase64` components of `CustomLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Official Java client for [ZapLink](https://github.com/dev-ashir768/zaplink), the
+Official Java client for [ZapLink](https://github.com/devashir768/zaplink), the
 open-source WhatsApp API Gateway. ZapLink is an independent project, not
 affiliated with or endorsed by WhatsApp or Meta.
 
@@ -17,7 +17,7 @@ Java 17+, one runtime dependency ([Gson](https://github.com/google/gson)).
 
 ```xml
 <dependency>
-  <groupId>com.rmyndharis</groupId>
+  <groupId>com.devashir768</groupId>
   <artifactId>zaplink</artifactId>
   <version>0.10.0</version>
 </dependency>
@@ -26,17 +26,17 @@ Java 17+, one runtime dependency ([Gson](https://github.com/google/gson)).
 **Gradle**
 
 ```groovy
-implementation 'com.rmyndharis:zaplink:0.10.0'
+implementation 'com.devashir768:zaplink:0.10.0'
 ```
 
 ## Quickstart
 
 ```java
-import com.rmyndharis.zaplink.ZapLinkClient;
-import com.rmyndharis.zaplink.model.CreateSessionRequest;
-import com.rmyndharis.zaplink.model.MessageResponse;
-import com.rmyndharis.zaplink.model.SendTextRequest;
-import com.rmyndharis.zaplink.model.SessionResponse;
+import com.devashir768.zaplink.ZapLinkClient;
+import com.devashir768.zaplink.model.CreateSessionRequest;
+import com.devashir768.zaplink.model.MessageResponse;
+import com.devashir768.zaplink.model.SendTextRequest;
+import com.devashir768.zaplink.model.SessionResponse;
 
 ZapLinkClient client = new ZapLinkClient("http://localhost:2785", "owa_k1_…");
 
@@ -60,7 +60,7 @@ For full control over configuration (timeout, default headers, a custom
 transport), build a `ClientConfig`:
 
 ```java
-import com.rmyndharis.zaplink.ClientConfig;
+import com.devashir768.zaplink.ClientConfig;
 import java.time.Duration;
 
 ZapLinkClient client = new ZapLinkClient(ClientConfig.builder()
@@ -108,8 +108,8 @@ Errors are a typed, unchecked hierarchy — branch with `instanceof` or on
 `.status()`:
 
 ```java
-import com.rmyndharis.zaplink.errors.ZapLinkConflictError;
-import com.rmyndharis.zaplink.errors.ZapLinkNotFoundError;
+import com.devashir768.zaplink.errors.ZapLinkConflictError;
+import com.devashir768.zaplink.errors.ZapLinkNotFoundError;
 
 try {
     client.messages.sendText(sessionId, body);
@@ -143,12 +143,12 @@ the raw request body, exactly as received (a `byte[]`, or a `String` read as
 UTF-8), and parse the JSON only after the check passes: a re-serialized body can
 differ byte for byte and will not verify. The helper returns `false` (never
 throws) for a missing, malformed or non-matching signature.
-`com.rmyndharis.zaplink.model.WebhookDelivery` types the parsed body.
+`com.devashir768.zaplink.model.WebhookDelivery` types the parsed body.
 
 ```java
 import com.google.gson.Gson;
-import com.rmyndharis.zaplink.WebhookSignature;
-import com.rmyndharis.zaplink.model.WebhookDelivery;
+import com.devashir768.zaplink.WebhookSignature;
+import com.devashir768.zaplink.model.WebhookDelivery;
 import java.nio.charset.StandardCharsets;
 
 // In a servlet's doPost(request, response):
@@ -216,7 +216,7 @@ Sonatype Central Publishing plugin — a plain `mvn verify` never runs any of it
 One-time setup (repository secrets):
 
 - `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` — the two halves of a
-  Sonatype Central Portal user token for the verified `com.rmyndharis`
+  Sonatype Central Portal user token for the verified `com.devashir768`
   namespace.
 - `GPG_PRIVATE_KEY` — ASCII-armored signing key.
 - `GPG_PASSPHRASE` — passphrase for that key.

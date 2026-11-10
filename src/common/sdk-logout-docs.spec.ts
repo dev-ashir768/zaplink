@@ -14,7 +14,7 @@ describe('SDK logout docs: the 409 for a session with no linked device', () => {
     ['sdk/python/zaplink/resources/sessions.py', /def logout[\s\S]*?"""[\s\S]*?"""/],
     ['sdk/php/src/Resources/SessionsResource.php', /\/\*\*[^/]*?engine-native unlink[\s\S]*?function logout/],
     [
-      'sdk/java/src/main/java/com/rmyndharis/zaplink/resources/SessionsResource.java',
+      'sdk/java/src/main/java/com/devashir768/zaplink/resources/SessionsResource.java',
       /\/\*\*[^/]*?engine-native unlink[\s\S]*?public SessionResponse logout/,
     ],
   ];

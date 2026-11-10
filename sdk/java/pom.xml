@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.rmyndharis</groupId>
+  <groupId>com.devashir768</groupId>
   <artifactId>zaplink</artifactId>
   <version>0.10.0</version>
   <packaging>jar</packaging>
 
   <name>ZapLink Java SDK</name>
   <description>Official Java SDK for ZapLink, the open-source WhatsApp API Gateway (not affiliated with WhatsApp or Meta)</description>
-  <url>https://github.com/dev-ashir768/zaplink</url>
+  <url>https://github.com/devashir768/zaplink</url>
 
   <licenses>
     <license>
@@ -25,9 +25,9 @@
     </developer>
   </developers>
   <scm>
-    <connection>scm:git:https://github.com/dev-ashir768/zaplink.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/dev-ashir768/zaplink.git</developerConnection>
-    <url>https://github.com/dev-ashir768/zaplink</url>
+    <connection>scm:git:https://github.com/devashir768/zaplink.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/devashir768/zaplink.git</developerConnection>
+    <url>https://github.com/devashir768/zaplink</url>
   </scm>
 
   <properties>

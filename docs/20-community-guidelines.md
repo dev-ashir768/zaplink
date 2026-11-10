@@ -61,7 +61,7 @@ git clone https://github.com/YOUR_USERNAME/zaplink.git
 cd zaplink
 
 # 3. Add upstream remote
-git remote add upstream https://github.com/dev-ashir768/zaplink.git
+git remote add upstream https://github.com/devashir768/zaplink.git
 
 # 4. Install the locked dependencies (also installs dashboard dependencies)
 npm ci
@@ -424,7 +424,7 @@ pull requests.
 Report privately through either channel:
 
 1. **GitHub Security Advisories** (preferred) — open a private report at
-   <https://github.com/dev-ashir768/zaplink/security/advisories/new>
+   <https://github.com/devashir768/zaplink/security/advisories/new>
 2. **Email** — yudhi@rmyndharis.com
 
 Include, where possible:

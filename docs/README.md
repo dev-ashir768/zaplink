@@ -80,7 +80,7 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/dev-ashir768/zaplink.git
+git clone https://github.com/devashir768/zaplink.git
 cd ZapLink
 
 # Install the locked dependencies (also installs dashboard dependencies)
@@ -105,7 +105,7 @@ Access:
 
 ```bash
 # Clone repository
-git clone https://github.com/dev-ashir768/zaplink.git
+git clone https://github.com/devashir768/zaplink.git
 cd ZapLink
 
 # Start services

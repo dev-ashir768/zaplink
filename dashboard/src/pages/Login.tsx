@@ -146,7 +146,7 @@ export function Login({ onLogin }: LoginProps) {
       <footer className="login-footer">
         <span>{t('login.footer')}</span>
         <a
-          href="https://github.com/dev-ashir768/zaplink"
+          href="https://github.com/devashir768/zaplink"
           target="_blank"
           rel="noopener noreferrer"
           className="github-link"

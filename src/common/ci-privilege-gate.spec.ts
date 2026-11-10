@@ -2617,7 +2617,7 @@ describe.each([
       'echo phpstorm',
       'git -c core.hooksPath=/dev/null push',
       'SPLIT_SHA="$(git subtree split --prefix=sdk/php HEAD)"',
-      'echo "Mirrored sdk/php -> rmyndharis/zaplink-php@main"',
+      'echo "Mirrored sdk/php -> dev-ashir768/zaplink-php@main"',
       'if git ls-remote --tags --exit-code "$MIRROR" "refs/tags/${VERSION}" >/dev/null 2>&1; then',
       'git -c core.hooksPath=/dev/null push --force \\\n  "https://x@github.com/o/r.git" \\\n  "${SHA}:refs/heads/main"',
     ]) {

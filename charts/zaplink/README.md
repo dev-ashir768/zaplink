@@ -1,6 +1,6 @@
 # zaplink
 
-Helm chart for [ZapLink](https://github.com/dev-ashir768/zaplink) — WhatsApp API.
+Helm chart for [ZapLink](https://github.com/devashir768/zaplink) — WhatsApp API.
 
 > **Single instance only.** A session lease stops two pods from launching the same session,
 > but API keys and the audit log live in each pod's own `main.sqlite` (a key revoked or

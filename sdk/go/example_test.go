@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	zaplink "github.com/dev-ashir768/zaplink/sdk/go"
+	zaplink "github.com/devashir768/zaplink/sdk/go"
 )
 
 func ExampleNew() {

@@ -5828,7 +5828,7 @@ release number until the next release bumps it.
   "current": "0.23.5",
   "latest": "0.23.6",
   "updateAvailable": true,
-  "releaseUrl": "https://github.com/dev-ashir768/zaplink/releases/tag/v0.23.6"
+  "releaseUrl": "https://github.com/devashir768/zaplink/releases/tag/v0.23.6"
 }
 ```
 

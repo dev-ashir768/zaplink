@@ -1,6 +1,6 @@
 name: JavaScript SDK Release
 
-# Publishes @rmyndharis/zaplink to npm from sdk/javascript.
+# Publishes @dev-ashir768/zaplink to npm from sdk/javascript.
 #
 # Authentication is npm Trusted Publishing (OIDC) — there is deliberately NO npm token anywhere in
 # this workflow or in the repository secrets. npm mints a short-lived credential from the GitHub OIDC
@@ -9,7 +9,7 @@ name: JavaScript SDK Release
 # trusted publisher is the migration target rather than a casualty of it.
 #
 # One-time setup on npmjs.com (see sdk/javascript/README.md -> Releasing), required BEFORE the first
-# tag: package settings -> Trusted Publisher -> GitHub Actions, with organization `rmyndharis`,
+# tag: package settings -> Trusted Publisher -> GitHub Actions, with organization `dev-ashir768`,
 # repository `ZapLink`, and workflow filename `js-sdk-release.yml`. Until that exists npm rejects the
 # publish; the guard below fails first with a pointer rather than letting it surface as a raw 404.
 #

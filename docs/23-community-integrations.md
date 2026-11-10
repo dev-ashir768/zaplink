@@ -3,7 +3,7 @@
 Third-party integrations and adapters built by the community on top of ZapLink's REST API.
 
 > **Looking for Chatwoot, Typebot, and other first-party integrations?** Those ship as official
-> sandboxed plugins on the Integration Fabric — see the [ZapLink-plugins](https://github.com/rmyndharis/OpenWA-plugins)
+> sandboxed plugins on the Integration Fabric — see the [ZapLink-plugins](https://github.com/devashir768/zaplink-plugins)
 > catalog. This page lists only community-built projects.
 
 > ⚠️ **These projects are community-maintained and are not affiliated with or endorsed by ZapLink.**

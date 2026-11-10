@@ -1,15 +1,15 @@
-# @rmyndharis/zaplink
+# @dev-ashir768/zaplink
 
 This document describes SDK 0.10.0. `messages.receipts` requires ZapLink 0.28.0 or later. `contacts.lid` requires ZapLink 0.27.1 or later. `groups.setMemberLabel`, the `match` key of the search query, and the `thumbnailUrl` and `thumbnailBase64` fields of `customLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Official JavaScript/TypeScript SDK for [ZapLink](https://github.com/dev-ashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
+Official JavaScript/TypeScript SDK for [ZapLink](https://github.com/devashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
 
 Ships dual CJS + ESM builds with bundled type declarations.
 
 ## Install
 
 ```bash
-npm install @rmyndharis/zaplink
+npm install @dev-ashir768/zaplink
 ```
 
 Requires Node.js >= 18 (relies on the global `fetch`).
@@ -17,7 +17,7 @@ Requires Node.js >= 18 (relies on the global `fetch`).
 ## Usage
 
 ```typescript
-import { ZapLinkClient } from '@rmyndharis/zaplink';
+import { ZapLinkClient } from '@dev-ashir768/zaplink';
 
 const client = new ZapLinkClient({
   baseUrl: 'https://your-gateway.example.com',
@@ -38,7 +38,7 @@ const result = await client.messages.sendText(session.id, {
 console.log(result.messageId);
 ```
 
-CommonJS consumers use `require('@rmyndharis/zaplink')` identically.
+CommonJS consumers use `require('@dev-ashir768/zaplink')` identically.
 
 For an endpoint the SDK does not wrap, call `client.request({ method, path, query, body })`, which
 takes an `Idempotency-Key` as its second argument, or `client.requestBytes(...)` for a binary response body. A
@@ -98,7 +98,7 @@ signature. `WebhookDelivery` types the parsed body.
 
 ```typescript
 import express from 'express';
-import { verifyWebhookSignature, type WebhookDelivery } from '@rmyndharis/zaplink';
+import { verifyWebhookSignature, type WebhookDelivery } from '@dev-ashir768/zaplink';
 
 const app = express();
 
@@ -129,10 +129,10 @@ automatically. Nothing long-lived exists to leak, expire, or migrate when
 2FA-bypass tokens lose direct publish in January 2027.
 
 One-time setup, required **before** the first tag — on npmjs.com, open the
-package settings for `@rmyndharis/zaplink` and add a Trusted Publisher:
+package settings for `@dev-ashir768/zaplink` and add a Trusted Publisher:
 
 - Provider: **GitHub Actions**
-- Organization: `rmyndharis`
+- Organization: `dev-ashir768`
 - Repository: `ZapLink`
 - Workflow filename: `js-sdk-release.yml` (the extension is part of the value)
 

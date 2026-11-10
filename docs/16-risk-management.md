@@ -36,7 +36,7 @@ quadrantChart
 | **Risk Level**  | Critical   |
 
 **Description:**  
-WhatsApp can change its Web and multi-device protocols at any time, which can stop either engine library (`whatsapp-web.js` or Baileys) from working. A step WhatsApp enforces server-side inside the linking handshake, such as the passkey prompt some accounts now get ([#560](https://github.com/dev-ashir768/zaplink/issues/560)), blocks new links on both engines at once.
+WhatsApp can change its Web and multi-device protocols at any time, which can stop either engine library (`whatsapp-web.js` or Baileys) from working. A step WhatsApp enforces server-side inside the linking handshake, such as the passkey prompt some accounts now get ([#560](https://github.com/devashir768/zaplink/issues/560)), blocks new links on both engines at once.
 
 **Indicators:**
 
@@ -60,7 +60,7 @@ flowchart TB
     M4 --> A4[< 24h patch capability]
 ```
 
-Switching `ENGINE_TYPE` (M3) helps only when one engine library breaks, and every session must then be linked again, because each engine keeps its own auth state. A gate WhatsApp enforces inside the linking handshake, such as the passkey step ([#560](https://github.com/dev-ashir768/zaplink/issues/560), upstream [WhiskeySockets/Baileys#2672](https://github.com/WhiskeySockets/Baileys/issues/2672)), stops new links on both engines; the fix has to come from the engine libraries, and operators rely on their fallback channel until then (see [Plan A](#plan-a-whatsapp-protocol-change)).
+Switching `ENGINE_TYPE` (M3) helps only when one engine library breaks, and every session must then be linked again, because each engine keeps its own auth state. A gate WhatsApp enforces inside the linking handshake, such as the passkey step ([#560](https://github.com/devashir768/zaplink/issues/560), upstream [WhiskeySockets/Baileys#2672](https://github.com/WhiskeySockets/Baileys/issues/2672)), stops new links on both engines; the fix has to come from the engine libraries, and operators rely on their fallback channel until then (see [Plan A](#plan-a-whatsapp-protocol-change)).
 
 **Action Items:**
 
@@ -509,7 +509,7 @@ Hour 8-24:
 
 - [ ] GitHub owner transfer
 - [ ] Repository secrets: `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`, `RELEASE_PAT`, `MAVEN_CENTRAL_USERNAME`/`MAVEN_CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, `PHP_SDK_SPLIT_TOKEN`
-- [ ] Registries: Docker Hub `rmyndharis/zaplink`, npm `@rmyndharis/zaplink` and PyPI `rmyndharis-zaplink` (trusted publishers bound to this repository), Maven Central `com.rmyndharis`, Packagist `rmyndharis/zaplink` via the `rmyndharis/zaplink-php` mirror; GHCR images and Go module tags follow the GitHub repository
+- [ ] Registries: Docker Hub `dev-ashir768/zaplink`, npm `@dev-ashir768/zaplink` and PyPI `dev-ashir768-zaplink` (trusted publishers bound to this repository), Maven Central `com.devashir768`, Packagist `dev-ashir768/zaplink` via the `dev-ashir768/zaplink-php` mirror; GHCR images and Go module tags follow the GitHub repository
 - [ ] Domain ownership
 - [ ] Cloud accounts
 

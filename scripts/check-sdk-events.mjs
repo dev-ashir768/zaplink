@@ -58,7 +58,7 @@ const SDKS = [
   },
   {
     name: 'java',
-    file: 'sdk/java/src/main/java/com/rmyndharis/zaplink/model/WebhookEvent.java',
+    file: 'sdk/java/src/main/java/com/devashir768/zaplink/model/WebhookEvent.java',
     harvest: text => [...text.matchAll(/@SerializedName\("([^"]+)"\)/g)].map(m => m[1]),
   },
 ];

@@ -2,7 +2,7 @@
 
 This document describes SDK 0.10.0. `Messages.Receipts` requires ZapLink 0.28.0 or later. `Contacts.Lid` requires ZapLink 0.27.1 or later. `Groups.SetMemberLabel`, `SearchQuery.Match`, `CustomLinkPreview.ThumbnailURL` and `CustomLinkPreview.ThumbnailBase64` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Idiomatic Go client for the [ZapLink](https://github.com/dev-ashir768/zaplink) WhatsApp
+Idiomatic Go client for the [ZapLink](https://github.com/devashir768/zaplink) WhatsApp
 API Gateway. Stdlib-only (no dependencies), context-first, with typed errors and
 an injectable transport pipeline.
 
@@ -10,7 +10,7 @@ ZapLink is an independent project, not affiliated with or endorsed by WhatsApp o
 Meta.
 
 ```bash
-go get github.com/dev-ashir768/zaplink/sdk/go
+go get github.com/devashir768/zaplink/sdk/go
 ```
 
 Requires Go 1.22+.
@@ -24,7 +24,7 @@ import (
 	"context"
 	"log"
 
-	zaplink "github.com/dev-ashir768/zaplink/sdk/go"
+	zaplink "github.com/devashir768/zaplink/sdk/go"
 )
 
 func main() {
@@ -288,7 +288,7 @@ The tag must carry the module's directory prefix, because the module lives in a
 subdirectory rather than at the repository root:
 
 ```bash
-# Correct — `sdk/go/` prefix, matching `module github.com/dev-ashir768/zaplink/sdk/go`
+# Correct — `sdk/go/` prefix, matching `module github.com/devashir768/zaplink/sdk/go`
 git tag sdk/go/v0.10.0 && git push origin sdk/go/v0.10.0
 ```
 

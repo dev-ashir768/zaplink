@@ -376,7 +376,7 @@ describe('governance docs match the repository', () => {
   // The Java transport waits on the whole exchange with the client timeout, so a slow media download
   // can time out where it once finished. Callers size the timeout from these two descriptions.
   it('says the Java SDK timeout also bounds the response body', () => {
-    const java = 'sdk/java/src/main/java/com/rmyndharis/zaplink';
+    const java = 'sdk/java/src/main/java/com/devashir768/zaplink';
     expect(read(java, 'http/DefaultHttpTransport.java')).toMatch(/future\.get\(timeoutMs, TimeUnit\.MILLISECONDS\)/);
     const readme = between(read('sdk/java/README.md'), '- **Default per-request timeout**', '\n- **');
     expect(readme.replace(/\s+/g, ' ')).toMatch(/bounds the whole exchange, response body included/);

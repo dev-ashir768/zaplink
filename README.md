@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml"><img src="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
+  <a href="https://github.com/devashir768/zaplink/actions/workflows/ci.yml"><img src="https://github.com/devashir768/zaplink/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
   <img src="https://img.shields.io/github/package-json/v/dev-ashir768/zaplink?label=version&color=blue" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/>
   <img src="https://img.shields.io/badge/node-22_LTS-brightgreen.svg" alt="Node"/>
@@ -34,18 +34,18 @@
 
 Built on a **pluggable architecture**, ZapLink lets you select database engines (SQLite/PostgreSQL), media storage backends (Local/S3), and an optional Redis (queue, rate limits, WebSocket fan-out) through configuration rather than application-code changes. The storage backend is the live store for status media and, when chat-media archiving is enabled, archived chat media; other message media is returned inline to API and webhook consumers. Of the media, `scripts/backup.sh` archives only the local media directory, so an S3 bucket needs a backup of its own.
 
-|                               |                                                                                                                                           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 🔓 **100% Open Source**       | No licensing fees, no feature locks, full source code access                                                                              |
-| 🏗️ **Pluggable Architecture** | Swap adapters for database and storage via config                                                                                         |
-| 🖥️ **Full Dashboard**         | Modern React UI for session, webhook, and API key management                                                                              |
-| 🔹 **Multi-Session Ready**    | Run multiple WhatsApp sessions concurrently on one instance                                                                               |
-| 🐳 **Docker Native**          | Production-ready with zero configuration                                                                                                  |
-| 🧩 **Official Plugins**       | Chatwoot, Typebot & more as sandboxed plugins on the Integration Fabric — [ZapLink-plugins](https://github.com/rmyndharis/OpenWA-plugins) |
-| 🔗 **n8n Integration**        | Community nodes for workflow automation                                                                                                   |
-| 🧩 **Community Adapters**     | Third-party integrations (e.g. ioBroker) — see [docs](./docs/23-community-integrations.md)                                                |
-| 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                              |
-| 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own     |
+|                               |                                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔓 **100% Open Source**       | No licensing fees, no feature locks, full source code access                                                                                |
+| 🏗️ **Pluggable Architecture** | Swap adapters for database and storage via config                                                                                           |
+| 🖥️ **Full Dashboard**         | Modern React UI for session, webhook, and API key management                                                                                |
+| 🔹 **Multi-Session Ready**    | Run multiple WhatsApp sessions concurrently on one instance                                                                                 |
+| 🐳 **Docker Native**          | Production-ready with zero configuration                                                                                                    |
+| 🧩 **Official Plugins**       | Chatwoot, Typebot & more as sandboxed plugins on the Integration Fabric — [ZapLink-plugins](https://github.com/devashir768/zaplink-plugins) |
+| 🔗 **n8n Integration**        | Community nodes for workflow automation                                                                                                     |
+| 🧩 **Community Adapters**     | Third-party integrations (e.g. ioBroker) — see [docs](./docs/23-community-integrations.md)                                                  |
+| 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                                |
+| 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own       |
 
 ### Session-scoped operator & viewer tokens
 
@@ -108,9 +108,9 @@ These are practical guardrails, not guarantees — but they materially reduce th
 
 A few things that look like bugs but are actually server-side WhatsApp policy, not ZapLink defects — we track them separately so we can distinguish them from real bugs:
 
-- **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves ZapLink, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of ZapLink. Background in [#830](https://github.com/dev-ashir768/zaplink/issues/830).
+- **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves ZapLink, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of ZapLink. Background in [#830](https://github.com/devashir768/zaplink/issues/830).
 - **Accounts that get restricted cannot be "unrestricted" by us.** If WhatsApp disables a number, you need to appeal through their channels — ZapLink has no lever to pull.
-- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See [the FAQ entry](docs/12-troubleshooting-faq.md#issue-linking-asks-for-a-passkey-and-never-completes-both-engines); background in [#560](https://github.com/dev-ashir768/zaplink/issues/560).
+- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See [the FAQ entry](docs/12-troubleshooting-faq.md#issue-linking-asks-for-a-passkey-and-never-completes-both-engines); background in [#560](https://github.com/devashir768/zaplink/issues/560).
 
 ### Compliance
 
@@ -179,7 +179,7 @@ For any deployment where ethical, legal, or regulatory compliance matters (healt
 
 ```bash
 # Clone and start
-git clone https://github.com/dev-ashir768/zaplink.git
+git clone https://github.com/devashir768/zaplink.git
 cd ZapLink
 docker compose -f docker-compose.dev.yml up -d
 
@@ -212,7 +212,7 @@ Source installs on Linux x64/arm64 hosts using glibc need **glibc 2.34 or newer*
 
 ```bash
 # Clone repository
-git clone https://github.com/dev-ashir768/zaplink.git
+git clone https://github.com/devashir768/zaplink.git
 cd ZapLink
 
 # Install the locked dependencies (includes dashboard)
@@ -555,7 +555,7 @@ See [LICENSE](./LICENSE) for details.
 
 **ZapLink** – Free, Open Source WhatsApp API Gateway
 
-[📖 Documentation](./docs/README.md) · [🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/dev-ashir768/zaplink/issues) · [💡 Request Feature](https://github.com/dev-ashir768/zaplink/issues)
+[📖 Documentation](./docs/README.md) · [🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/devashir768/zaplink/issues) · [💡 Request Feature](https://github.com/devashir768/zaplink/issues)
 
 <br/>
 

@@ -1,0 +1,2 @@
+/** Official Java SDK for ZapLink, the open-source WhatsApp API Gateway (not affiliated with WhatsApp or Meta). */
+package com.devashir768.zaplink;

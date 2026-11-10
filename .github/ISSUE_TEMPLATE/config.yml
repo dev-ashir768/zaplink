@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 📚 Documentation
-    url: https://github.com/dev-ashir768/zaplink/tree/main/docs
+    url: https://github.com/devashir768/zaplink/tree/main/docs
     about: Setup, API specification, and operational guides.
   - name: 💬 Questions and setup help
-    url: https://github.com/dev-ashir768/zaplink/discussions
+    url: https://github.com/devashir768/zaplink/discussions
     about: Configuration, provider, hosting, and "is X possible?" questions belong in Discussions.
   - name: 🔒 Report a security vulnerability
-    url: https://github.com/dev-ashir768/zaplink/security/advisories/new
+    url: https://github.com/devashir768/zaplink/security/advisories/new
     about: Please report vulnerabilities privately — not as a public issue.

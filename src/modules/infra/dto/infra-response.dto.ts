@@ -271,7 +271,7 @@ export class InfraUpdateCheckResponseDto {
     type: String,
     nullable: true,
     description: 'Release notes page for `latest`.',
-    example: 'https://github.com/dev-ashir768/zaplink/releases/tag/v0.23.6',
+    example: 'https://github.com/devashir768/zaplink/releases/tag/v0.23.6',
   })
   releaseUrl!: string | null;
 }

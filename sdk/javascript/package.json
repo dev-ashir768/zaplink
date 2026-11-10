@@ -1,5 +1,5 @@
 {
-    "name": "@rmyndharis/zaplink",
+    "name": "@dev-ashir768/zaplink",
     "version": "0.10.0",
     "description": "Official JavaScript/TypeScript SDK for ZapLink, the open-source WhatsApp API Gateway (not affiliated with WhatsApp or Meta)",
     "type": "module",
@@ -42,7 +42,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/dev-ashir768/zaplink",
+        "url": "https://github.com/devashir768/zaplink",
         "directory": "sdk/javascript"
     },
     "engines": {

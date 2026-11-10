@@ -18597,7 +18597,7 @@
     "version": "0.29.1",
     "contact": {
       "name": "ZapLink",
-      "url": "https://github.com/dev-ashir768/zaplink",
+      "url": "https://github.com/devashir768/zaplink",
       "email": "yudhi@rmyndharis.com"
     }
   },
@@ -22828,7 +22828,7 @@
             "type": "string",
             "nullable": true,
             "description": "Release notes page for `latest`.",
-            "example": "https://github.com/dev-ashir768/zaplink/releases/tag/v0.23.6"
+            "example": "https://github.com/devashir768/zaplink/releases/tag/v0.23.6"
           }
         },
         "required": [

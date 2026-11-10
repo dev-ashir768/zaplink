@@ -574,17 +574,17 @@ vars are removed. Ships with a migration guide.
 Delivered additively whenever ready, per SemVer (not gated to one version). Prometheus metrics shipped
 in `0.2.2` and the five client SDKs across `0.7.3`–`0.8.19`; the rest remain open.
 
-| Feature                | Priority | Status                                                | Description                     |
-| ---------------------- | -------- | ----------------------------------------------------- | ------------------------------- |
-| JavaScript/Node.js SDK | P1       | ✅ Shipped (`@rmyndharis/zaplink`)                    | Official client library         |
-| Python SDK             | P2       | ✅ Shipped (`rmyndharis-zaplink`)                     | Python client library           |
-| PHP SDK                | P2       | ✅ Shipped (`rmyndharis/zaplink`)                     | PHP client library              |
-| Java SDK               | P2       | ✅ Shipped (`com.rmyndharis:zaplink`)                 | Java client library             |
-| Go SDK                 | P2       | ✅ Shipped (`github.com/dev-ashir768/zaplink/sdk/go`) | Go client library               |
-| Postman Collection     | P1       | ◐ cURL collection (doc 07); Postman export TBD        | Ready-to-use API collection     |
-| Docs Site              | P1       | ☐ Open                                                | Documentation website           |
-| Video Tutorials        | P2       | ☐ Open                                                | Getting started video series    |
-| Example Projects       | P1       | ◐ A few under `docs/examples/`                        | Real-world integration examples |
+| Feature                | Priority | Status                                               | Description                     |
+| ---------------------- | -------- | ---------------------------------------------------- | ------------------------------- |
+| JavaScript/Node.js SDK | P1       | ✅ Shipped (`@dev-ashir768/zaplink`)                 | Official client library         |
+| Python SDK             | P2       | ✅ Shipped (`dev-ashir768-zaplink`)                  | Python client library           |
+| PHP SDK                | P2       | ✅ Shipped (`dev-ashir768/zaplink`)                  | PHP client library              |
+| Java SDK               | P2       | ✅ Shipped (`com.devashir768:zaplink`)               | Java client library             |
+| Go SDK                 | P2       | ✅ Shipped (`github.com/devashir768/zaplink/sdk/go`) | Go client library               |
+| Postman Collection     | P1       | ◐ cURL collection (doc 07); Postman export TBD       | Ready-to-use API collection     |
+| Docs Site              | P1       | ☐ Open                                               | Documentation website           |
+| Video Tutorials        | P2       | ☐ Open                                               | Getting started video series    |
+| Example Projects       | P1       | ◐ A few under `docs/examples/`                       | Real-world integration examples |
 
 **Performance & Observability**
 
@@ -626,7 +626,7 @@ architecture and design rationale):
 > `supabase-otp-hook`, the second official ingress plugin — a different vehicle than the chatbot flow
 > builder this row originally named, but it is what proved the substrate generalizes to an independent
 > consumer. Adapters ship from the
-> [ZapLink-plugins](https://github.com/rmyndharis/OpenWA-plugins) catalog, so consult that repository for
+> [ZapLink-plugins](https://github.com/devashir768/zaplink-plugins) catalog, so consult that repository for
 > each plugin's declared capabilities. P4 remains open: the published SDK reference, a compatibility test
 > suite, and multi-node routing.
 

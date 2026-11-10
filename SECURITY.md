@@ -21,7 +21,7 @@ lines receive no backports — please upgrade older deployments.
 Report it privately through either channel:
 
 - **GitHub Security Advisories** (preferred) — open a private report at
-  <https://github.com/dev-ashir768/zaplink/security/advisories/new>
+  <https://github.com/devashir768/zaplink/security/advisories/new>
 - **Email** — yudhi@rmyndharis.com
 
 Please include, where possible:

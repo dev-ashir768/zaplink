@@ -1,3 +1,3 @@
-module github.com/dev-ashir768/zaplink/sdk/go
+module github.com/devashir768/zaplink/sdk/go
 
 go 1.22

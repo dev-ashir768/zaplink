@@ -608,7 +608,7 @@ The shipped `better-sqlite3` Linux x64/arm64 glibc prebuild requires glibc 2.34+
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/dev-ashir768/zaplink.git
+git clone https://github.com/devashir768/zaplink.git
 cd ZapLink
 
 # 2. Install the locked dependencies (also installs dashboard dependencies)

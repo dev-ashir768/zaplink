@@ -6,7 +6,7 @@
  * resources as properties:
  *
  * ```typescript
- * import { ZapLinkClient } from '@rmyndharis/zaplink';
+ * import { ZapLinkClient } from '@dev-ashir768/zaplink';
  *
  * const client = new ZapLinkClient({
  *   baseUrl: 'http://localhost:2785',

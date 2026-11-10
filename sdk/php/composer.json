@@ -1,5 +1,5 @@
 {
-    "name": "rmyndharis/zaplink",
+    "name": "dev-ashir768/zaplink",
     "description": "Official PHP SDK for ZapLink, the open-source WhatsApp API Gateway (not affiliated with WhatsApp or Meta)",
     "type": "library",
     "license": "MIT",

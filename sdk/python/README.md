@@ -1,15 +1,15 @@
-# rmyndharis-zaplink
+# dev-ashir768-zaplink
 
 This document describes SDK 0.10.0. `messages.receipts` requires ZapLink 0.28.0 or later. `contacts.lid` requires ZapLink 0.27.1 or later. `groups.set_member_label`, the `match` key of the search query, and the `thumbnailUrl` and `thumbnailBase64` keys of `CustomLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Official Python SDK for [ZapLink](https://github.com/dev-ashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
+Official Python SDK for [ZapLink](https://github.com/devashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
 
 A synchronous client built on [httpx](https://www.python-httpx.org/), with bundled type hints (PEP 561).
 
 ## Install
 
 ```bash
-pip install rmyndharis-zaplink
+pip install dev-ashir768-zaplink
 ```
 
 Requires Python 3.9+. The importable module is `zaplink`.
@@ -172,7 +172,7 @@ to leak or rotate.
 One-time setup, required **before** the first tag — on pypi.org, open the
 project's publishing settings and add a GitHub trusted publisher:
 
-- Owner: `rmyndharis`
+- Owner: `dev-ashir768`
 - Repository: `ZapLink`
 - Workflow name: `python-sdk-release.yml`
 

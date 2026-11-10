@@ -363,7 +363,7 @@ export default () => ({
     // Fetched through the SSRF guard — add its host to SSRF_ALLOWED_HOSTS if it is not publicly resolvable.
     catalogUrl:
       process.env.PLUGIN_CATALOG_URL ||
-      'https://raw.githubusercontent.com/rmyndharis/ZapLink-plugins/main/plugins.json',
+      'https://raw.githubusercontent.com/devashir768/zaplink-plugins/main/plugins.json',
     // Cap on a plugin .zip downloaded by install-from-URL (matches the 5 MB upload limit). Fail-safe:
     // a non-numeric or non-positive value (parseInt → NaN/0/-n) falls back to the default rather than
     // silently disabling the cap (a downstream `??` would not catch NaN).
