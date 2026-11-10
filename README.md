@@ -16,7 +16,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml"><img src="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
   <img src="https://img.shields.io/github/package-json/v/dev-ashir768/zaplink?label=version&color=blue" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/>
   <img src="https://img.shields.io/badge/node-22_LTS-brightgreen.svg" alt="Node"/>

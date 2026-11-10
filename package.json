@@ -141,7 +141,6 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "testPathIgnorePatterns": [
-      "src/common/ci-privilege-gate\\.spec\\.ts$",
       "src/config/openapi-contract\\.spec\\.ts$",
       "src/config/openapi-export-pins\\.spec\\.ts$",
       "src/config/wa-web-version-example-pin\\.spec\\.ts$",
@@ -451,7 +450,6 @@
     "testEnvironment": "node",
     "coveragePathIgnorePatterns": [
       "/node_modules/",
-      "src/common/ci-privilege-gate\\.spec\\.ts$",
       "src/config/openapi-contract\\.spec\\.ts$",
       "src/config/openapi-export-pins\\.spec\\.ts$",
       "src/config/wa-web-version-example-pin\\.spec\\.ts$",
