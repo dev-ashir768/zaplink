@@ -55,7 +55,7 @@ function renderSidebar(): HTMLElement {
 }
 
 test('the sidebar theme and language buttons are named with the words they show', () => {
-  localStorage.removeItem('openwa_theme');
+  localStorage.removeItem('zaplink_theme');
   const footer = renderSidebar().querySelector('.sidebar-footer')!;
   const named = Array.from(footer.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn')).map(button => ({
     shows: button.textContent?.trim() ?? '',

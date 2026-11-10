@@ -66,7 +66,7 @@ export class PluginPackageScanner {
     private readonly pluginStorage: PluginStorageService,
     private readonly pluginsDir: string,
     /**
-     * The package dir OpenWA defaulted to before it moved under <dataDir>, scanned as a compatibility
+     * The package dir ZapLink defaulted to before it moved under <dataDir>, scanned as a compatibility
      * fallback; null when PLUGINS_DIR names a directory explicitly.
      */
     private readonly legacyPluginsDir: string | null,
@@ -318,7 +318,7 @@ export class PluginPackageScanner {
     // Boot-time validation is the SAME validation install runs (parsePluginPackage): a hand-placed
     // or crash-leftover directory must satisfy the install contract too — plain-object shape,
     // required string fields, id format + reserved ids, extension-only type, a `main` that cannot
-    // escape the plugin dir, and no minOpenWAVersion floor above the running host. Otherwise a
+    // escape the plugin dir, and no minZapLinkVersion floor above the running host. Otherwise a
     // manifest the installer would have rejected loads anyway and only fails (or worse, runs
     // unexpected code) at enable time.
     validatePluginManifest(manifest);

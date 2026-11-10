@@ -1,13 +1,13 @@
 /**
- * OpenWA JavaScript/TypeScript SDK.
+ * ZapLink JavaScript/TypeScript SDK.
  *
- * Official client library for the OpenWA WhatsApp API Gateway.
+ * Official client library for the ZapLink WhatsApp API Gateway.
  *
  * @example
  * ```typescript
- * import { OpenWAClient, OpenWAApiError } from '@rmyndharis/openwa';
+ * import { ZapLinkClient, ZapLinkApiError } from '@rmyndharis/zaplink';
  *
- * const client = new OpenWAClient({
+ * const client = new ZapLinkClient({
  *   baseUrl: 'http://localhost:2785',
  *   apiKey: 'owa_k1_…',
  * });
@@ -19,7 +19,7 @@
  * // then wait for status 'ready'. An unlinked session answers the send with 409.
  * const result = await client.messages.sendText(session.id, {
  *   chatId: '628123456789@c.us',
- *   text: 'Hello from the OpenWA SDK!',
+ *   text: 'Hello from the ZapLink SDK!',
  * });
  * console.log(result.messageId);
  * ```
@@ -27,9 +27,9 @@
  * @packageDocumentation
  */
 
-export { OpenWAClient } from './client.js';
+export { ZapLinkClient } from './client.js';
 export { default } from './client.js';
-export type { OpenWAClientOptions } from './client.js';
+export type { ZapLinkClientOptions } from './client.js';
 export * from './errors.js';
 export type * from './types.js';
 export type { BinaryResponse, ClientConfig, FetchLike, HttpMethod, RequestOptions } from './http.js';

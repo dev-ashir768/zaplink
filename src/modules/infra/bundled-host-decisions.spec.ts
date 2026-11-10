@@ -104,7 +104,7 @@ function arrange(c: Case, stored = ''): void {
   const lines = [
     'DATABASE_TYPE=postgres',
     'DATABASE_HOST=db.external.example',
-    'DATABASE_USERNAME=openwa',
+    'DATABASE_USERNAME=zaplink',
     `${spec.selection}=${spec.selected}`,
     `${spec.host}=${fileHost}`,
   ];
@@ -157,7 +157,7 @@ async function restart(body: { profiles?: string[]; profilesToRemove?: string[] 
   return { result, stopped: stopManagedService.mock.calls.length > 0 };
 }
 
-async function status(c: Case, creator: 'compose' | 'openwa') {
+async function status(c: Case, creator: 'compose' | 'zaplink') {
   const values: Record<string, unknown> = {
     'dataDatabase.type': 'postgres',
     'storage.type': 's3',
@@ -224,8 +224,8 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
     const compose = await status(c, 'compose');
     expect(compose[c.service].builtIn).toBe(c.reach);
     expect(compose[c.service].running).toBe(false);
-    const openwa = await status(c, 'openwa');
-    expect(openwa[c.service].running).toBe(c.flag === 'true');
+    const zaplink = await status(c, 'zaplink');
+    expect(zaplink[c.service].running).toBe(c.flag === 'true');
   });
 
   if (c.service !== 'redis') {
@@ -242,7 +242,7 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
       }
       const env = saved(payload);
       const keep = c.position === 'pinned' || reached;
-      if (c.service === 'database') expect(env.DATABASE_PASSWORD).toBe(keep ? 'StoredPw789!' : 'openwa');
+      if (c.service === 'database') expect(env.DATABASE_PASSWORD).toBe(keep ? 'StoredPw789!' : 'zaplink');
       else
         expect([env.S3_ACCESS_KEY_ID, env.S3_SECRET_ACCESS_KEY]).toEqual(
           keep ? ['StoredKey12345', 'StoredSecret1234567890'] : ['minioadmin', 'minioadmin'],
@@ -265,9 +265,9 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
       const env = saved(payload);
       if (c.service === 'database')
         expect([env.DATABASE_USERNAME, env.DATABASE_NAME, env.POSTGRES_SCHEMA]).toEqual(
-          reached ? ['app', 'appdb', 'tenant'] : ['openwa', 'openwa', 'public'],
+          reached ? ['app', 'appdb', 'tenant'] : ['zaplink', 'zaplink', 'public'],
         );
-      else expect([env.S3_BUCKET, env.S3_REGION]).toEqual(reached ? ['media', 'eu-west-1'] : ['openwa', 'us-east-1']);
+      else expect([env.S3_BUCKET, env.S3_REGION]).toEqual(reached ? ['media', 'eu-west-1'] : ['zaplink', 'us-east-1']);
     });
   }
 

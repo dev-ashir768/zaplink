@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Tests;
+namespace ZapLink\Tests;
 
 use PHPUnit\Framework\TestCase;
 

@@ -1,12 +1,12 @@
-# Contributing to OpenWA
+# Contributing to ZapLink
 
-Thanks for your interest in improving OpenWA! This guide covers how to get set up, the
+Thanks for your interest in improving ZapLink! This guide covers how to get set up, the
 conventions we follow, and how to get a change merged. Contributions of all sizes are
 welcome — bug fixes, features, docs, and tests.
 
 ## Project layout
 
-OpenWA is a NestJS (backend) + React/Vite (dashboard) project:
+ZapLink is a NestJS (backend) + React/Vite (dashboard) project:
 
 - `src/` — the NestJS API. Feature modules under `src/modules/` (session, message,
   webhook, queue, audit, settings, infra, …), the WhatsApp engine abstraction under
@@ -18,7 +18,7 @@ See `docs/03-system-architecture.md` for the bigger picture.
 
 ## Getting started
 
-OpenWA targets **Node.js 22.19 or newer** (`engines.node`); the dashboard unit tests need **22.22.2+ or 24.15+** (jsdom). On Linux x64/arm64 hosts using glibc, source installs also need **glibc 2.34 or newer** for the shipped `better-sqlite3` prebuild, even with PostgreSQL. Use Ubuntu 22.04+, Debian 12+, RHEL 9+ or the published Docker image on an older host; `npm rebuild better-sqlite3 --build-from-source` does not replace the preferred prebuild. See [startup troubleshooting](docs/12-troubleshooting-faq.md#issue-source-install-fails-with-a-glibc_2xx-not-found-error).
+ZapLink targets **Node.js 22.19 or newer** (`engines.node`); the dashboard unit tests need **22.22.2+ or 24.15+** (jsdom). On Linux x64/arm64 hosts using glibc, source installs also need **glibc 2.34 or newer** for the shipped `better-sqlite3` prebuild, even with PostgreSQL. Use Ubuntu 22.04+, Debian 12+, RHEL 9+ or the published Docker image on an older host; `npm rebuild better-sqlite3 --build-from-source` does not replace the preferred prebuild. See [startup troubleshooting](docs/12-troubleshooting-faq.md#issue-source-install-fails-with-a-glibc_2xx-not-found-error).
 
 ```bash
 npm ci
@@ -105,16 +105,16 @@ vulnerabilities, see [`SECURITY.md`](SECURITY.md) — please do **not** open a p
 ### Issues vs. Discussions — pick the right channel
 
 A large share of opened issues turn out to be configuration, provider, or environment
-questions rather than defects in OpenWA. Routing them correctly upfront saves everyone
+questions rather than defects in ZapLink. Routing them correctly upfront saves everyone
 (time to answer, time to triage, cleaner issue history). When in doubt, open a Discussion
 first — it can always be promoted to an Issue if a real defect is confirmed.
 
-| Open an **Issue** (here)                                                 | Open a **Discussion**                                                       |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| Reproducible defect in OpenWA code with clear steps, expected vs. actual | Setup / configuration help ("my proxy doesn't work, how do I configure X?") |
-| Crash, panic, wrong API response, regression after upgrade               | Provider-specific quirks (webshare, IPRoyal, brightdata, Twilio, etc.)      |
-| Documented behavior contradicted by actual behavior                      | "Is X possible?" / "What's the best way to Y?"                              |
-| Security issue (use `SECURITY.md` instead)                               | Hosting-platform / network / firewall questions                             |
+| Open an **Issue** (here)                                                  | Open a **Discussion**                                                       |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Reproducible defect in ZapLink code with clear steps, expected vs. actual | Setup / configuration help ("my proxy doesn't work, how do I configure X?") |
+| Crash, panic, wrong API response, regression after upgrade                | Provider-specific quirks (webshare, IPRoyal, brightdata, Twilio, etc.)      |
+| Documented behavior contradicted by actual behavior                       | "Is X possible?" / "What's the best way to Y?"                              |
+| Security issue (use `SECURITY.md` instead)                                | Hosting-platform / network / firewall questions                             |
 
 When an Issue lands in the gray zone, maintainers will label it `needs-info`,
 `not-a-bug`, or `move-to-discussions`. If after follow-up it turns out to be

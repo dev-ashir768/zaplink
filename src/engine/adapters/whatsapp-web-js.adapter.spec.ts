@@ -3025,7 +3025,7 @@ describe('WhatsAppWebJsAdapter ready reconciliation (#251/#273)', () => {
   // #981: clearing the auth dir destroys the ONLY copy of the session's WhatsApp credentials, and the
   // loss is permanent — every later start finds an empty profile and can only show a QR. Until now the
   // adapter logged only the FAILURE to delete, so a successful wipe left no trace at all and triage
-  // could not tell an OpenWA self-heal apart from a WhatsApp-side logout or an untouched profile.
+  // could not tell an ZapLink self-heal apart from a WhatsApp-side logout or an untouched profile.
   it('records the credential deletion, naming the session and the directory removed', async () => {
     const rmSpy = jest.spyOn(fs.promises, 'rm').mockResolvedValue(undefined);
     const adapter = newAdapter();
@@ -6422,7 +6422,7 @@ describe('WhatsAppWebJsAdapter inbound media measured in the page', () => {
   // downloadMediaInPage copies the page side of Message#downloadMedia. The fingerprint pins the whole
   // upstream method, comments and formatting aside, so any whatsapp-web.js release that changes it fails
   // here; the other checks hold the copy to upstream's modules, accessors, literals and call arguments.
-  // A tree an older OpenWA install patched carries the copy's `mimetype` option and is read without it.
+  // A tree an older ZapLink install patched carries the copy's `mimetype` option and is read without it.
   it('matches the page download of the installed whatsapp-web.js', () => {
     const squash = (src: string) =>
       src
@@ -7262,13 +7262,13 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
     }
   });
 
-  it('appends the --openwa-session marker to the puppeteer args handed to the Client', async () => {
+  it('appends the --zaplink-session marker to the puppeteer args handed to the Client', async () => {
     const adapter = newAdapter();
 
     await adapter.initialize({});
 
     const client = (adapter as unknown as { client: { options: { puppeteer?: { args?: string[] } } } }).client;
-    expect(client.options.puppeteer?.args).toContain(`--openwa-session=${SESSION_ID}`);
+    expect(client.options.puppeteer?.args).toContain(`--zaplink-session=${SESSION_ID}`);
   });
 
   it('does not mutate the caller-owned puppeteer args array shared across sessions', async () => {
@@ -7293,10 +7293,10 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
     const argsB = await argsFor('sess-b');
 
     expect(sharedArgs).toEqual(['--no-sandbox']);
-    expect(argsB).toContain('--openwa-session=sess-b');
+    expect(argsB).toContain('--zaplink-session=sess-b');
     // The cross-session leak that let a restart of sess-a SIGKILL sess-b's live browser: the sweep
     // substring-matches this marker against the full `ps` command line.
-    expect(argsB).not.toContain('--openwa-session=sess-a');
+    expect(argsB).not.toContain('--zaplink-session=sess-a');
   });
 
   describe('the browser locale', () => {
@@ -7337,7 +7337,7 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
       stdout: psTable([
         [
           1501,
-          `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless --openwa-session=${SESSION_ID}`,
+          `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless --zaplink-session=${SESSION_ID}`,
         ],
         [1502, '/usr/bin/node dist/main.js'],
       ]),
@@ -7364,8 +7364,8 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
   it('does NOT kill a non-browser process that merely carries the marker string', async () => {
     mockPsResult({
       stdout: psTable([
-        [1601, `/bin/grep --openwa-session=${SESSION_ID}`],
-        [1602, `/usr/bin/node scan-sessions.js --openwa-session=${SESSION_ID}`],
+        [1601, `/bin/grep --zaplink-session=${SESSION_ID}`],
+        [1602, `/usr/bin/node scan-sessions.js --zaplink-session=${SESSION_ID}`],
       ]),
     });
 
@@ -7376,7 +7376,7 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
 
   it('does NOT kill a Chromium process belonging to a different session', async () => {
     mockPsResult({
-      stdout: psTable([[1701, '/usr/lib/chromium/chromium --headless --no-sandbox --openwa-session=session-lain']]),
+      stdout: psTable([[1701, '/usr/lib/chromium/chromium --headless --no-sandbox --zaplink-session=session-lain']]),
     });
 
     await newAdapter().initialize({});
@@ -7385,12 +7385,12 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
   });
 
   it('does NOT kill a live sibling whose marker merely SHARES A PREFIX with ours (sess vs sess-2)', async () => {
-    // `--openwa-session=sess-orphan` is a substring of `--openwa-session=sess-orphan-2`: a substring
+    // `--zaplink-session=sess-orphan` is a substring of `--zaplink-session=sess-orphan-2`: a substring
     // match would SIGKILL the sibling's live browser; the token-exact match must spare it.
     mockPsResult({
       stdout: psTable([
-        [1801, `/usr/lib/chromium/chromium --headless --no-sandbox --openwa-session=${SESSION_ID}-2`],
-        [1802, `/usr/lib/chromium/chromium --headless --no-sandbox --openwa-session=${SESSION_ID}extra`],
+        [1801, `/usr/lib/chromium/chromium --headless --no-sandbox --zaplink-session=${SESSION_ID}-2`],
+        [1802, `/usr/lib/chromium/chromium --headless --no-sandbox --zaplink-session=${SESSION_ID}extra`],
       ]),
     });
 
@@ -7401,7 +7401,7 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
 
   it('kills the orphan when the marker is the LAST token on the command line', async () => {
     mockPsResult({
-      stdout: psTable([[1803, `/usr/lib/chromium/chromium --headless --no-sandbox --openwa-session=${SESSION_ID}`]]),
+      stdout: psTable([[1803, `/usr/lib/chromium/chromium --headless --no-sandbox --zaplink-session=${SESSION_ID}`]]),
     });
 
     await newAdapter().initialize({});
@@ -7438,7 +7438,7 @@ describe('WhatsAppWebJsAdapter orphaned Chromium sweep (pre-launch)', () => {
       order.push('ps');
       (args[args.length - 1] as ExecFileCallback)(
         null,
-        psTable([[1801, `/usr/bin/chromium --headless --openwa-session=${SESSION_ID}`]]),
+        psTable([[1801, `/usr/bin/chromium --headless --zaplink-session=${SESSION_ID}`]]),
         '',
       );
     });
@@ -10002,9 +10002,9 @@ describe('WhatsAppWebJsAdapter number check through the library page code', () =
       type: 'postgres' as const,
       host: process.env.DATABASE_HOST || '127.0.0.1',
       port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'openwa',
-      password: process.env.DATABASE_PASSWORD || 'openwa',
-      database: process.env.DATABASE_NAME || 'openwa',
+      username: process.env.DATABASE_USERNAME || 'zaplink',
+      password: process.env.DATABASE_PASSWORD || 'zaplink',
+      database: process.env.DATABASE_NAME || 'zaplink',
     };
     const schema = `lid_lookup_${randomUUID().replace(/-/g, '')}`;
     const admin = pg ? await new DataSource(server).initialize() : undefined;

@@ -9,7 +9,7 @@ describe('SQLite synchronize upgrades with legacy terminal failures', () => {
   it.each([false, true])(
     'normalizes duplicates before creating the unique index (payload column=%s)',
     async hasPayload => {
-      const directory = await mkdtemp(join(tmpdir(), 'openwa-failure-upgrade-'));
+      const directory = await mkdtemp(join(tmpdir(), 'zaplink-failure-upgrade-'));
       const options = {
         type: 'better-sqlite3' as const,
         database: join(directory, 'data.sqlite'),

@@ -13,7 +13,7 @@ describe('main.ts validates the environment before any boot side effect', () => 
   let cwd: string;
 
   beforeAll(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'openwa-boot-env-'));
+    cwd = mkdtempSync(join(tmpdir(), 'zaplink-boot-env-'));
   });
   afterAll(() => rmSync(cwd, { recursive: true, force: true }));
 

@@ -26,12 +26,12 @@ describe('Baileys listing seeded from the stored messages', () => {
     const logger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
     const seedStoredPreviews = jest.fn();
     const host = {
-      authPath: '/nonexistent/openwa-stored-previews-spec/session-1',
+      authPath: '/nonexistent/zaplink-stored-previews-spec/session-1',
       logger,
       config: {
         sessionId: 'session-1',
         dbSessionId: 'session-1',
-        authDir: '/nonexistent/openwa-stored-previews-spec',
+        authDir: '/nonexistent/zaplink-stored-previews-spec',
         storedChatPreviews: source,
       },
       liveCalls: new Map(),

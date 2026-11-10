@@ -79,7 +79,7 @@ describe('EngineFactory', () => {
     } as unknown as PluginLoaderService;
     // create() makes both auth dirs, so the bases live under a temp root rather than the default
     // ./data/baileys of the checkout and a /var/data the suite may be able to write as root.
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-factory-neutral-'));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-factory-neutral-'));
     try {
       const factory = new EngineFactory(
         buildConfigService({
@@ -120,7 +120,7 @@ describe('EngineFactory', () => {
         config: { sessionDataPath: '/data/other', baileys: { authDir: '/data/other' } },
       }),
     } as unknown as PluginLoaderService;
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-factory-bases-'));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-factory-bases-'));
     try {
       const factory = new EngineFactory(
         buildConfigService({

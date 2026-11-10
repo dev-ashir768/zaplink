@@ -126,13 +126,13 @@ afterEach(async () => {
   rtl.cleanup();
   queryClient?.clear();
   queryClient = undefined;
-  sessionStorage.removeItem('openwa_user_role');
+  sessionStorage.removeItem('zaplink_user_role');
   sessionStarted = false;
   logoutCalls = 0;
 });
 
 function renderPage(element: ReturnType<typeof createElement>) {
-  sessionStorage.setItem('openwa_user_role', 'admin');
+  sessionStorage.setItem('zaplink_user_role', 'admin');
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
   const { MemoryRouter, Routes, Route } = router;
   const { container } = rtl.render(

@@ -30,7 +30,7 @@ import { getUnhandledRejections } from '../../common/metrics/process-error-metri
 import { createLogger } from '../../common/services/logger.service';
 
 /**
- * Prometheus exposition for OpenWA. Kept dependency-free (no prom-client) — the
+ * Prometheus exposition for ZapLink. Kept dependency-free (no prom-client) — the
  * surface is small and the text format (v0.0.4) is trivial to emit by hand.
  *
  * Scraping is gated by METRICS_TOKEN: when it is unset the endpoint is disabled entirely
@@ -178,17 +178,17 @@ export class MetricsService implements OnModuleDestroy {
       lines.push(`${name}${labels} ${value}`);
     };
 
-    gauge('openwa_up', 'Whether the OpenWA process is up (always 1 when scraped).', 1);
-    gauge('openwa_process_uptime_seconds', 'Process uptime in seconds.', Math.round(process.uptime()));
-    gauge('openwa_process_resident_memory_bytes', 'Resident set size in bytes.', mem.rss);
-    gauge('openwa_process_heap_used_bytes', 'V8 heap used in bytes.', mem.heapUsed);
+    gauge('zaplink_up', 'Whether the ZapLink process is up (always 1 when scraped).', 1);
+    gauge('zaplink_process_uptime_seconds', 'Process uptime in seconds.', Math.round(process.uptime()));
+    gauge('zaplink_process_resident_memory_bytes', 'Resident set size in bytes.', mem.rss);
+    gauge('zaplink_process_heap_used_bytes', 'V8 heap used in bytes.', mem.heapUsed);
     gauge(
-      'openwa_event_loop_delay_p99_seconds',
+      'zaplink_event_loop_delay_p99_seconds',
       'p99 event-loop delay since the previous uncached scrape, in seconds.',
       Math.max(0, this.loopDelay.percentile(99) - LOOP_DELAY_FLOOR_NS) / 1e9,
     );
     gauge(
-      'openwa_event_loop_delay_max_seconds',
+      'zaplink_event_loop_delay_max_seconds',
       'Maximum event-loop delay since the previous uncached scrape, in seconds.',
       Math.max(0, this.loopDelay.max - LOOP_DELAY_FLOOR_NS) / 1e9,
     );
@@ -196,84 +196,84 @@ export class MetricsService implements OnModuleDestroy {
 
     const rejections = getUnhandledRejections();
     lines.push(
-      '# HELP openwa_unhandled_rejections_total Promise rejections that reached the process-level handler since process start.',
+      '# HELP zaplink_unhandled_rejections_total Promise rejections that reached the process-level handler since process start.',
     );
-    lines.push('# TYPE openwa_unhandled_rejections_total counter');
-    lines.push(`openwa_unhandled_rejections_total{kind="other"} ${rejections.other}`);
-    lines.push(`openwa_unhandled_rejections_total{kind="page_context_lost"} ${rejections.page_context_lost}`);
+    lines.push('# TYPE zaplink_unhandled_rejections_total counter');
+    lines.push(`zaplink_unhandled_rejections_total{kind="other"} ${rejections.other}`);
+    lines.push(`zaplink_unhandled_rejections_total{kind="page_context_lost"} ${rejections.page_context_lost}`);
 
     // Read from the shared Redis, so every node reports the same cluster-wide value. A queue that is
     // disabled or could not be read is omitted, not reported as empty.
     if (queueCounts.length > 0) {
-      lines.push('# HELP openwa_queue_jobs Jobs in each BullMQ queue by state (cluster-wide).');
-      lines.push('# TYPE openwa_queue_jobs gauge');
+      lines.push('# HELP zaplink_queue_jobs Jobs in each BullMQ queue by state (cluster-wide).');
+      lines.push('# TYPE zaplink_queue_jobs gauge');
       for (const [name, counts] of queueCounts) {
         for (const state of QUEUE_JOB_STATES) {
-          lines.push(`openwa_queue_jobs{queue="${name}",state="${state}"} ${counts[state] ?? 0}`);
+          lines.push(`zaplink_queue_jobs{queue="${name}",state="${state}"} ${counts[state] ?? 0}`);
         }
       }
     }
 
     gauge(
-      'openwa_stats_available',
+      'zaplink_stats_available',
       'Whether the database-derived series below could be read (1) or not (0); they can trail the database by STATS_CACHE_TTL_MS + 5 s, or up to 5 min while a read runs late.',
       overview ? 1 : 0,
     );
 
     if (overview) {
-      gauge('openwa_sessions_total', 'Total number of configured sessions.', overview.sessions.total);
-      gauge('openwa_sessions_active', 'Number of READY (active) sessions.', overview.sessions.active);
+      gauge('zaplink_sessions_total', 'Total number of configured sessions.', overview.sessions.total);
+      gauge('zaplink_sessions_active', 'Number of READY (active) sessions.', overview.sessions.active);
 
       // Per-status session counts share one metric name with a `status` label.
-      lines.push('# HELP openwa_sessions Number of sessions by status.');
-      lines.push('# TYPE openwa_sessions gauge');
+      lines.push('# HELP zaplink_sessions Number of sessions by status.');
+      lines.push('# TYPE zaplink_sessions gauge');
       for (const [status, count] of Object.entries(overview.sessions.byStatus)) {
-        lines.push(`openwa_sessions{status="${this.escapeLabel(status)}"} ${count}`);
+        lines.push(`zaplink_sessions{status="${this.escapeLabel(status)}"} ${count}`);
       }
 
-      lines.push('# HELP openwa_messages_total Current stored messages by direction.');
-      lines.push('# TYPE openwa_messages_total gauge');
-      lines.push(`openwa_messages_total{direction="outgoing"} ${overview.messages.sent}`);
-      lines.push(`openwa_messages_total{direction="incoming"} ${overview.messages.received}`);
+      lines.push('# HELP zaplink_messages_total Current stored messages by direction.');
+      lines.push('# TYPE zaplink_messages_total gauge');
+      lines.push(`zaplink_messages_total{direction="outgoing"} ${overview.messages.sent}`);
+      lines.push(`zaplink_messages_total{direction="incoming"} ${overview.messages.received}`);
 
-      lines.push('# HELP openwa_messages_failed_total Current stored messages in FAILED state.');
-      lines.push('# TYPE openwa_messages_failed_total gauge');
-      lines.push(`openwa_messages_failed_total ${overview.messages.failed}`);
+      lines.push('# HELP zaplink_messages_failed_total Current stored messages in FAILED state.');
+      lines.push('# TYPE zaplink_messages_failed_total gauge');
+      lines.push(`zaplink_messages_failed_total ${overview.messages.failed}`);
     }
 
     lines.push(
-      '# HELP openwa_webhook_delivery_failures_total Webhook delivery failures recorded since process start: retries exhausted, never sent (shed, refused at shutdown, rejected before sending, or an opt-in event dropped past the bound of its webhook), or stopped by shutdown between direct retries.',
+      '# HELP zaplink_webhook_delivery_failures_total Webhook delivery failures recorded since process start: retries exhausted, never sent (shed, refused at shutdown, rejected before sending, or an opt-in event dropped past the bound of its webhook), or stopped by shutdown between direct retries.',
     );
-    lines.push('# TYPE openwa_webhook_delivery_failures_total counter');
-    lines.push(`openwa_webhook_delivery_failures_total ${getWebhookDeliveryFailuresTotal()}`);
+    lines.push('# TYPE zaplink_webhook_delivery_failures_total counter');
+    lines.push(`zaplink_webhook_delivery_failures_total ${getWebhookDeliveryFailuresTotal()}`);
     lines.push(
-      '# HELP openwa_ingress_dedup_body_mismatches_total Ingress requests with different body bytes under an existing delivery id since process start.',
+      '# HELP zaplink_ingress_dedup_body_mismatches_total Ingress requests with different body bytes under an existing delivery id since process start.',
     );
-    lines.push('# TYPE openwa_ingress_dedup_body_mismatches_total counter');
-    lines.push(`openwa_ingress_dedup_body_mismatches_total ${getIngressDedupBodyMismatchesTotal()}`);
+    lines.push('# TYPE zaplink_ingress_dedup_body_mismatches_total counter');
+    lines.push(`zaplink_ingress_dedup_body_mismatches_total ${getIngressDedupBodyMismatchesTotal()}`);
 
     lines.push(
-      '# HELP openwa_session_reconnect_attempts_total Reconnect attempts scheduled across all sessions since process start.',
+      '# HELP zaplink_session_reconnect_attempts_total Reconnect attempts scheduled across all sessions since process start.',
     );
-    lines.push('# TYPE openwa_session_reconnect_attempts_total counter');
-    lines.push(`openwa_session_reconnect_attempts_total ${getSessionReconnectAttemptsTotal()}`);
+    lines.push('# TYPE zaplink_session_reconnect_attempts_total counter');
+    lines.push(`zaplink_session_reconnect_attempts_total ${getSessionReconnectAttemptsTotal()}`);
 
-    lines.push('# HELP openwa_session_reconnect_loop_alerts_total Reconnect-loop alerts emitted since process start.');
-    lines.push('# TYPE openwa_session_reconnect_loop_alerts_total counter');
-    lines.push(`openwa_session_reconnect_loop_alerts_total ${getSessionReconnectLoopAlertsTotal()}`);
+    lines.push('# HELP zaplink_session_reconnect_loop_alerts_total Reconnect-loop alerts emitted since process start.');
+    lines.push('# TYPE zaplink_session_reconnect_loop_alerts_total counter');
+    lines.push(`zaplink_session_reconnect_loop_alerts_total ${getSessionReconnectLoopAlertsTotal()}`);
 
-    lines.push('# HELP openwa_sessions_restricted Sessions whose account WhatsApp is currently restricting.');
-    lines.push('# TYPE openwa_sessions_restricted gauge');
-    lines.push(`openwa_sessions_restricted ${getRestrictedSessionCount()}`);
+    lines.push('# HELP zaplink_sessions_restricted Sessions whose account WhatsApp is currently restricting.');
+    lines.push('# TYPE zaplink_sessions_restricted gauge');
+    lines.push(`zaplink_sessions_restricted ${getRestrictedSessionCount()}`);
 
     // Emitted only once a refusal has actually happened, like the HTTP series: a family that appears
     // at its first occurrence is easier to alert on than one pinned at zero for every reason.
     const refusals = getSendPacingRefusals();
     if (refusals.size > 0) {
-      lines.push('# HELP openwa_send_pacing_refusals_total Sends refused by the pacing governor since process start.');
-      lines.push('# TYPE openwa_send_pacing_refusals_total counter');
+      lines.push('# HELP zaplink_send_pacing_refusals_total Sends refused by the pacing governor since process start.');
+      lines.push('# TYPE zaplink_send_pacing_refusals_total counter');
       for (const [reason, count] of refusals) {
-        lines.push(`openwa_send_pacing_refusals_total{reason="${this.escapeLabel(reason)}"} ${count}`);
+        lines.push(`zaplink_send_pacing_refusals_total{reason="${this.escapeLabel(reason)}"} ${count}`);
       }
     }
 

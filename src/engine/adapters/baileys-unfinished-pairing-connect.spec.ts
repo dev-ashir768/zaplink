@@ -24,12 +24,12 @@ describe('Baileys connect after a pairing code', () => {
     const noCallback = (): undefined => undefined;
     const logger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
     const host = {
-      authPath: '/nonexistent/openwa-unfinished-pairing-spec/session-1',
+      authPath: '/nonexistent/zaplink-unfinished-pairing-spec/session-1',
       logger,
       config: {
         sessionId: 'session-1',
         dbSessionId: 'session-1',
-        authDir: '/nonexistent/openwa-unfinished-pairing-spec',
+        authDir: '/nonexistent/zaplink-unfinished-pairing-spec',
       },
       liveCalls: new Map(),
       getOnStateChanged: noCallback,

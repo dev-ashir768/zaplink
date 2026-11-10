@@ -37,7 +37,7 @@ function createTestQueryClient() {
 }
 
 function renderComponent(role = 'operator', queryClient = createTestQueryClient()) {
-  sessionStorage.setItem('openwa_user_role', role);
+  sessionStorage.setItem('zaplink_user_role', role);
   return rtl.render(
     createElement(
       QueryClientProvider,
@@ -57,7 +57,7 @@ function renderComponent(role = 'operator', queryClient = createTestQueryClient(
 
 // The page and a second route under the providers App mounts above its routes, with links to move between them.
 function renderRoutes() {
-  sessionStorage.setItem('openwa_user_role', 'operator');
+  sessionStorage.setItem('zaplink_user_role', 'operator');
   return rtl.render(
     createElement(
       QueryClientProvider,
@@ -1456,11 +1456,11 @@ async function retireSingleLookup(reason: SingleRetirement) {
     rtl.fireEvent.click(rtl.screen.getByText('Leave'));
     await rtl.screen.findByText('Elsewhere');
   } else if (reason === 'key-change') {
-    sessionStorage.setItem('openwa_api_key', SINGLE_KEY_B);
+    sessionStorage.setItem('zaplink_api_key', SINGLE_KEY_B);
   } else {
-    sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('zaplink_api_key');
     rtl.cleanup();
-    sessionStorage.setItem('openwa_api_key', SINGLE_KEY_B);
+    sessionStorage.setItem('zaplink_api_key', SINGLE_KEY_B);
     renderRoutes();
     await rtl.screen.findByRole('option', { name: /Primary Session/ });
   }
@@ -1485,7 +1485,7 @@ for (const reason of ['route', 'key-change', 'logout-login'] as const) {
         }
         return defaultFetch(input, init);
       }) as typeof fetch;
-      sessionStorage.setItem('openwa_api_key', SINGLE_KEY_A);
+      sessionStorage.setItem('zaplink_api_key', SINGLE_KEY_A);
       renderRoutes();
       await startSingleLookup();
       assert.deepEqual(checks, [
@@ -1534,7 +1534,7 @@ for (const reason of ['route', 'key-change', 'logout-login'] as const) {
         }
         return defaultFetch(input, init);
       }) as typeof fetch;
-      sessionStorage.setItem('openwa_api_key', SINGLE_KEY_A);
+      sessionStorage.setItem('zaplink_api_key', SINGLE_KEY_A);
       renderRoutes();
       await startSingleLookup();
       await rtl.waitFor(() =>
@@ -1591,7 +1591,7 @@ for (const answer of ['avatar', 'no-avatar', 'profile-failure', 'missing'] as co
       }
       return defaultFetch(input, init);
     }) as typeof fetch;
-    sessionStorage.setItem('openwa_api_key', SINGLE_KEY_A);
+    sessionStorage.setItem('zaplink_api_key', SINGLE_KEY_A);
     renderComponent();
     await startSingleLookup();
     await rtl.screen.findByText(answer === 'missing' ? 'Not Registered' : 'Registered on WhatsApp', {

@@ -42,7 +42,7 @@ export function useDataBackup(): DataBackup {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `openwa-backup-${dump.exportedAt?.slice(0, 10) || 'data'}.json`;
+      a.download = `zaplink-backup-${dump.exportedAt?.slice(0, 10) || 'data'}.json`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -135,7 +135,7 @@ export function useDataBackup(): DataBackup {
   // Restore a previously-exported backup into the CURRENT database (use after switching + restart).
   // Import REPLACES all current data, so validate + confirm (showing the row count) before any call.
   const importBackup = async (file: File) => {
-    if (!sessionStorage.getItem('openwa_api_key') || importOwnerRef.current === null) return;
+    if (!sessionStorage.getItem('zaplink_api_key') || importOwnerRef.current === null) return;
     // A newer selection or an unmount retires what has not been sent yet, including a delayed refusal retry.
     const owner = {};
     importOwnerRef.current = owner;

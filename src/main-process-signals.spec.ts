@@ -169,7 +169,7 @@ describePosix('process signals on the running gateway', () => {
   const children: ChildProcess[] = [];
 
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), 'openwa-signals-'));
+    root = mkdtempSync(join(tmpdir(), 'zaplink-signals-'));
   });
 
   afterAll(() => {

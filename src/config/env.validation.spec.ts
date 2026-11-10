@@ -24,21 +24,21 @@ describe('validateEnv', () => {
     // unset / 'public' (default) and ordinary identifiers are fine
     expect(() => validateEnv({ ...pg })).not.toThrow();
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'public' })).not.toThrow();
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'openwa' })).not.toThrow();
+    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'zaplink' })).not.toThrow();
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'my_app_2' })).not.toThrow();
     // invalid identifier characters (would reach CREATE TABLE "<schema>"."..." or a search_path SET)
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'openwa; DROP' })).toThrow(/POSTGRES_SCHEMA/);
+    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'zaplink; DROP' })).toThrow(/POSTGRES_SCHEMA/);
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: '1bad' })).toThrow(/POSTGRES_SCHEMA/);
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'has space' })).toThrow(/POSTGRES_SCHEMA/);
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'a.b' })).toThrow(/POSTGRES_SCHEMA/);
     // upper case rejected: the unquoted search_path folds it, TypeORM's quoted schema does not
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'OpenWA' })).toThrow(/lower-case/);
+    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'ZapLink' })).toThrow(/lower-case/);
     // reserved pg_ prefix rejected
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'pg_catalog' })).toThrow(/POSTGRES_SCHEMA/);
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'Pg_temp' })).toThrow(/POSTGRES_SCHEMA/);
     // surrounding whitespace rejected, not trimmed: the app and the migration CLI use the raw value
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: ' openwa' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'openwa ' })).toThrow(/POSTGRES_SCHEMA/);
+    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: ' zaplink' })).toThrow(/POSTGRES_SCHEMA/);
+    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'zaplink ' })).toThrow(/POSTGRES_SCHEMA/);
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: '  ' })).toThrow(/POSTGRES_SCHEMA/);
     expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: '' })).not.toThrow();
     // ignored for sqlite: a bogus value must NOT trip when not on postgres
@@ -476,7 +476,7 @@ describe('validateEnv', () => {
       /DATABASE_NAME/,
     );
     // The default data path is fine.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/openwa.sqlite' })).not.toThrow();
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/zaplink.sqlite' })).not.toThrow();
     // Postgres uses a bare DB name, never a file path — must not false-positive.
     expect(() =>
       validateEnv({
@@ -496,8 +496,8 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({
         DATABASE_TYPE: 'sqlite',
-        MAIN_DATABASE_NAME: '/srv/openwa/main.sqlite',
-        DATABASE_NAME: '/srv/openwa/main.sqlite',
+        MAIN_DATABASE_NAME: '/srv/zaplink/main.sqlite',
+        DATABASE_NAME: '/srv/zaplink/main.sqlite',
       }),
     ).toThrow(/DATABASE_NAME/);
     // Same collision via a non-normalized spelling (relative/absolute forms of one file).
@@ -513,7 +513,7 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({
         DATABASE_TYPE: 'sqlite',
-        MAIN_DATABASE_NAME: '/srv/openwa/main.sqlite',
+        MAIN_DATABASE_NAME: '/srv/zaplink/main.sqlite',
         DATABASE_NAME: './data/main.sqlite',
       }),
     ).not.toThrow();
@@ -522,15 +522,15 @@ describe('validateEnv', () => {
       validateEnv({
         DATABASE_TYPE: 'sqlite',
         MAIN_DATABASE_NAME: './data/auth.sqlite',
-        DATABASE_NAME: './data/openwa.sqlite',
+        DATABASE_NAME: './data/zaplink.sqlite',
       }),
     ).not.toThrow();
   });
 
   it("catches MAIN_DATABASE_NAME pointing at the data connection's default file", () => {
-    // DATABASE_NAME unset resolves to ./data/openwa.sqlite at runtime, so the guard must compare that.
-    expect(() => validateEnv({ MAIN_DATABASE_NAME: './data/openwa.sqlite' })).toThrow(/\.\/data\/openwa\.sqlite/);
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', MAIN_DATABASE_NAME: './data/../data/openwa.sqlite' })).toThrow(
+    // DATABASE_NAME unset resolves to ./data/zaplink.sqlite at runtime, so the guard must compare that.
+    expect(() => validateEnv({ MAIN_DATABASE_NAME: './data/zaplink.sqlite' })).toThrow(/\.\/data\/zaplink\.sqlite/);
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', MAIN_DATABASE_NAME: './data/../data/zaplink.sqlite' })).toThrow(
       /main database file/,
     );
   });
@@ -542,10 +542,10 @@ describe('validateEnv', () => {
       DATABASE_TYPE: 'postgres',
       POSTGRES_BUILTIN: 'true',
       DATABASE_HOST: 'postgres',
-      DATABASE_USERNAME: 'openwa',
-      DATABASE_PASSWORD: 'openwa',
+      DATABASE_USERNAME: 'zaplink',
+      DATABASE_PASSWORD: 'zaplink',
     };
-    it.each(['postgres', 'Postgres', 'postgres.', 'openwa-postgres'])('refuses it beside the host %j', host => {
+    it.each(['postgres', 'Postgres', 'postgres.', 'zaplink-postgres'])('refuses it beside the host %j', host => {
       expect(() => validateEnv({ ...builtIn, DATABASE_HOST: host, DATABASE_SSL: 'true' })).toThrow(
         /DATABASE_SSL=true .*built-in PostgreSQL container/,
       );
@@ -596,17 +596,17 @@ describe('validateEnv', () => {
   });
 
   it('rejects a bare SQLite DATABASE_NAME (PG-name leak) that has no path separator or file extension', () => {
-    // Regression for #677: .env.example shipped `DATABASE_NAME=openwa` (a PostgreSQL db name).
-    // In a SQLite run that bare name becomes the file PATH → SQLite opens a file named 'openwa'
+    // Regression for #677: .env.example shipped `DATABASE_NAME=zaplink` (a PostgreSQL db name).
+    // In a SQLite run that bare name becomes the file PATH → SQLite opens a file named 'zaplink'
     // under the read-only app rootfs → SQLITE_CANTOPEN boot-loop. The guard catches the leak at boot.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'openwa' })).toThrow(/file path/);
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'zaplink' })).toThrow(/file path/);
     expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'prod_db' })).toThrow(/file path/);
     // A bare name WITH a .sqlite/.db suffix is a legitimate file in the cwd — let it pass.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'openwa.sqlite' })).not.toThrow();
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'zaplink.sqlite' })).not.toThrow();
     expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'cache.db' })).not.toThrow();
     // A path (with a separator) is always honored, explicit host paths included.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: '/app/data/openwa.sqlite' })).not.toThrow();
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/openwa.sqlite' })).not.toThrow();
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: '/app/data/zaplink.sqlite' })).not.toThrow();
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/zaplink.sqlite' })).not.toThrow();
     // Unset falls through to the default path (configuration.ts) — the boot-loop fix.
     expect(() => validateEnv({ DATABASE_TYPE: 'sqlite' })).not.toThrow();
   });
@@ -723,7 +723,7 @@ describe('validateEnv', () => {
 
   // The prefix is joined to the queue name with a colon in every Redis key.
   it('accepts a plain QUEUE_PREFIX, or none, and rejects one that would build ambiguous keys', () => {
-    for (const ok of ['bull', 'openwa-staging', 'prod_2.eu', 'a', '0', '', '  ']) {
+    for (const ok of ['bull', 'zaplink-staging', 'prod_2.eu', 'a', '0', '', '  ']) {
       expect(() => validateEnv({ QUEUE_PREFIX: ok })).not.toThrow();
     }
     for (const bad of ['a:b', 'has space', '-lead', '.lead', 'a/b', 'x'.repeat(65)]) {
@@ -917,7 +917,7 @@ describe('validateEnv built-in Redis connection settings', () => {
   const builtin = { REDIS_ENABLED: 'true', REDIS_BUILTIN: 'true', REDIS_HOST: 'redis' };
 
   describe('REDIS_TLS', () => {
-    it.each(['redis', 'REDIS.', 'openwa-redis'])('rejects TLS against the bundled host %s', host => {
+    it.each(['redis', 'REDIS.', 'zaplink-redis'])('rejects TLS against the bundled host %s', host => {
       expect(() => validateEnv({ ...builtin, REDIS_HOST: host, REDIS_TLS: 'true' })).toThrow(/REDIS_TLS/);
     });
 

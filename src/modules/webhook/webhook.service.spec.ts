@@ -654,7 +654,7 @@ describe('WebhookService', () => {
       timeoutSpy.mockRestore();
     });
 
-    // Receivers dedup on X-OpenWA-Idempotency-Key. A key that repeats per webhook makes every test
+    // Receivers dedup on X-ZapLink-Idempotency-Key. A key that repeats per webhook makes every test
     // after the first a silent duplicate that reports success while the handler never runs.
     it('test() sends a fresh idempotency key on every call, suffixed with the webhook id', async () => {
       const webhook = createMockWebhook({ events: ['message.received'] });
@@ -664,7 +664,7 @@ describe('WebhookService', () => {
       await service.test('sess-1', webhook.id);
 
       const keys = (mockFetch.mock.calls as Array<[string, { headers: Record<string, string> }]>).map(
-        ([, init]) => init.headers['X-OpenWA-Idempotency-Key'],
+        ([, init]) => init.headers['X-ZapLink-Idempotency-Key'],
       );
       expect(keys).toHaveLength(2);
       expect(keys[0]).not.toBe(keys[1]);
@@ -676,7 +676,7 @@ describe('WebhookService', () => {
     it('test() sends the headers of a real delivery, signed over the exact body', async () => {
       const webhook = createMockWebhook({
         secret: 'probe-secret',
-        headers: { 'X-Custom': 'a', 'X-OpenWA-Event': 'forged', 'Content-Type': 'text/plain', Connection: 'close' },
+        headers: { 'X-Custom': 'a', 'X-ZapLink-Event': 'forged', 'Content-Type': 'text/plain', Connection: 'close' },
       });
       (repository.findOne as jest.Mock).mockResolvedValue(webhook);
       mockFetch.mockResolvedValue({ ok: true, status: 200 });
@@ -690,10 +690,10 @@ describe('WebhookService', () => {
       );
       expect(init.headers).toMatchObject({
         'X-Custom': 'a',
-        'X-OpenWA-Event': 'test',
+        'X-ZapLink-Event': 'test',
         'Content-Type': 'application/json',
-        'X-OpenWA-Retry-Count': '0',
-        'X-OpenWA-Signature': `sha256=${createHmac('sha256', 'probe-secret').update(init.body).digest('hex')}`,
+        'X-ZapLink-Retry-Count': '0',
+        'X-ZapLink-Signature': `sha256=${createHmac('sha256', 'probe-secret').update(init.body).digest('hex')}`,
       });
       expect(init.headers).not.toHaveProperty('Connection');
     });

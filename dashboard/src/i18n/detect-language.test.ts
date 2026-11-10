@@ -24,5 +24,5 @@ before(async () => {
 
 test('an unsupported first preference yields to the next supported one, not to English', () => {
   assert.equal(i18n.language, 'id');
-  assert.equal(localStorage.getItem('openwa_language'), 'id');
+  assert.equal(localStorage.getItem('zaplink_language'), 'id');
 });

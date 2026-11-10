@@ -73,10 +73,10 @@ rather than read the whole table (how much of the index it reads is below). The 
 (`SEARCH_CONTAINS_ENABLED=true`, see [26.9](#269-enabling-matchcontains)); while it is off or still
 building, `match=contains` answers `501`:
 
-| `match`          | Matches                                                                                                      | Index                                                                                                                                    | Ranking                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `word` (default) | whole words, as described above                                                                              | `body_ts` (Postgres) / `messages_fts` (SQLite)                                                                                           | `ts_rank` / FTS5 `rank`, over every match                  |
-| `contains`       | any part of a word of 3+ characters, ignoring case and accents (`voic` finds "Invoice", `cafe` finds "Café") | a `pg_trgm` GIN index on `openwa_unaccent(body)` (Postgres) / an FTS5 `trigram` table with `remove_diacritics`, `messages_trgm` (SQLite) | match quality, over the 1,000 most recently stored matches |
+| `match`          | Matches                                                                                                      | Index                                                                                                                                     | Ranking                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `word` (default) | whole words, as described above                                                                              | `body_ts` (Postgres) / `messages_fts` (SQLite)                                                                                            | `ts_rank` / FTS5 `rank`, over every match                  |
+| `contains`       | any part of a word of 3+ characters, ignoring case and accents (`voic` finds "Invoice", `cafe` finds "Café") | a `pg_trgm` GIN index on `zaplink_unaccent(body)` (Postgres) / an FTS5 `trigram` table with `remove_diacritics`, `messages_trgm` (SQLite) | match quality, over the 1,000 most recently stored matches |
 
 `contains` finds parts of words as well as whole ones, but it does not run every query `word` runs.
 Every whitespace-separated term must appear, as with `word`; a repeated term (also one that differs
@@ -112,7 +112,7 @@ time blocks the event loop every session shares) and 1.6 s on Postgres. So `cont
    the index yields that another term then rules out (a short term, or one `pg_trgm` cannot look up)
    costs a check and counts for nothing. So a query whose looked-up term is in most messages while a
    narrowing term is in none reads every message holding the looked-up term, on Postgres each
-   rechecked through `openwa_unaccent` (which wraps the STABLE `unaccent` and so cannot be inlined).
+   rechecked through `zaplink_unaccent` (which wraps the STABLE `unaccent` and so cannot be inlined).
 2. The application ranks the candidates and pages them: each term scores **3** as a whole word, **2**
    at the start of a word and **1** inside a word (compared without case or accents), the hit's `score`
    is the sum over the terms, and ties go to the newest message, then to `messageId`. The same code
@@ -136,7 +136,7 @@ and `ё` become `L`, `ss`, `O`, `i`, `oe` and `е`. So on Postgres `lodz` finds 
 "Straße" and `orsted` finds "Ørsted", while SQLite's `remove_diacritics` keeps those letters and finds
 none of them. The application compares and highlights the way SQLite folds, so those extra Postgres hits
 come back with `score` 0 and a snippet without `<mark>`. A term under three characters narrows with `LIKE`
-on SQLite, which folds ASCII case only and keeps accents, and with `ILIKE` on `openwa_unaccent(body)` on
+on SQLite, which folds ASCII case only and keeps accents, and with `ILIKE` on `zaplink_unaccent(body)` on
 Postgres, which folds both.
 
 **Requirements.** `SEARCH_CONTAINS_ENABLED=true`. On SQLite, `contains` needs FTS5 and SQLite 3.45+
@@ -167,7 +167,7 @@ it into Postgres); `match=contains` folds a few letters differently on each, see
   Docker image and the official Node builds include FTS5, so this only affects a custom-compiled
   SQLite.)
 - **Export/import round-trip.** Because the index is a derived, DB-maintained structure (not a
-  separate data store), an OpenWA export/import — which clears the `messages` table and re-inserts —
+  separate data store), an ZapLink export/import — which clears the `messages` table and re-inserts —
   leaves FTS correct on both dialects: Postgres regenerates the `body_ts` column from the re-inserted
   rows, and SQLite's triggers repopulate `messages_fts` on the re-inserts. No separate search reindex
   step is needed after a restore or a dialect migration. This is covered by the dual-DB test suite.
@@ -330,8 +330,8 @@ answering its health probe (a boot that outlasts the Helm startup probe is resta
   backfilled again. A build that finds another transaction holding the connection for more than 10
   seconds (a data import, for one) tries again every 30 seconds instead of failing.
 - **PostgreSQL** creates the `pg_trgm` and `unaccent` extensions when they are missing and the role may,
-  the IMMUTABLE `openwa_unaccent(text)` wrapper, and the `idx_messages_body_trgm` GIN index on
-  `openwa_unaccent(body)` with `CREATE INDEX CONCURRENTLY`, so writes go on during the build (it cannot
+  the IMMUTABLE `zaplink_unaccent(text)` wrapper, and the `idx_messages_body_trgm` GIN index on
+  `zaplink_unaccent(body)` with `CREATE INDEX CONCURRENTLY`, so writes go on during the build (it cannot
   run inside a migration's transaction). On 300,000 messages the index took 76 MB, next to 30 MB for the
   word index. The build runs on its own connection without the runtime `statement_timeout`. Replicas
   that start together take a session advisory lock keyed to their `messages` table, so deployments in
@@ -341,7 +341,7 @@ answering its health probe (a boot that outlasts the Helm startup probe is resta
   and rebuilds. The candidate query walks the existing `IDX_messages_createdAt` index, so contains search
   adds no other index.
 
-  The index holds `openwa_unaccent(body)`, which PostgreSQL only indexes because the wrapper is declared
+  The index holds `zaplink_unaccent(body)`, which PostgreSQL only indexes because the wrapper is declared
   IMMUTABLE, while `unaccent` follows its rules file, which a major upgrade may change. After an upgrade
   whose rules changed (`pg_upgrade` keeps the index as it was built), rebuild the index so it folds
   messages the way the queries now fold terms; until then a message stored before the upgrade may be
@@ -354,7 +354,7 @@ answering its health probe (a boot that outlasts the Helm startup probe is resta
   The build lock is a session-level advisory lock, as the boot migration lock is
   ([05 - Database Design](./05-database-design.md#56-migration-strategy)): a PgBouncer in transaction
   pooling mode runs each transaction on whichever server connection is free, so neither lock stays with
-  the session that took it. Point OpenWA at PostgreSQL directly or at a pooler in session mode.
+  the session that took it. Point ZapLink at PostgreSQL directly or at a pooler in session mode.
 
 **Turning it off** later stops `match=contains` (`501` again) but keeps the index, and with it the cost
 on every write, so turning it back on needs no rebuild. To reclaim the space, drop it by hand:
@@ -368,7 +368,7 @@ DROP TABLE IF EXISTS messages_trgm;
 
 -- PostgreSQL (the extensions stay: other objects may use them)
 DROP INDEX CONCURRENTLY IF EXISTS idx_messages_body_trgm;
-DROP FUNCTION IF EXISTS openwa_unaccent(text);
+DROP FUNCTION IF EXISTS zaplink_unaccent(text);
 ```
 
 ---

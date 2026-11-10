@@ -24,13 +24,13 @@ describe('docker-compose network segmentation', () => {
     expect(compose.services['docker-proxy'].networks).toEqual(['internal-docker']);
   });
 
-  it('lets openwa-api reach the proxy via the internal network', () => {
-    expect(compose.services['openwa-api'].networks).toContain('internal-docker');
+  it('lets zaplink-api reach the proxy via the internal network', () => {
+    expect(compose.services['zaplink-api'].networks).toContain('internal-docker');
   });
 
   // Nothing in the image reads a compose file, and a short-syntax bind whose source is missing (the
   // stack started with `-f other.yml`) makes Docker create an empty host directory in its place.
-  it('mounts only the data volume into openwa-api', () => {
-    expect(compose.services['openwa-api'].volumes).toEqual(['openwa-data:/app/data']);
+  it('mounts only the data volume into zaplink-api', () => {
+    expect(compose.services['zaplink-api'].volumes).toEqual(['zaplink-data:/app/data']);
   });
 });

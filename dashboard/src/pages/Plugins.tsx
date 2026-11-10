@@ -272,9 +272,9 @@ function PluginConfigUi({ plugin, sessionId }: { plugin: Plugin; sessionId?: str
   const [handshakeError, setHandshakeError] = useState<string | null>(null);
 
   const hardenConfigUiHtml = (source: string): string => {
-    const nonce = document.querySelector<HTMLMetaElement>('meta[name="openwa-csp-nonce"]')?.content ?? '';
+    const nonce = document.querySelector<HTMLMetaElement>('meta[name="zaplink-csp-nonce"]')?.content ?? '';
     const doc = new DOMParser().parseFromString(source, 'text/html');
-    if (nonce && nonce !== '__OPENWA_CSP_NONCE__') {
+    if (nonce && nonce !== '__ZAPLINK_CSP_NONCE__') {
       // Vite development has no production CSP, so there is nothing to stamp. Config UIs are
       // required to be self-contained. Nonce only inline scripts; a plugin-supplied external
       // `src` must still satisfy the parent's host allow-list rather than bypassing it via nonce.
@@ -1189,7 +1189,7 @@ export default function Plugins() {
               <p className="install-hint">
                 {t(
                   'plugins.installModal.catalogHint',
-                  'Install directly from the OpenWA plugin catalog. The .zip is fetched server-side through the SSRF guard, then validated and sandboxed.',
+                  'Install directly from the ZapLink plugin catalog. The .zip is fetched server-side through the SSRF guard, then validated and sandboxed.',
                 )}
               </p>
               {catalogLoading ? (

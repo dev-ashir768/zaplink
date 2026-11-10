@@ -5,11 +5,11 @@
  * @packageDocumentation
  */
 
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type { SearchParams, SearchResults } from '../types.js';
 
 export class SearchResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /**
    * Search persisted messages across sessions via the active search provider

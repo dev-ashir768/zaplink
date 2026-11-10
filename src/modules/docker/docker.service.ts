@@ -6,7 +6,7 @@ import { readGeneratedEnv } from '../infra/generated-env';
 import { BUNDLED_SERVICE_ENV, namesBundledContainer } from './bundled-host';
 
 /**
- * The only Docker profiles OpenWA manages (and may start/stop). Used to bound teardown so a
+ * The only Docker profiles ZapLink manages (and may start/stop). Used to bound teardown so a
  * caller-supplied profile name can never reach stopManagedService for an unrelated container.
  */
 export const MANAGED_DOCKER_PROFILES: readonly string[] = ['postgres', 'redis', 'minio'];
@@ -201,7 +201,7 @@ export class DockerService implements OnModuleInit {
   }
 
   /**
-   * List all OpenWA-related containers, or null when the daemon could not be asked: an empty list
+   * List all ZapLink-related containers, or null when the daemon could not be asked: an empty list
    * means it was asked and none exist, which callers act on.
    */
   async listContainers(): Promise<ContainerInfo[] | null> {
@@ -216,9 +216,9 @@ export class DockerService implements OnModuleInit {
       );
       return containers
         .filter(c => {
-          // Filter by OpenWA labels or name prefix
+          // Filter by ZapLink labels or name prefix
           const labels = c.Labels || {};
-          return labels['com.openwa.service'] || c.Names?.some(n => n.startsWith('/openwa-'));
+          return labels['com.zaplink.service'] || c.Names?.some(n => n.startsWith('/zaplink-'));
         })
         .map(c => ({
           id: c.Id.substring(0, 12),
@@ -235,25 +235,27 @@ export class DockerService implements OnModuleInit {
   }
 
   /**
-   * Which bundled (OpenWA-managed) service containers are currently RUNNING, keyed by the
-   * `com.openwa.service` label (`database` | `cache` | `storage`), and who created each: `'compose'` for one
-   * Docker Compose created (it carries Compose's project label and belongs to the deployment), `'openwa'` for
+   * Which bundled (ZapLink-managed) service containers are currently RUNNING, keyed by the
+   * `com.zaplink.service` label (`database` | `cache` | `storage`), and who created each: `'compose'` for one
+   * Docker Compose created (it carries Compose's project label and belongs to the deployment), `'zaplink'` for
    * one createService made. Lets the dashboard show the real built-in state instead of the saved intent. All
    * false when none run; null when Docker could not be observed.
    */
   async getRunningBuiltinServices(): Promise<Record<
     'database' | 'cache' | 'storage',
-    false | 'compose' | 'openwa'
+    false | 'compose' | 'zaplink'
   > | null> {
     const containers = await this.listContainers();
     if (containers === null) return null;
-    const creator = (svc: string): false | 'compose' | 'openwa' => {
+    const creator = (svc: string): false | 'compose' | 'zaplink' => {
       const running = containers.find(
         c =>
-          c.labels['com.openwa.service'] === svc && c.labels['com.openwa.builtin'] === 'true' && c.state === 'running',
+          c.labels['com.zaplink.service'] === svc &&
+          c.labels['com.zaplink.builtin'] === 'true' &&
+          c.state === 'running',
       );
       if (!running) return false;
-      return running.labels['com.docker.compose.project'] ? 'compose' : 'openwa';
+      return running.labels['com.docker.compose.project'] ? 'compose' : 'zaplink';
     };
     return { database: creator('database'), cache: creator('cache'), storage: creator('storage') };
   }
@@ -290,7 +292,7 @@ export class DockerService implements OnModuleInit {
         this.docker!.listContainers({
           all: true,
           filters: {
-            label: [`com.openwa.service=${service}`],
+            label: [`com.zaplink.service=${service}`],
           },
           abortSignal,
         }),
@@ -302,8 +304,8 @@ export class DockerService implements OnModuleInit {
     }
 
     // Fallback: try by EXACT name (never a substring — a substring, and especially the empty
-    // string, would resolve an arbitrary container). OpenWA-managed containers are `openwa-<service>`.
-    const target = `openwa-${service}`;
+    // string, would resolve an arbitrary container). ZapLink-managed containers are `zaplink-<service>`.
+    const target = `zaplink-${service}`;
     const allContainers = await this.answered(
       abortSignal => this.docker!.listContainers({ all: true, abortSignal }),
       'a container list',
@@ -328,7 +330,7 @@ export class DockerService implements OnModuleInit {
    *    default secret (an empty POSTGRES_PASSWORD fails when the volume is first initialized; a
    *    MINIO_ROOT_PASSWORD left on its sub-minimum placeholder fails at every start). The specs below
    *    are the dashboard built-in path: they provision the built-in credentials, by default
-   *    (openwa/openwa, minioadmin/minioadmin), that infra-config.controller writes to data/.env.generated
+   *    (zaplink/zaplink, minioadmin/minioadmin), that infra-config.controller writes to data/.env.generated
    *    and that the production boot guard (bootstrap-security.ts) exempts only while the
    *    *_BUILTIN flag is set AND the datastore host resolves to the internal-only container.
    *  - Postgres init script: compose bind-mounts scripts/postgres-init-schema.sh from the host
@@ -340,7 +342,7 @@ export class DockerService implements OnModuleInit {
    *    fixed built-in credentials, which the boot guard exempts only because the container is
    *    reachable on the internal network alone. The app reaches it by its `minio` alias.
    *  - Resource limits: neither path sets CPU/memory/PID limits on the datastore containers;
-   *    only openwa-api carries mem_limit/pids_limit (in compose).
+   *    only zaplink-api carries mem_limit/pids_limit (in compose).
    */
   private getContainerSpec(profile: string): {
     image: string;
@@ -363,12 +365,12 @@ export class DockerService implements OnModuleInit {
     const specs: Record<string, ReturnType<typeof this.getContainerSpec>> = {
       redis: {
         image: 'redis:7-alpine',
-        name: 'openwa-redis',
+        name: 'zaplink-redis',
         alias: 'redis', // DNS alias for resolution
         // noeviction mirrors docker-compose.yml: BullMQ requires it, or Redis may evict queue keys
         // once maxmemory is reached and silently drop queued jobs.
         cmd: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction'],
-        volumes: [{ name: 'openwa_redis-data', path: '/data' }],
+        volumes: [{ name: 'zaplink_redis-data', path: '/data' }],
         healthcheck: {
           test: ['CMD', 'redis-cli', 'ping'],
           interval: 5000000000, // 5s in nanoseconds
@@ -376,14 +378,14 @@ export class DockerService implements OnModuleInit {
           retries: 5,
         },
         labels: {
-          'com.openwa.service': 'cache',
-          'com.openwa.builtin': 'true',
+          'com.zaplink.service': 'cache',
+          'com.zaplink.builtin': 'true',
         },
         securityOpt: ['no-new-privileges:true'],
       },
       postgres: {
         image: 'postgres:16-alpine',
-        name: 'openwa-postgres',
+        name: 'zaplink-postgres',
         alias: 'postgres',
         // The built-in credentials — the dashboard saves them to data/.env.generated
         // (infra-config.controller) and the production boot guard exempts the default pair only for the
@@ -392,20 +394,20 @@ export class DockerService implements OnModuleInit {
         // database would otherwise never match the role this container initializes, and the app would
         // exit on its first connection.
         env: [
-          'POSTGRES_USER=openwa',
-          `POSTGRES_PASSWORD=${nextBoot('DATABASE_PASSWORD') || 'openwa'}`,
-          'POSTGRES_DB=openwa',
+          'POSTGRES_USER=zaplink',
+          `POSTGRES_PASSWORD=${nextBoot('DATABASE_PASSWORD') || 'zaplink'}`,
+          'POSTGRES_DB=zaplink',
         ],
-        volumes: [{ name: 'openwa_postgres-data', path: '/var/lib/postgresql/data' }],
+        volumes: [{ name: 'zaplink_postgres-data', path: '/var/lib/postgresql/data' }],
         healthcheck: {
-          test: ['CMD-SHELL', 'pg_isready -U openwa'],
+          test: ['CMD-SHELL', 'pg_isready -U zaplink'],
           interval: 5000000000,
           timeout: 3000000000,
           retries: 5,
         },
         labels: {
-          'com.openwa.service': 'database',
-          'com.openwa.builtin': 'true',
+          'com.zaplink.service': 'database',
+          'com.zaplink.builtin': 'true',
         },
         securityOpt: ['no-new-privileges:true'],
       },
@@ -413,7 +415,7 @@ export class DockerService implements OnModuleInit {
         // Same pin (release tag and digest) as the compose minio service; never a floating tag.
         image:
           'pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46',
-        name: 'openwa-minio',
+        name: 'zaplink-minio',
         alias: 'minio',
         cmd: ['server', '/data', '--console-address', ':9001'],
         env: [
@@ -422,7 +424,7 @@ export class DockerService implements OnModuleInit {
           `MINIO_ROOT_USER=${nextBoot('S3_ACCESS_KEY_ID') || nextBoot('S3_ACCESS_KEY') || 'minioadmin'}`,
           `MINIO_ROOT_PASSWORD=${nextBoot('S3_SECRET_ACCESS_KEY') || nextBoot('S3_SECRET_KEY') || 'minioadmin'}`,
         ],
-        volumes: [{ name: 'openwa_minio-data', path: '/data' }],
+        volumes: [{ name: 'zaplink_minio-data', path: '/data' }],
         healthcheck: {
           test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live'],
           interval: 10000000000,
@@ -430,8 +432,8 @@ export class DockerService implements OnModuleInit {
           retries: 3,
         },
         labels: {
-          'com.openwa.service': 'storage',
-          'com.openwa.builtin': 'true',
+          'com.zaplink.service': 'storage',
+          'com.zaplink.builtin': 'true',
         },
         securityOpt: ['no-new-privileges:true'],
       },
@@ -528,7 +530,7 @@ export class DockerService implements OnModuleInit {
         Env: spec.env,
         Labels: spec.labels,
         HostConfig: {
-          NetworkMode: 'openwa-network',
+          NetworkMode: 'zaplink-network',
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: spec.volumes?.map(v => `${v.name}:${v.path}`),
           SecurityOpt: spec.securityOpt,
@@ -543,7 +545,7 @@ export class DockerService implements OnModuleInit {
           : undefined,
         NetworkingConfig: {
           EndpointsConfig: {
-            'openwa-network': {
+            'zaplink-network': {
               Aliases: [spec.alias, profile], // Add DNS aliases for network resolution
             },
           },
@@ -613,7 +615,7 @@ export class DockerService implements OnModuleInit {
     if (!pinned || !running || running === pinned) return;
     this.logger.warn(
       `Container ${name} runs image ${running}, but this release pins ${pinned}. Remove it with ` +
-        `\`docker rm -f ${name}\` (its named data volume is kept) and restart OpenWA or re-enable the ` +
+        `\`docker rm -f ${name}\` (its named data volume is kept) and restart ZapLink or re-enable the ` +
         `service so it is recreated from the pin.` +
         (profile === 'postgres' ? ' A PostgreSQL major version change needs a data migration first.' : ''),
     );
@@ -636,7 +638,7 @@ export class DockerService implements OnModuleInit {
    * only to a service that reads them at every start. MinIO does: after they change, remove the
    * container (`docker rm <name>`) before re-enabling. PostgreSQL does not: POSTGRES_PASSWORD seeds
    * the role only when the data volume is first initialized, so a recreated container still
-   * authenticates with the password stored in the volume. Change it with `ALTER ROLE openwa
+   * authenticates with the password stored in the volume. Change it with `ALTER ROLE zaplink
    * PASSWORD '...'` in the running container, or re-initialize the volume (which discards the data).
    * Redis runs without credentials. To reclaim disk space, remove the container manually.
    */
@@ -753,7 +755,7 @@ export class DockerService implements OnModuleInit {
 /**
  * Start the built-in PostgreSQL container before Nest builds the module graph. The data connection
  * dials the database while providers are instantiated, before any onModuleInit runs, so a stopped
- * openwa-postgres would otherwise fail every boot before DockerService could start it. Bounded
+ * zaplink-postgres would otherwise fail every boot before DockerService could start it. Bounded
  * because dockerode sets no connect timeout; never throws, so on any failure boot proceeds as it
  * would without it and the data connection's retries decide.
  */

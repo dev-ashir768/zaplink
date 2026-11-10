@@ -32,7 +32,7 @@ describeWithRedis('RedisThrottlerStorage against a real Redis', () => {
   const TTL_MS = 5000;
   const LIMIT = 2;
   const throttler = `e2e-${randomUUID()}`;
-  const keyOf = (key: string): string => `openwa:throttle:${throttler}:${key}`;
+  const keyOf = (key: string): string => `zaplink:throttle:${throttler}:${key}`;
   let redis: Redis;
   let storage: RedisThrottlerStorage;
   let warn: jest.SpyInstance;
@@ -140,7 +140,7 @@ describeWithRedis('the throttler client against a Redis that stops answering', (
     // gone and a log line fails the whole run: its errors have nobody left to tell.
     client.removeAllListeners('error');
     client.on('error', () => undefined);
-    const keys = await cleaner.keys(`openwa:throttle:*:${throttler}*`);
+    const keys = await cleaner.keys(`zaplink:throttle:*:${throttler}*`);
     if (keys.length) await cleaner.del(...keys);
     cleaner.disconnect();
     await storage.onModuleDestroy();

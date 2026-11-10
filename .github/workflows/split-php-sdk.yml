@@ -1,6 +1,6 @@
 name: Split PHP SDK
 
-# Mirrors the PHP SDK (sdk/php) into the standalone repo rmyndharis/openwa-php,
+# Mirrors the PHP SDK (sdk/php) into the standalone repo rmyndharis/zaplink-php,
 # which is what Packagist installs (Packagist needs composer.json at a repo root
 # and does not support subdirectories). Uses a dependency-free `git subtree
 # split` + force-push — no third-party action.
@@ -12,8 +12,8 @@ name: Split PHP SDK
 # which is where Packagist reads versions from.
 #
 # One-time setup:
-#   1. Create an empty GitHub repo: rmyndharis/openwa-php
-#   2. Create a PAT (fine-grained, repo = openwa-php, Contents: read & write)
+#   1. Create an empty GitHub repo: rmyndharis/zaplink-php
+#   2. Create a PAT (fine-grained, repo = zaplink-php, Contents: read & write)
 #   3. Add it to THIS repo as the secret PHP_SDK_SPLIT_TOKEN
 
 on:
@@ -47,7 +47,7 @@ jobs:
       - run: ./vendor/bin/phpunit
 
   split:
-    name: Mirror sdk/php -> rmyndharis/openwa-php
+    name: Mirror sdk/php -> rmyndharis/zaplink-php
     if: github.ref == 'refs/heads/main'
     # Never mirror an untested (red) SDK to Packagist dev-main.
     needs: [test]
@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${SPLIT_TOKEN:-}" ]; then
-            echo "::notice::PHP_SDK_SPLIT_TOKEN is not set — skipping. Create rmyndharis/openwa-php and add the secret to enable the mirror."
+            echo "::notice::PHP_SDK_SPLIT_TOKEN is not set — skipping. Create rmyndharis/zaplink-php and add the secret to enable the mirror."
             exit 0
           fi
           git config user.name "rmyndharis"
@@ -84,4 +84,4 @@ jobs:
           git -c core.hooksPath=/dev/null push --force \
             "https://x-access-token:${SPLIT_TOKEN}@github.com/rmyndharis/openwa-php.git" \
             "${SPLIT_SHA}:refs/heads/main"
-          echo "Mirrored sdk/php -> rmyndharis/openwa-php@main"
+          echo "Mirrored sdk/php -> rmyndharis/zaplink-php@main"

@@ -11,10 +11,10 @@ describe('SDK logout docs: the 409 for a session with no linked device', () => {
   const docblocks: [string, RegExp][] = [
     ['sdk/go/sessions.go', /\/\/ Logout [\s\S]*?func \(s \*SessionsService\) Logout/],
     ['sdk/javascript/src/resources/sessions.ts', /\/\*\*[^/]*?engine-native unlink[\s\S]*?logout\(id: string\)/],
-    ['sdk/python/openwa/resources/sessions.py', /def logout[\s\S]*?"""[\s\S]*?"""/],
+    ['sdk/python/zaplink/resources/sessions.py', /def logout[\s\S]*?"""[\s\S]*?"""/],
     ['sdk/php/src/Resources/SessionsResource.php', /\/\*\*[^/]*?engine-native unlink[\s\S]*?function logout/],
     [
-      'sdk/java/src/main/java/com/rmyndharis/openwa/resources/SessionsResource.java',
+      'sdk/java/src/main/java/com/rmyndharis/zaplink/resources/SessionsResource.java',
       /\/\*\*[^/]*?engine-native unlink[\s\S]*?public SessionResponse logout/,
     ],
   ];

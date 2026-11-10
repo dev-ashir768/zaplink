@@ -151,7 +151,7 @@ describe('SessionProxyInterceptor relaying an answer larger than it holds', () =
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-length']).toBe(String(total));
     expect(res.headers['content-type']).toBe('application/octet-stream');
-    expect(res.headers['x-openwa-served-by']).toBe('peer-node');
+    expect(res.headers['x-zaplink-served-by']).toBe('peer-node');
     rest.resolve();
 
     const { body, complete } = await client.finished;

@@ -170,7 +170,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
       assertNoDefaultSecretsInProduction({
         nodeEnv: 'development',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
         storageType: 's3',
         s3AccessKey: 'minioadmin',
         s3SecretKey: 'minioadmin',
@@ -187,7 +187,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
       /ALLOW_DEV_API_KEY/,
     );
     expect(() =>
-      assertNoDefaultSecretsInProduction({ nodeEnv: 'staging', databaseType: 'postgres', databasePassword: 'openwa' }),
+      assertNoDefaultSecretsInProduction({ nodeEnv: 'staging', databaseType: 'postgres', databasePassword: 'zaplink' }),
     ).toThrow(/DATABASE_PASSWORD/);
   });
 
@@ -211,7 +211,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
       assertNoDefaultSecretsInProduction({
         nodeEnv: 'production',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
       }),
     ).toThrow(/DATABASE_PASSWORD/);
   });
@@ -224,12 +224,12 @@ describe('assertNoDefaultSecretsInProduction', () => {
 
   it('allows the built-in Postgres/MinIO default credentials in prod (internal-only network) (#488)', () => {
     // The bundled containers are reachable only on the internal Docker network (not published), so the
-    // known 'openwa'/'minioadmin' creds the built-in flow provisions must not crash-loop a prod boot.
+    // known 'zaplink'/'minioadmin' creds the built-in flow provisions must not crash-loop a prod boot.
     expect(() =>
       assertNoDefaultSecretsInProduction({
         nodeEnv: 'production',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
         postgresBuiltIn: 'true',
         storageType: 's3',
         s3AccessKey: 'minioadmin',
@@ -257,7 +257,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
       assertNoDefaultSecretsInProduction({
         nodeEnv: 'production',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
         postgresBuiltIn: 'false',
       }),
     ).toThrow(/DATABASE_PASSWORD/);
@@ -269,7 +269,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
       assertNoDefaultSecretsInProduction({
         nodeEnv: 'production',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
         postgresBuiltIn: 'true',
         databaseHost: 'db.example.com',
       }),
@@ -292,7 +292,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
       assertNoDefaultSecretsInProduction({
         nodeEnv: 'production',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
         postgresBuiltIn: 'true',
         databaseHost: 'postgres',
         storageType: 's3',
@@ -306,13 +306,13 @@ describe('assertNoDefaultSecretsInProduction', () => {
 
   // The same aliases the rest of the app resolves to the bundled container: its network alias or its
   // container name, in any letter case, with or without the trailing dot of an absolute DNS name.
-  it.each(['Postgres', 'postgres.', 'openwa-postgres', ' OPENWA-POSTGRES. '])(
+  it.each(['Postgres', 'postgres.', 'zaplink-postgres', ' ZAPLINK-POSTGRES. '])(
     'exempts the built-in Postgres default for the bundled host %s',
     databaseHost => {
       const env = {
         nodeEnv: 'production',
         databaseType: 'postgres',
-        databasePassword: 'openwa',
+        databasePassword: 'zaplink',
         postgresBuiltIn: 'true',
         databaseHost,
       };
@@ -323,7 +323,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
     },
   );
 
-  it.each(['http://minio.:9000', 'http://openwa-minio:9000', 'https://OPENWA-MINIO.:9000'])(
+  it.each(['http://minio.:9000', 'http://zaplink-minio:9000', 'https://ZAPLINK-MINIO.:9000'])(
     'exempts the built-in MinIO defaults for the bundled endpoint %s',
     s3Endpoint => {
       const env = {
@@ -341,14 +341,14 @@ describe('assertNoDefaultSecretsInProduction', () => {
     },
   );
 
-  it.each(['postgres.example.invalid', 'evil-postgres', 'openwa-postgres-evil'])(
+  it.each(['postgres.example.invalid', 'evil-postgres', 'zaplink-postgres-evil'])(
     'still refuses the default Postgres password for the external host %s',
     databaseHost => {
       expect(() =>
         assertNoDefaultSecretsInProduction({
           nodeEnv: 'production',
           databaseType: 'postgres',
-          databasePassword: 'openwa',
+          databasePassword: 'zaplink',
           postgresBuiltIn: 'true',
           databaseHost,
         }),
@@ -356,7 +356,7 @@ describe('assertNoDefaultSecretsInProduction', () => {
     },
   );
 
-  it.each(['http://minio.example.invalid:9000', 'http://evil-minio:9000', 'http://openwa-minio-evil:9000'])(
+  it.each(['http://minio.example.invalid:9000', 'http://evil-minio:9000', 'http://zaplink-minio-evil:9000'])(
     'still refuses the default S3 credentials for the external endpoint %s',
     s3Endpoint => {
       expect(() =>
@@ -501,7 +501,11 @@ describe('assertNoDefaultSecretsInProduction', () => {
   it('does not check the DB password when using sqlite', () => {
     // DATABASE_PASSWORD is irrelevant for sqlite, so a leftover default must not block boot.
     expect(() =>
-      assertNoDefaultSecretsInProduction({ nodeEnv: 'production', databaseType: 'sqlite', databasePassword: 'openwa' }),
+      assertNoDefaultSecretsInProduction({
+        nodeEnv: 'production',
+        databaseType: 'sqlite',
+        databasePassword: 'zaplink',
+      }),
     ).not.toThrow();
   });
 

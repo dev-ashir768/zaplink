@@ -6,7 +6,7 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type {
   CreateSessionRequest,
   PairingCodeResponse,
@@ -31,7 +31,7 @@ export interface ListSessionsQuery {
 }
 
 export class SessionsResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /** List all sessions (scoped to the API key's `allowedSessions`). */
   list(query?: ListSessionsQuery): Promise<SessionResponse[]> {

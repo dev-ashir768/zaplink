@@ -4474,7 +4474,7 @@
                   "summary": "Plain text message",
                   "value": {
                     "chatId": "628123456789@c.us",
-                    "text": "Hello from OpenWA!"
+                    "text": "Hello from ZapLink!"
                   }
                 },
                 "withMentions": {
@@ -8373,7 +8373,7 @@
             }
           }
         },
-        "summary": "Compare the running version with the latest OpenWA release",
+        "summary": "Compare the running version with the latest ZapLink release",
         "tags": [
           "infrastructure"
         ]
@@ -18592,12 +18592,12 @@
     }
   },
   "info": {
-    "title": "OpenWA API",
+    "title": "ZapLink API",
     "description": "Open Source WhatsApp API Gateway - Free, Self-Hosted HTTP API\n\n**Gateway-wide responses.** Three statuses are returned by middleware before routing, so any operation can emit them:\n\n- `415 Unsupported Media Type` — the request body carries a `Content-Encoding` other than `identity`. The aggregate in-flight body cap counts wire bytes, so a compressed body would be admitted on its compressed size and then inflated past the memory it is meant to bound. Send the body uncompressed.\n- `413 Payload Too Large`: the declared `Content-Length` is more than the gateway could hold in flight for this caller even when idle. The body is not read; retrying it unchanged cannot succeed.\n- `503 Service Unavailable` with `Retry-After` — the gateway already has too much request body data in flight (the body is not read; retry after the given delay), or, without `Retry-After`, shutdown teardown has begun: every route except `/api/health` and `/api/health/*` then answers it with `Connection: close`.\n\nEvery operation that takes an API key can also answer `429 Too Many Requests` (the per-IP rate-limit windows; with send pacing on, a send can also be refused with `code: SEND_PACING_LIMITED` and `retryAfterSeconds`) and `500 Internal Server Error` (an unexpected failure, or `code: ENGINE_PAGE_ERROR` when WhatsApp Web threw inside the page during a whatsapp-web.js send or status post). Error bodies follow the `ErrorResponse` schema.",
     "version": "0.29.1",
     "contact": {
-      "name": "OpenWA",
-      "url": "https://github.com/rmyndharis/OpenWA",
+      "name": "ZapLink",
+      "url": "https://github.com/dev-ashir768/zaplink",
       "email": "yudhi@rmyndharis.com"
     }
   },
@@ -20007,14 +20007,14 @@
           },
           "secret": {
             "type": "string",
-            "description": "Secret key for HMAC signature verification. Never returned by any webhook route; it is used to compute the `X-OpenWA-Signature: sha256=<hex>` header on every delivery.",
+            "description": "Secret key for HMAC signature verification. Never returned by any webhook route; it is used to compute the `X-ZapLink-Signature: sha256=<hex>` header on every delivery.",
             "minLength": 16,
             "maxLength": 255,
             "example": "your-webhook-signing-secret"
           },
           "headers": {
             "type": "object",
-            "description": "Custom headers to include in webhook requests. Names must be unique ignoring case. Never returned by any webhook route. At delivery, `content-type`, `user-agent` and `x-openwa-*` names are stripped so a custom header cannot shadow a system one, and so are the connection-level names the HTTP client owns (`connection`, `content-length`, `expect`, `keep-alive`, `te`, `trailer`, `transfer-encoding`, `upgrade`).",
+            "description": "Custom headers to include in webhook requests. Names must be unique ignoring case. Never returned by any webhook route. At delivery, `content-type`, `user-agent` and `x-zaplink-*` names are stripped so a custom header cannot shadow a system one, and so are the connection-level names the HTTP client owns (`connection`, `content-length`, `expect`, `keep-alive`, `te`, `trailer`, `transfer-encoding`, `upgrade`).",
             "example": {
               "X-Custom-Header": "value"
             }
@@ -20724,7 +20724,7 @@
           "text": {
             "type": "string",
             "description": "Text message content",
-            "example": "Hello from OpenWA!",
+            "example": "Hello from ZapLink!",
             "maxLength": 4096
           },
           "mentions": {
@@ -22233,7 +22233,7 @@
           "header": {
             "type": "string",
             "description": "Optional header text, prepended to the rendered body",
-            "example": "OpenWA Store",
+            "example": "ZapLink Store",
             "maxLength": 1024
           },
           "footer": {
@@ -22490,16 +22490,16 @@
           "host": {
             "type": "string",
             "description": "Host the app is configured to reach.",
-            "example": "openwa-postgres"
+            "example": "zaplink-postgres"
           },
           "builtIn": {
             "type": "boolean",
-            "description": "Whether OpenWA's own bundled container is actually running and backing this service, detected live from the labelled container rather than read from the saved intent. When Docker is unavailable it falls back to the saved flag (the environment's first) beside a host that reaches the bundled container: neither a host name nor the flag alone proves it.",
+            "description": "Whether ZapLink's own bundled container is actually running and backing this service, detected live from the labelled container rather than read from the saved intent. When Docker is unavailable it falls back to the saved flag (the environment's first) beside a host that reaches the bundled container: neither a host name nor the flag alone proves it.",
             "example": true
           },
           "running": {
             "type": "boolean",
-            "description": "Whether a bundled PostgreSQL container OpenWA created is running, whether or not this service uses it, beside this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.",
+            "description": "Whether a bundled PostgreSQL container ZapLink created is running, whether or not this service uses it, beside this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.",
             "example": false
           }
         },
@@ -22525,7 +22525,7 @@
           },
           "host": {
             "type": "string",
-            "example": "openwa-redis"
+            "example": "zaplink-redis"
           },
           "port": {
             "type": "number",
@@ -22533,12 +22533,12 @@
           },
           "builtIn": {
             "type": "boolean",
-            "description": "Whether OpenWA's bundled Redis container is backing this.",
+            "description": "Whether ZapLink's bundled Redis container is backing this.",
             "example": true
           },
           "running": {
             "type": "boolean",
-            "description": "Whether a bundled Redis container OpenWA created is running, whether or not this service uses it, beside this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.",
+            "description": "Whether a bundled Redis container ZapLink created is running, whether or not this service uses it, beside this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.",
             "example": false
           }
         },
@@ -22616,7 +22616,7 @@
           "bucket": {
             "type": "string",
             "description": "Bucket name. Present only for `s3`.",
-            "example": "openwa-media"
+            "example": "zaplink-media"
           },
           "endpoint": {
             "type": "string",
@@ -22625,12 +22625,12 @@
           },
           "builtIn": {
             "type": "boolean",
-            "description": "Whether OpenWA's bundled MinIO container is backing this.",
+            "description": "Whether ZapLink's bundled MinIO container is backing this.",
             "example": false
           },
           "running": {
             "type": "boolean",
-            "description": "Whether a bundled MinIO container OpenWA created is running, whether or not this service uses it, beside this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.",
+            "description": "Whether a bundled MinIO container ZapLink created is running, whether or not this service uses it, beside this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.",
             "example": false
           },
           "s3Available": {
@@ -22828,7 +22828,7 @@
             "type": "string",
             "nullable": true,
             "description": "Release notes page for `latest`.",
-            "example": "https://github.com/rmyndharis/OpenWA/releases/tag/v0.23.6"
+            "example": "https://github.com/dev-ashir768/zaplink/releases/tag/v0.23.6"
           }
         },
         "required": [
@@ -22879,7 +22879,7 @@
           },
           "host": {
             "type": "string",
-            "example": "openwa-postgres"
+            "example": "zaplink-postgres"
           },
           "port": {
             "type": "string",
@@ -22888,12 +22888,12 @@
           },
           "username": {
             "type": "string",
-            "example": "openwa"
+            "example": "zaplink"
           },
           "database": {
             "type": "string",
             "description": "Database name under PostgreSQL; empty under SQLite.",
-            "example": "openwa"
+            "example": "zaplink"
           },
           "schema": {
             "type": "string",
@@ -22950,7 +22950,7 @@
           },
           "host": {
             "type": "string",
-            "example": "openwa-redis"
+            "example": "zaplink-redis"
           },
           "port": {
             "type": "string",
@@ -26000,11 +26000,11 @@
               "type": "string"
             }
           },
-          "minOpenWAVersion": {
+          "minZapLinkVersion": {
             "type": "string",
             "example": "0.18.0"
           },
-          "testedOpenWAVersion": {
+          "testedZapLinkVersion": {
             "type": "string",
             "example": "0.18.0"
           },

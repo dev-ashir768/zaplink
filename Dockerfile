@@ -1,4 +1,4 @@
-# OpenWA - Dockerfile
+# ZapLink - Dockerfile
 # Multi-stage build for production-ready image
 
 # ===== Stage 1: Builder =====
@@ -180,7 +180,7 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 # Create app user for security. The ids are pinned (997 is what `-r` assigned on both arches) so a
 # Kubernetes runAsUser/fsGroup or a `docker run --user` can name the runtime user; the root start
 # re-owns /app/data by name either way.
-RUN groupadd -r -g 997 openwa && useradd -r -u 997 -g openwa openwa
+RUN groupadd -r -g 997 zaplink && useradd -r -u 997 -g zaplink zaplink
 
 WORKDIR /app
 
@@ -241,7 +241,7 @@ RUN npm ci --omit=dev --ignore-scripts \
 
 # Replace the npm the base image bundles. npm is not on the request path — the entrypoint runs
 # `node dist/main` — but it stays in the image because the operator runbooks drive it
-# (`docker compose run --rm openwa-api npm run migration:run:prod`), and its own bundled dependency
+# (`docker compose run --rm zaplink-api npm run migration:run:prod`), and its own bundled dependency
 # tree is what the release image scan reports. node:22-slim ships npm 10.9 (10.9.9 at the pinned digest),
 # whose bundle has carried a critical node-tar advisory plus sigstore/picomatch ones; npm 12 fixes
 # all three.
@@ -279,7 +279,7 @@ RUN if [ "$TARGETARCH" = arm64 ]; then \
     else \
         mkdir -p /opt/puppeteer && \
         PUPPETEER_CACHE_DIR=/opt/puppeteer ./node_modules/.bin/puppeteer browsers install 'chrome@157.0.8103.38' && \
-        chown -R openwa:openwa /opt/puppeteer && \
+        chown -R zaplink:zaplink /opt/puppeteer && \
         chrome_path=$(find /opt/puppeteer/chrome/linux*/chrome-linux64/chrome | head -n 1) && \
         test -n "$chrome_path" && \
         ln -s "$chrome_path" /usr/local/bin/puppeteer-chrome; \
@@ -299,14 +299,14 @@ COPY --from=builder /app/dashboard/dist ./dashboard/dist
 # case. A full /app chown walks every production dependency file (issue #1045: ~35 minutes on a
 # small VPS) and duplicates their metadata into a new image layer.
 RUN mkdir -p ./data/sessions ./data/media ./data/plugins && \
-    chown -R openwa:openwa ./data
+    chown -R zaplink:zaplink ./data
 
-# The non-root openwa user has no home of its own (`useradd -r`, no -m). Chromium resolves the home
+# The non-root zaplink user has no home of its own (`useradd -r`, no -m). Chromium resolves the home
 # dir from the passwd entry via glib's getpwuid() — it IGNORES $HOME — so it tries to read/write
-# /home/openwa, which does not exist. On hardened/read-only hosts that makes the browser HARD-CRASH
+# /home/zaplink, which does not exist. On hardened/read-only hosts that makes the browser HARD-CRASH
 # at launch (SIGTRAP/int3, logged as "chrome_crashpad_handler: --database is required"). The robust
 # fix is to point Chromium's config + cache at writable, pre-created dirs via XDG_* (honored directly,
-# bypassing the passwd lookup); docker-entrypoint.sh creates them owned by openwa. On a read_only
+# bypassing the passwd lookup); docker-entrypoint.sh creates them owned by zaplink. On a read_only
 # rootfs these live on the tmpfs /tmp. HOME is kept for any other HOME-relative tooling. See #254/#242.
 ENV HOME=/app/data
 ENV XDG_CONFIG_HOME=/tmp/.config
@@ -319,7 +319,7 @@ ENV XDG_CACHE_HOME=/tmp/.cache
 # the exec bit in the repo and COPY preserves it, so no chmod is needed.
 COPY scripts/backup.sh scripts/restore.sh scripts/lib-env.sh ./scripts/
 
-# Copy entrypoint: runs as root to fix named-volume ownership, then drops to openwa via gosu
+# Copy entrypoint: runs as root to fix named-volume ownership, then drops to zaplink via gosu
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
@@ -335,12 +335,12 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # dumb-init is PID 1 and handles signal forwarding.
 # It execs docker-entrypoint.sh (as root), which fixes volume ownership and
-# then drops to the openwa user via gosu before starting the node process.
+# then drops to the zaplink user via gosu before starting the node process.
 #
-# NOTE — no `USER openwa` directive on purpose (Trivy DS-0002 will flag it, ignore).
+# NOTE — no `USER zaplink` directive on purpose (Trivy DS-0002 will flag it, ignore).
 # The Node process does NOT run as root: docker-entrypoint.sh ends with
-# `exec gosu openwa "$@"`, after it chowns /app/data and the Chromium XDG
-# dirs. Adding `USER openwa` here would run the entrypoint as openwa and break
+# `exec gosu zaplink "$@"`, after it chowns /app/data and the Chromium XDG
+# dirs. Adding `USER zaplink` here would run the entrypoint as zaplink and break
 # the chown-before-drop pattern that makes named-volume mounts work on first
 # boot (#254, #259). Starting it as a non-root uid on purpose (`--user 997:997`,
 # a Kubernetes runAsUser) is supported: the entrypoint skips the chown and the

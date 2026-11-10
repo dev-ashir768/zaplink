@@ -396,9 +396,9 @@ before(async () => {
   const { installJsdomGlobals } = await import('../test-helpers/jsdom.ts');
   await installJsdomGlobals();
   installFetchStub();
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
-  window.sessionStorage.setItem('openwa_engine_type', 'baileys');
-  window.sessionStorage.setItem('openwa_api_key', 'test-key');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_engine_type', 'baileys');
+  window.sessionStorage.setItem('zaplink_api_key', 'test-key');
   const { i18nReady } = await import('../i18n/index.ts');
   await i18nReady;
   rtl = await import('@testing-library/react');
@@ -450,8 +450,8 @@ afterEach(async () => {
   ownHasDeviceSuffix = false;
   refuseMember = false;
   blockedIds = [];
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
-  window.sessionStorage.setItem('openwa_engine_type', 'baileys');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_engine_type', 'baileys');
 });
 
 /** Renders the page; `reactStrictMode` replays effect setup and cleanup as `main.tsx` does in development. */
@@ -601,7 +601,7 @@ test('the message search sits behind its toggle, and a read-only key is offered 
   assert.ok(screen.getByLabelText('Search messages…'), 'the toggle did not open the search');
   rtl.cleanup();
 
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
   renderPage();
   await screen.findByText('Alice');
   assert.ok(!screen.queryByRole('button', { name: 'Search messages' }), 'a viewer key was offered message search');
@@ -1149,7 +1149,7 @@ for (const reactStrictMode of [false, true]) {
     await within(container.querySelector('.room-header') as HTMLElement).findByText('Team');
     rtl.cleanup();
 
-    window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+    window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
     renderPage({ reactStrictMode });
     await screen.findByText('Alice');
     fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
@@ -1520,14 +1520,14 @@ test('the session switcher links to pairing another number only for a key that m
   rtl.cleanup();
 
   // A session-scoped key is refused on the create route, so the link would end on a page with nothing to do.
-  window.sessionStorage.setItem('openwa_key_scoped', 'true');
+  window.sessionStorage.setItem('zaplink_key_scoped', 'true');
   try {
     renderInRouter();
     await screen.findByText('Alice');
     fireEvent.click(screen.getByRole('button', { name: /Main/ }));
     assert.ok(!screen.queryByText('Pair another number'), 'a session-scoped key got a pairing link');
   } finally {
-    window.sessionStorage.removeItem('openwa_key_scoped');
+    window.sessionStorage.removeItem('zaplink_key_scoped');
   }
 });
 
@@ -1930,7 +1930,7 @@ test('a member who is no admin sees the group read-only, and a viewer key gets n
   const { screen, fireEvent, within } = rtl;
   listGroup = true;
   groupAdmin = false;
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
   const { container } = renderPage();
   await screen.findByText('Team');
   // Every entry an open row menu offers, by name.
@@ -1954,7 +1954,7 @@ test('a member who is no admin sees the group read-only, and a viewer key gets n
 
 test('a 1:1 row clears its chat and deletes it on whatsapp-web.js, each only after its own confirmation', async () => {
   const { screen, fireEvent, waitFor, within } = rtl;
-  window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+  window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
   renderPage();
   await screen.findByText('Alice');
   const chatPath = `/api/sessions/${SESSION.id}/chats`;
@@ -2455,7 +2455,7 @@ for (const engine of ['whatsapp-web.js', 'baileys']) {
   test(`a clear or delete the engine declines keeps the chat and its dialog, and says it failed (${engine})`, async () => {
     const { screen, fireEvent, within } = rtl;
     declineWrites = true;
-    window.sessionStorage.setItem('openwa_engine_type', engine);
+    window.sessionStorage.setItem('zaplink_engine_type', engine);
     renderPage();
     await screen.findByText('Alice');
 
@@ -2647,7 +2647,7 @@ test("a mute that answers after a switch mutes nothing on the other session's ro
 for (const kind of ['clear', 'delete'] as const) {
   test(`a ${kind} that answers after a switch leaves the other session's chat of the same id as it was`, async () => {
     const { screen, waitFor } = rtl;
-    window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+    window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
     listSecond = true;
     const release = hold(kind === 'clear' ? 'clearChat' : 'deleteChat');
     const { container } = renderPage();
@@ -2723,7 +2723,7 @@ const RELOAD_RACES: Array<{ title: string; engine?: string; act: () => Promise<v
 for (const race of RELOAD_RACES) {
   test(`a chat list asked for before ${race.title} does not undo it when it answers`, async () => {
     const { screen, waitFor } = rtl;
-    if (race.engine) window.sessionStorage.setItem('openwa_engine_type', race.engine);
+    if (race.engine) window.sessionStorage.setItem('zaplink_engine_type', race.engine);
     renderPage();
     await screen.findByText('Alice');
     const release = hold('chats');
@@ -2748,7 +2748,7 @@ for (const race of RELOAD_RACES) {
 
 test('a chat that writes again after its delete is listed by the list that message asks for', async () => {
   const { screen, waitFor } = rtl;
-  window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+  window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
   renderPage();
   await screen.findByText('Alice');
   const release = hold('chats');
@@ -2877,8 +2877,8 @@ for (const [engine, asked] of [
 ] as const) {
   test(`opening a chat ${asked ? 'asks' : 'does not ask'} ${engine ?? 'an unknown engine'} for live history`, async () => {
     const { screen, fireEvent, waitFor } = rtl;
-    if (engine) window.sessionStorage.setItem('openwa_engine_type', engine);
-    else window.sessionStorage.removeItem('openwa_engine_type');
+    if (engine) window.sessionStorage.setItem('zaplink_engine_type', engine);
+    else window.sessionStorage.removeItem('zaplink_engine_type');
     aliceThread = [threadRow(1)];
     renderPage();
     fireEvent.click(await screen.findByText('Alice'));
@@ -2893,7 +2893,7 @@ for (const [engine, asked] of [
 
 test('clearing a chat empties its preview and refreshes the thread that is open', async () => {
   const { screen, fireEvent, waitFor, within } = rtl;
-  window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+  window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
   aliceThread = [threadRow(1)];
   const { container } = renderPage();
   fireEvent.click(await screen.findByText('Alice'));
@@ -2911,7 +2911,7 @@ test('clearing a chat empties its preview and refreshes the thread that is open'
 
 test('deleting a chat drops its cached thread along with the row', async () => {
   const { screen, fireEvent, waitFor } = rtl;
-  window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+  window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
   aliceThread = [threadRow(1)];
   const { container } = renderPage();
   fireEvent.click(await screen.findByText('Alice'));
@@ -3071,7 +3071,7 @@ test("the room's menu closes on a press outside it and on Escape, and Escape lea
 
 test('a read-only key does not read the blocklist, which only an operator can act on', async () => {
   const { screen } = rtl;
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
   renderPage();
   await screen.findByText('Alice');
   await settle();
@@ -3276,7 +3276,7 @@ test("a group's menu has no use for the address book and does not read it", asyn
 
 test("a read-only key's room menu has no entry that reads the address book, so it does not read it", async () => {
   const { screen, fireEvent, waitFor } = rtl;
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
   const { container } = renderPage();
   fireEvent.click(await screen.findByText('Alice'));
   await waitFor(() => assert.ok(container.querySelector('.room-header'), 'the room did not open'));
@@ -3541,7 +3541,7 @@ test('a thread that loads after the opening read is read again with its ids', as
 
 test('on whatsapp-web.js the read names no message, since the engine reads the whole chat', async () => {
   const { screen, fireEvent, waitFor } = rtl;
-  window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
+  window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
   aliceThread = [threadRow(1), threadRow(2)];
   renderPage();
   fireEvent.click(await screen.findByText('Alice'));

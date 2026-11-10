@@ -590,11 +590,11 @@ function runGateOnCopy({
     if (lineEnding === '\n' && !Object.keys(sdk).length) {
       symlinkSync(join(gateRoot, 'sdk'), join(dir, 'sdk'));
     } else {
-      const modelDir = ['sdk', 'java', 'src', 'main', 'java', 'com', 'rmyndharis', 'openwa', 'model'];
+      const modelDir = ['sdk', 'java', 'src', 'main', 'java', 'com', 'rmyndharis', 'zaplink', 'model'];
       const sources = [
         ['sdk', 'README.md'],
         ['sdk', 'javascript', 'src', 'types.ts'],
-        ['sdk', 'python', 'openwa', 'types.py'],
+        ['sdk', 'python', 'zaplink', 'types.py'],
         ...readdirSync(join(gateRoot, 'sdk', 'go'))
           .filter(f => f.endsWith('.go') && !f.endsWith('_test.go'))
           .map(f => ['sdk', 'go', f]),
@@ -742,7 +742,7 @@ test('a schema that only the dashboard compares, or only an excluded pair holds,
   );
 });
 
-const javaModel = 'sdk/java/src/main/java/com/rmyndharis/openwa/model';
+const javaModel = 'sdk/java/src/main/java/com/rmyndharis/zaplink/model';
 
 test('an excluded pair with a looser field type is still compared by field name', () => {
   // Each pair keeps a plain string (or a pointer) where the contract is stricter, so it is excluded from the
@@ -947,7 +947,7 @@ test('the CLI refuses numeric status fonts declared as strings in every typed SD
       s => edit(s, 'font?: 0 | 1 | 2 | 6 | 7 | 8 | 9 | 10;', "font?: '0' | '1' | '2' | '6' | '7' | '8' | '9' | '10';"),
     ],
     [
-      'sdk/python/openwa/types.py',
+      'sdk/python/zaplink/types.py',
       s =>
         edit(
           s,
@@ -965,7 +965,7 @@ test('the CLI refuses numeric status fonts declared as strings in every typed SD
     ],
     [
       `${javaModel}/SendTextStatusRequest.java`,
-      () => `package com.rmyndharis.openwa.model;
+      () => `package com.rmyndharis.zaplink.model;
 import java.util.List;
 import com.google.gson.annotations.SerializedName;
 public record SendTextStatusRequest(String text, List<String> recipients, String backgroundColor, FixtureFont font) {
@@ -1039,7 +1039,7 @@ test('resolves TypeScript export type aliases and typeof-const unions in handTok
 });
 
 test('parsePythonTypes parses functional TypedDicts with comment lines, comma-bearing Literal types, and functional base classes', () => {
-  const pySrc = readFileSync(join(gateRoot, 'sdk/python/openwa/types.py'), 'utf8');
+  const pySrc = readFileSync(join(gateRoot, 'sdk/python/zaplink/types.py'), 'utf8');
   const pyTypes = parsePythonTypes(pySrc);
   assert.ok(pyTypes.ListMessagesQuery, 'ListMessagesQuery should be parsed by parsePythonTypes');
   assert.equal(pyTypes.ListMessagesQuery.direction.token, 'enum(["incoming","outgoing"])');
@@ -1056,7 +1056,7 @@ test('parsePythonTypes parses functional TypedDicts with comment lines, comma-be
 });
 
 test('parsePythonTypes classifies bare list as unknown and types ChatHistoryMessage.mentionedIds and MessageContact.labels as array<string>', () => {
-  const pySrc = readFileSync(join(gateRoot, 'sdk/python/openwa/types.py'), 'utf8');
+  const pySrc = readFileSync(join(gateRoot, 'sdk/python/zaplink/types.py'), 'utf8');
   const pyTypes = parsePythonTypes(pySrc);
   assert.equal(pyTypes.ChatHistoryMessage.mentionedIds.token, 'array<string>');
   assert.equal(pyTypes.MessageContact.labels.token, 'array<string>');

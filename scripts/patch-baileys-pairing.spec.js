@@ -14,7 +14,7 @@ const {
   ACK_REPLACE,
 } = require('./patch-baileys-pairing');
 function fixture(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-pairing-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-pairing-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   fs.mkdirSync(path.join(dir, 'lib/Socket'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'lib/Socket/socket.js'), '// before\n' + QR_FIND + '// after\n');

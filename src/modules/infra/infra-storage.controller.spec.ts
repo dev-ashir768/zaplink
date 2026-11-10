@@ -41,8 +41,8 @@ describe('InfraStorageController.importStorage filePath validation', () => {
   });
 
   it('guards and opens the same cwd-resolved path returned by storage export', async () => {
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/export.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/export.tar.gz');
     (fs.createReadStream as jest.Mock).mockClear();
     const storage = {
       importFromStream: jest.fn().mockResolvedValue({ imported: 3, failed: 0 }),
@@ -50,7 +50,7 @@ describe('InfraStorageController.importStorage filePath validation', () => {
     };
     try {
       const result = await buildController(storage).importStorage({ filePath: 'data/exports/export.tar.gz' });
-      expect(fs.createReadStream).toHaveBeenCalledWith('/srv/openwa/data/exports/export.tar.gz');
+      expect(fs.createReadStream).toHaveBeenCalledWith('/srv/zaplink/data/exports/export.tar.gz');
       expect(storage.importFromStream).toHaveBeenCalledTimes(1);
       expect(result).toEqual({ imported: true, count: 3, failed: 0, storageType: 'local' });
     } finally {
@@ -204,8 +204,8 @@ describe('InfraStorageController.sweepStaleExportArchives (boot orphan sweep)', 
 
 describe('InfraStorageController storage stream failures surface as request errors, not process crashes', () => {
   it('importStorage maps an archive/stream failure to a 400 with the real reason', async () => {
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/bad.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/bad.tar.gz');
     try {
       const storage = {
         importFromStream: jest.fn().mockRejectedValue(new Error('incorrect header check')),
@@ -290,8 +290,8 @@ describe('InfraStorageController audit trail (light-dependency handlers)', () =>
 
   it('importStorage emits INFRA_STORAGE_IMPORTED with the imported file count', async () => {
     const audit = makeAudit();
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/x.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/x.tar.gz');
     try {
       const storageService = {
         importFromStream: jest.fn().mockResolvedValue({ imported: 5, failed: 0 }),
@@ -311,8 +311,8 @@ describe('InfraStorageController audit trail (light-dependency handlers)', () =>
 
   it('importStorage records an import that wrote nothing as a warning, with its failed count', async () => {
     const audit = { logInfo: jest.fn().mockResolvedValue(null), logWarn: jest.fn().mockResolvedValue(null) };
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/x.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/x.tar.gz');
     try {
       const storageService = {
         importFromStream: jest.fn().mockResolvedValue({ imported: 0, failed: 4 }),
@@ -333,8 +333,8 @@ describe('InfraStorageController audit trail (light-dependency handlers)', () =>
 
   it('importStorage records how many entries an aborted import had already written', async () => {
     const audit = { logInfo: jest.fn().mockResolvedValue(null), logWarn: jest.fn().mockResolvedValue(null) };
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/x.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/x.tar.gz');
     try {
       const abort = Object.assign(new Error('archive exceeds 100000 entries'), { imported: 100000, failed: 2 });
       const storageService = {
@@ -363,8 +363,8 @@ describe('InfraStorageController audit trail (light-dependency handlers)', () =>
 
   it('importStorage records an aborted import as a warning, since the entries before the abort were kept', async () => {
     const audit = { logInfo: jest.fn().mockResolvedValue(null), logWarn: jest.fn().mockResolvedValue(null) };
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/x.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/x.tar.gz');
     try {
       const storageService = {
         importFromStream: jest.fn().mockRejectedValue(new Error('archive exceeds 100000 entries')),
@@ -456,8 +456,8 @@ describe('InfraStorageController refuses to run a storage migration against the 
 
 describe('InfraStorageController.importStorage reports an import that wrote nothing', () => {
   async function importWith(result: { imported: number; failed: number }) {
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/openwa');
-    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/openwa/data/exports/x.tar.gz');
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/srv/zaplink');
+    (fs.existsSync as jest.Mock).mockImplementation((p: string) => p === '/srv/zaplink/data/exports/x.tar.gz');
     try {
       const storage = { importFromStream: jest.fn().mockResolvedValue(result), getCurrentStorageType: () => 'local' };
       return await new InfraStorageController(storage as never).importStorage({ filePath: 'data/exports/x.tar.gz' });

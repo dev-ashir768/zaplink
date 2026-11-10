@@ -675,8 +675,8 @@ describe('released images carry a verifiable build-provenance attestation', () =
   it('the operator checklist pins the release workflow and the tag it ran on', () => {
     const doc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', '04-security-design.md'), 'utf8');
     const command = /`(gh attestation verify [^`]*)`/.exec(doc)?.[1];
-    expect(command).toContain('oci://ghcr.io/rmyndharis/openwa:<version>');
-    expect(command).toContain('--signer-workflow rmyndharis/OpenWA/.github/workflows/release.yml');
+    expect(command).toContain('oci://ghcr.io/dev-ashir768/zaplink:<version>');
+    expect(command).toContain('--signer-workflow dev-ashir768/zaplink/.github/workflows/release.yml');
     expect(command).toContain('--source-ref refs/tags/v<version>');
   });
 
@@ -719,7 +719,7 @@ describe('both paths exercise the real engine libraries', () => {
     const run = jobRun('release.yml', 'boot-smoke');
     expect(run).toContain('./scripts/smoke-test-engine-libs.sh');
     expect(run).toMatch(/for platform in linux\/amd64 linux\/arm64/);
-    expect(run).toContain('OPENWA_SMOKE_PLATFORM="$platform"');
+    expect(run).toContain('ZAPLINK_SMOKE_PLATFORM="$platform"');
   });
 
   // A failure on one architecture must not hide the other's result: both are probed, the step
@@ -740,7 +740,7 @@ describe('both paths exercise the real engine libraries', () => {
     try {
       fs.mkdirSync(path.join(dir, 'scripts'));
       const stub = path.join(dir, 'scripts', 'smoke-test-engine-libs.sh');
-      fs.writeFileSync(stub, '#!/bin/sh\necho "$OPENWA_SMOKE_PLATFORM" >> probed\nexit 1\n', { mode: 0o755 });
+      fs.writeFileSync(stub, '#!/bin/sh\necho "$ZAPLINK_SMOKE_PLATFORM" >> probed\nexit 1\n', { mode: 0o755 });
       // The runner's default shell for `run:` steps.
       const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', steps[libs].run ?? ''], {
         cwd: dir,
@@ -791,11 +791,11 @@ describe('both paths exercise the real engine libraries', () => {
       const env: NodeJS.ProcessEnv = {
         ...process.env,
         PATH: `${dir}:${process.env.PATH}`,
-        OPENWA_SMOKE_IMAGE: 'img',
+        ZAPLINK_SMOKE_IMAGE: 'img',
         MIGRATION_LISTING: options.listing ?? `${esc}[4m[ ] AddMessageStatus1770108659848${esc}[24m\n`,
       };
-      delete env.OPENWA_SMOKE_PLATFORM;
-      if (options.platform) env.OPENWA_SMOKE_PLATFORM = options.platform;
+      delete env.ZAPLINK_SMOKE_PLATFORM;
+      if (options.platform) env.ZAPLINK_SMOKE_PLATFORM = options.platform;
       const result = spawnSync('sh', [path.join(__dirname, '..', '..', 'scripts', 'smoke-test-engine-libs.sh')], {
         env,
       });

@@ -35,7 +35,7 @@ let file: string;
 let previous: Array<[string, string | undefined]>;
 
 beforeEach(() => {
-  directory = actualFs.mkdtempSync(path.join(os.tmpdir(), 'openwa-config-'));
+  directory = actualFs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-config-'));
   actualFs.mkdirSync(path.join(directory, 'data'));
   file = path.join(directory, 'data', '.env.generated');
   previous = pinKeys.map(key => [key, process.env[key]]);
@@ -131,7 +131,7 @@ describe('a SQLite file path in DATABASE_NAME', () => {
 });
 
 it('drops the PostgreSQL database name when leaving PostgreSQL for SQLite', () => {
-  seed({ DATABASE_TYPE: 'postgres', DATABASE_HOST: 'db.example.invalid', DATABASE_NAME: 'openwa' });
+  seed({ DATABASE_TYPE: 'postgres', DATABASE_HOST: 'db.example.invalid', DATABASE_NAME: 'zaplink' });
   const result = build().controller.saveConfig({ database: { type: 'sqlite' } });
   expect(result.saved).toBe(true);
   expect(dotenv.parse(actualFs.readFileSync(file))).not.toHaveProperty('DATABASE_NAME');
@@ -429,7 +429,7 @@ it.each(['QUEUE_ENABLED', 'CACHE_ENABLED'])('keeps Redis for its active %s consu
 });
 
 it('writes the same unused-profile stop to the signal-file fallback', async () => {
-  process.env.DATABASE_HOST = 'OpenWA-POSTGRES.';
+  process.env.DATABASE_HOST = 'ZapLink-POSTGRES.';
   recordPinnedEnvKeys({ DATABASE_HOST: process.env.DATABASE_HOST });
   const { controller, stop } = build(false);
   expect((await controller.requestRestart({ profilesToRemove: ['postgres'] })).profilesToRemove).toEqual(['postgres']);

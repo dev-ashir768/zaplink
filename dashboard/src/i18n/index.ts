@@ -115,7 +115,7 @@ export const i18nReady = i18n
     interpolation: { escapeValue: false },
     detection: {
       order: ['localStorage', 'navigator'],
-      lookupLocalStorage: 'openwa_language',
+      lookupLocalStorage: 'zaplink_language',
       caches: ['localStorage'],
       // Map a code only when it matches a shipped language. An unmatched one passes through unchanged,
       // so i18next skips it and tries the visitor's next preference; mapping it to 'en' would end the

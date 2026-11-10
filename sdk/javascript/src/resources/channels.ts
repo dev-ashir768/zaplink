@@ -6,7 +6,7 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type {
   CreateChannelRequest,
   DemoteChannelAdminRequest,
@@ -20,7 +20,7 @@ import type {
 } from '../types.js';
 
 export class ChannelsResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /** List all channels/newsletters the session is subscribed to. **whatsapp-web.js only**: Baileys answers 501. */
   list(sessionId: string): Promise<ChannelRecord[]> {

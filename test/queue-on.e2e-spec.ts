@@ -9,7 +9,7 @@ process.env.QUEUE_ENABLED = 'true';
 process.env.REDIS_ENABLED = 'true';
 // A non-default key prefix for the whole suite: a Worker that built its queue under a different prefix
 // than the producer would never see a job, and the dispatch tests below would time out.
-process.env.QUEUE_PREFIX = 'openwa-e2e';
+process.env.QUEUE_PREFIX = 'zaplink-e2e';
 // QUEUE_TEST_REDIS_* overrides the standard REDIS_* for this suite only, so a dev box whose Redis is
 // not on localhost:6379 can still run it; CI sets REDIS_HOST/REDIS_PORT at the service container.
 const REDIS_HOST = process.env.QUEUE_TEST_REDIS_HOST || process.env.REDIS_HOST || 'localhost';
@@ -349,23 +349,23 @@ describeQueueOn('Queued dispatch paths (e2e, QUEUE_ENABLED=true)', () => {
     // The WebhookProcessor worker picked the job up and delivered it over HTTP.
     await waitFor(() => received.length >= 1);
     expect(received[0].body.event).toBe('message.received');
-    expect(received[0].headers['x-openwa-event']).toBe('message.received');
+    expect(received[0].headers['x-zaplink-event']).toBe('message.received');
 
     // With the queue on, the worker is the only party that retires the delivery's outbox row. Left queued,
     // every reconciler sweep would replay the event to the receiver again.
-    const idempotencyKey = received[0].headers['x-openwa-idempotency-key'] as string;
+    const idempotencyKey = received[0].headers['x-zaplink-idempotency-key'] as string;
     await waitFor(async () => (await outboxRepo.findOneBy({ idempotencyKey }))?.state === 'dispatched');
     expect(await outboxRepo.findOneByOrFail({ idempotencyKey })).toMatchObject({ state: 'dispatched', payload: null });
   }, 30000);
 
   it('keeps both queues under QUEUE_PREFIX', async () => {
-    expect(ingressQueue.opts.prefix).toBe('openwa-e2e');
-    expect(webhookQueue.opts.prefix).toBe('openwa-e2e');
+    expect(ingressQueue.opts.prefix).toBe('zaplink-e2e');
+    expect(webhookQueue.opts.prefix).toBe('zaplink-e2e');
 
     const redis = new IORedis({ host: REDIS_HOST, port: REDIS_PORT });
     try {
       for (const name of [QUEUE_NAMES.INGRESS, QUEUE_NAMES.WEBHOOK]) {
-        expect((await redis.keys(`openwa-e2e:${name}:*`)).length).toBeGreaterThan(0);
+        expect((await redis.keys(`zaplink-e2e:${name}:*`)).length).toBeGreaterThan(0);
       }
     } finally {
       redis.disconnect();
@@ -440,7 +440,7 @@ describeQueueOn('An ingress job waiting in Redis when the gateway starts (e2e, Q
 
     queue = new Queue<IngressJobData>(QUEUE_NAMES.INGRESS, {
       connection: { host: REDIS_HOST, port: REDIS_PORT },
-      prefix: 'openwa-e2e',
+      prefix: 'zaplink-e2e',
     });
     for (const d of [held, served]) {
       await queue.add('ingress', d, { jobId: d.deliveryId, ...resolveIngressJobOptions() });

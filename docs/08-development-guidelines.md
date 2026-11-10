@@ -3,7 +3,7 @@
 ## 8.1 Project Structure
 
 ```
-openwa/
+zaplink/
 ├── src/
 │   ├── main.ts                    # Application entry
 │   ├── app.module.ts              # Root module
@@ -608,8 +608,8 @@ The shipped `better-sqlite3` Linux x64/arm64 glibc prebuild requires glibc 2.34+
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/rmyndharis/OpenWA.git
-cd OpenWA
+git clone https://github.com/dev-ashir768/zaplink.git
+cd ZapLink
 
 # 2. Install the locked dependencies (also installs dashboard dependencies)
 npm ci
@@ -638,14 +638,14 @@ docker compose --profile postgres up -d
 docker compose --profile full up -d
 ```
 
-A profile only starts the extra containers. Point OpenWA at them first, from Dashboard >
+A profile only starts the extra containers. Point ZapLink at them first, from Dashboard >
 Infrastructure or with the `.env` variables listed under Production Deployment in the README;
 otherwise it stays on SQLite and local storage. The dashboard's built-in storage option creates its
-own `openwa-minio` container, so do not also start the `minio` or `full` profile for it. The same goes
+own `zaplink-minio` container, so do not also start the `minio` or `full` profile for it. The same goes
 for built-in PostgreSQL and Redis: each built-in option creates its own container, and the compose
 profiles are for the manual `.env` route. The compose `minio` service starts only once
 `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` are set in the `.env` next to `docker-compose.yml`; if it
-was already started without them, run `docker rm -f openwa-minio` before you enable built-in storage.
+was already started without them, run `docker rm -f zaplink-minio` before you enable built-in storage.
 
 ### VS Code Extensions
 
@@ -683,7 +683,7 @@ was already started without them, run `docker rm -f openwa-minio` before you ena
 
 ### Environment Variables
 
-OpenWA supports multiple infrastructure configurations. Choose based on your needs:
+ZapLink supports multiple infrastructure configurations. Choose based on your needs:
 
 #### Minimal Profile (Development / Single Session)
 
@@ -699,7 +699,7 @@ LOG_LEVEL=debug
 
 # Database: SQLite (zero config)
 # DATABASE_TYPE=sqlite
-# DATABASE_NAME=./data/openwa.sqlite
+# DATABASE_NAME=./data/zaplink.sqlite
 # SQLite runs migrations by default. DATABASE_SYNCHRONIZE=true is SQLite-only: PostgreSQL refuses it
 # at boot, so an uncommented true here stops a later switch to PostgreSQL in the dashboard from booting.
 # DATABASE_SYNCHRONIZE=false
@@ -712,7 +712,7 @@ LOG_LEVEL=debug
 # REDIS_ENABLED=false
 # QUEUE_ENABLED=false
 
-# Optional: seed a known admin key. If omitted, OpenWA generates a random key and writes data/.api-key.
+# Optional: seed a known admin key. If omitted, ZapLink generates a random key and writes data/.api-key.
 API_MASTER_KEY=
 
 # Session
@@ -744,9 +744,9 @@ LOG_LEVEL=info
 # DATABASE_TYPE=postgres
 # DATABASE_HOST=postgres
 # DATABASE_PORT=5432
-# DATABASE_USERNAME=openwa
+# DATABASE_USERNAME=zaplink
 # DATABASE_PASSWORD=<set-a-strong-password>
-# DATABASE_NAME=openwa
+# DATABASE_NAME=zaplink
 DATABASE_SYNCHRONIZE=false
 # DATABASE_POOL_SIZE=10
 
@@ -895,9 +895,9 @@ npm run lint -- --fix
 # PII warning: this logs full queries WITH bound parameters — message bodies and phone
 # numbers end up in the application log. Use on a local/debug data set only, never in production.
 
-# View Docker logs (service is `openwa-api` in docker-compose.yml, `openwa` in
+# View Docker logs (service is `zaplink-api` in docker-compose.yml, `zaplink` in
 # docker-compose.dev.yml — there is no service named `app`)
-docker compose logs -f openwa-api
+docker compose logs -f zaplink-api
 ```
 
 ## 8.10 Performance Best Practices
@@ -1074,7 +1074,7 @@ comment on `SessionService` in `src/modules/session/session.service.ts`).
 **Check logs:**
 
 ```bash
-docker compose logs openwa-api --tail 100
+docker compose logs zaplink-api --tail 100
 ```
 
 **Common causes:**
@@ -1089,14 +1089,14 @@ docker compose logs openwa-api --tail 100
 
 ```dockerfile
 # Add shared memory size
-docker run --shm-size=2gb openwa
+docker run --shm-size=2gb zaplink
 ```
 
 Or in docker-compose.yml:
 
 ```yaml
 services:
-  openwa-api:
+  zaplink-api:
     shm_size: '2gb'
 ```
 

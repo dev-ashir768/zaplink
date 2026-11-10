@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { OpenWAClient } from '../src';
+import { ZapLinkClient } from '../src';
 import type { WebhookFilters } from '../src/types';
 import { MockTransport } from './helpers';
 
-function client(t: MockTransport): OpenWAClient {
-  return new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: t.asFetch() });
+function client(t: MockTransport): ZapLinkClient {
+  return new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: t.asFetch() });
 }
 
 describe('GroupsResource — exact paths and bodies', () => {
@@ -568,7 +568,7 @@ describe('SearchResource — exact path and query forwarding', () => {
 // Eleven routes no other test calls. Each row is written from the contract (openapi.json: verb, path,
 // query and request-body keys), not read off the client, so a changed verb or a renamed body key fails here.
 describe('routes with no other test: verb, path, query and body', () => {
-  type Row = [name: string, call: (c: OpenWAClient) => Promise<unknown>, method: string, url: string, body?: unknown];
+  type Row = [name: string, call: (c: ZapLinkClient) => Promise<unknown>, method: string, url: string, body?: unknown];
   const rows: Row[] = [
     ['sessions.getConfig', c => c.sessions.getConfig('s1'), 'GET', 'http://x/api/sessions/s1/config'],
     [

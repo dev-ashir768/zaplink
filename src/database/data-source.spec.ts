@@ -83,7 +83,7 @@ describe('data CLI DataSource', () => {
     const prevType = process.env.DATABASE_TYPE;
     const prevSchema = process.env.POSTGRES_SCHEMA;
     process.env.DATABASE_TYPE = 'postgres';
-    process.env.POSTGRES_SCHEMA = 'OpenWA';
+    process.env.POSTGRES_SCHEMA = 'ZapLink';
     jest.resetModules();
     try {
       expect(() => {
@@ -141,16 +141,16 @@ describe('PostgreSQL schema selection (POSTGRES_SCHEMA)', () => {
   });
 
   it('passes schema through and sets the search_path on connect for a non-public schema', async () => {
-    const opts = buildPostgresDataSourceOptions({ POSTGRES_SCHEMA: 'openwa' }) as PgOpts;
-    expect(opts.schema).toBe('openwa');
+    const opts = buildPostgresDataSourceOptions({ POSTGRES_SCHEMA: 'zaplink' }) as PgOpts;
+    expect(opts.schema).toBe('zaplink');
     expect(opts.extra?.options).toBeUndefined();
     expect(await connectStatements(opts)).toEqual([
-      "SET TIME ZONE 'UTC'; SELECT set_config('search_path', 'openwa,public', false)",
+      "SET TIME ZONE 'UTC'; SELECT set_config('search_path', 'zaplink,public', false)",
     ]);
   });
 
   it('keeps the pool timeouts under a custom schema (never drops them or adds statement_timeout)', () => {
-    const opts = buildPostgresDataSourceOptions({ POSTGRES_SCHEMA: 'openwa' }) as PgOpts;
+    const opts = buildPostgresDataSourceOptions({ POSTGRES_SCHEMA: 'zaplink' }) as PgOpts;
     expect(opts.extra?.max).toBe(10);
     expect(opts.extra?.idleTimeoutMillis).toBe(30000);
     expect(opts.extra?.connectionTimeoutMillis).toBe(10000);

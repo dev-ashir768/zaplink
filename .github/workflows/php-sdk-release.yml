@@ -1,7 +1,7 @@
 name: PHP SDK Release
 
 # Cuts a versioned release of the PHP SDK by pushing a tag to the mirror repo
-# rmyndharis/openwa-php, which is what Packagist reads versions from.
+# rmyndharis/zaplink-php, which is what Packagist reads versions from.
 #
 # Why a tag on the MIRROR and not here: Packagist installs from the mirror (it needs composer.json at
 # a repository root and does not support subdirectories), and it derives versions from that
@@ -125,7 +125,7 @@ jobs:
           # so moving it does not reliably reach anyone who already resolved it. Refuse rather than
           # force-push over a released version.
           if git ls-remote --tags --exit-code "$MIRROR" "refs/tags/${VERSION}" >/dev/null 2>&1; then
-            echo "::error::rmyndharis/openwa-php already has tag '${VERSION}'. Released versions are immutable — bump the version instead of re-tagging."
+            echo "::error::rmyndharis/zaplink-php already has tag '${VERSION}'. Released versions are immutable — bump the version instead of re-tagging."
             exit 1
           fi
 
@@ -140,4 +140,4 @@ jobs:
           # Hooks off: nothing in this job runs project code, so none are expected, and none may run with
           # the token in the environment of this push.
           git -c core.hooksPath=/dev/null push "$MIRROR" "${SPLIT_SHA}:refs/tags/${VERSION}"
-          echo "Tagged rmyndharis/openwa-php ${VERSION} -> ${SPLIT_SHA}"
+          echo "Tagged rmyndharis/zaplink-php ${VERSION} -> ${SPLIT_SHA}"

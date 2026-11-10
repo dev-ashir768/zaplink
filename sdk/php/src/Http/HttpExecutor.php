@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Http;
+namespace ZapLink\Http;
 
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
@@ -12,13 +12,13 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\Exception\ResponseTimeoutException;
 use GuzzleHttp\Psr7\Request;
-use OpenWA\Exceptions\OpenWAApiException;
-use OpenWA\Exceptions\OpenWAException;
-use OpenWA\Exceptions\OpenWATimeoutException;
+use ZapLink\Exceptions\ZapLinkApiException;
+use ZapLink\Exceptions\ZapLinkException;
+use ZapLink\Exceptions\ZapLinkTimeoutException;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * Injectable HTTP transport for the OpenWA SDK.
+ * Injectable HTTP transport for the ZapLink SDK.
  *
  * The client never builds a bare Guzzle client with a hard-coded handler.
  * Instead it accepts an optional Guzzle {@see ClientInterface} (defaulting to a
@@ -82,18 +82,18 @@ class HttpExecutor
      *
      * @param array<mixed> $headers
      *
-     * @throws OpenWAException
+     * @throws ZapLinkException
      */
     public static function checkDefaultHeaders(#[\SensitiveParameter] array $headers): void
     {
         foreach ($headers as $name => $value) {
             if (!is_string($name) || preg_match('/\A[!#$%&\'*+\-.^_`|~0-9A-Za-z]+\z/', $name) !== 1) {
-                throw new OpenWAException(
-                    'OpenWA Client: defaultHeaders has a header name that is not a valid HTTP token'
+                throw new ZapLinkException(
+                    'ZapLink Client: defaultHeaders has a header name that is not a valid HTTP token'
                 );
             }
             if ($value === []) {
-                throw new OpenWAException(sprintf('OpenWA Client: defaultHeaders value for "%s" must be text or a non-empty list', $name));
+                throw new ZapLinkException(sprintf('ZapLink Client: defaultHeaders value for "%s" must be text or a non-empty list', $name));
             }
             foreach (is_array($value) ? $value : [$value] as $each) {
                 if (is_scalar($each) || $each === null) {
@@ -104,7 +104,7 @@ class HttpExecutor
                 } else {
                     $reason = 'must be text';
                 }
-                throw new OpenWAException(sprintf('OpenWA Client: defaultHeaders value for "%s" %s', $name, $reason));
+                throw new ZapLinkException(sprintf('ZapLink Client: defaultHeaders value for "%s" %s', $name, $reason));
             }
         }
     }
@@ -145,7 +145,7 @@ class HttpExecutor
     public function encodeSegment(string $segment): string
     {
         if ($segment === '' || $segment === '.' || $segment === '..') {
-            throw new \InvalidArgumentException(sprintf('OpenWA: empty or dot path segment "%s"', $segment));
+            throw new \InvalidArgumentException(sprintf('ZapLink: empty or dot path segment "%s"', $segment));
         }
         return str_replace(['%40', '%3A', '%2B'], ['@', ':', '+'], rawurlencode($segment));
     }
@@ -164,9 +164,9 @@ class HttpExecutor
      *
      * @return mixed Decoded JSON, or null for empty/204 responses.
      *
-     * @throws OpenWAApiException  On any non-2xx response (typed subclass).
-     * @throws OpenWATimeoutException On timeout.
-     * @throws OpenWAException On a 2xx body that is not JSON, unless $allowText.
+     * @throws ZapLinkApiException  On any non-2xx response (typed subclass).
+     * @throws ZapLinkTimeoutException On timeout.
+     * @throws ZapLinkException On a 2xx body that is not JSON, unless $allowText.
      */
     public function request(
         string $method,
@@ -186,7 +186,7 @@ class HttpExecutor
         $decoded = json_decode($text, true);
         if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
             if (!$allowText) {
-                throw new OpenWAException("OpenWA: non-JSON response for {$method} {$path}");
+                throw new ZapLinkException("ZapLink: non-JSON response for {$method} {$path}");
             }
             return $text;
         }
@@ -204,8 +204,8 @@ class HttpExecutor
      *
      * @return array{data: string, contentType: ?string}
      *
-     * @throws OpenWAApiException  On any non-2xx response (typed subclass).
-     * @throws OpenWATimeoutException On timeout.
+     * @throws ZapLinkApiException  On any non-2xx response (typed subclass).
+     * @throws ZapLinkTimeoutException On timeout.
      */
     public function requestBinary(string $method, string $path, array $query = []): array
     {
@@ -235,14 +235,14 @@ class HttpExecutor
         // The path is appended to the base URL, so one without a leading "/" could move the host
         // (".example.net/x", "@example.net/x") and send the API key there.
         if (!str_starts_with($path, '/')) {
-            throw new \InvalidArgumentException('OpenWA: path must begin with "/": ' . $path);
+            throw new \InvalidArgumentException('ZapLink: path must begin with "/": ' . $path);
         }
         $rawPath = explode('#', explode('?', $path, 2)[0], 2)[0];
         // Decoded before it is split: a proxy that decodes %2F before it resolves dot segments reads an id sent as
         // "..%2Fx" as "../x" and sends the call to another route.
         foreach (explode('/', str_replace('\\', '/', rawurldecode($rawPath))) as $seg) {
             if ($seg === '.' || $seg === '..') {
-                throw new \InvalidArgumentException('OpenWA: path must not contain a dot path segment: ' . $path);
+                throw new \InvalidArgumentException('ZapLink: path must not contain a dot path segment: ' . $path);
             }
         }
         // Auth/JSON headers are applied per-request so they are correct whether
@@ -300,18 +300,18 @@ class HttpExecutor
         try {
             $response = $this->http->request($method, $url, $options);
         } catch (ConnectTimeoutException | NetworkTimeoutException | ResponseTimeoutException $e) {
-            throw new OpenWATimeoutException($this->timeout);
+            throw new ZapLinkTimeoutException($this->timeout);
         } catch (ConnectException $e) {
             // Guzzle 7 exposes cURL errno 28 in the context; custom transports may only supply a message.
             $errno = method_exists($e, 'getHandlerContext') ? ($e->getHandlerContext()['errno'] ?? null) : null;
             $isTimeout = $errno === 28 || str_contains($e->getMessage(), 'timed out');
             if ($isTimeout || $this->failedAfterTimeout($e, $started)) {
-                throw new OpenWATimeoutException($this->timeout);
+                throw new ZapLinkTimeoutException($this->timeout);
             }
             throw $e;
         } catch (RequestException $e) {
             if ($this->failedAfterTimeout($e, $started)) {
-                throw new OpenWATimeoutException($this->timeout);
+                throw new ZapLinkTimeoutException($this->timeout);
             }
             throw $e;
         }
@@ -331,7 +331,7 @@ class HttpExecutor
         if ($method !== 'HEAD' && $status !== 204 && $size !== null && preg_match('/\A\d+\z/', $declared) === 1
             && $size < (int) $declared) {
             throw new RequestException(
-                sprintf('OpenWA: %s %s: the response ended after %d of %s bytes', $method, $path, $size, $declared),
+                sprintf('ZapLink: %s %s: the response ended after %d of %s bytes', $method, $path, $size, $declared),
                 new Request($method, $url)
             );
         }
@@ -356,7 +356,7 @@ class HttpExecutor
             && !(method_exists($e, 'hasResponse') && $e->hasResponse());
     }
 
-    private function buildApiException(ResponseInterface $response, string $method, string $path): OpenWAApiException
+    private function buildApiException(ResponseInterface $response, string $method, string $path): ZapLinkApiException
     {
         $status = $response->getStatusCode();
         $text = (string) $response->getBody();
@@ -383,12 +383,12 @@ class HttpExecutor
             $messageText = $rawMessage === null ? $response->getReasonPhrase() : (string) $rawMessage;
         }
         $reason = $response->getReasonPhrase();
-        $message = "OpenWA API {$status} {$reason} — {$method} {$path}: {$messageText}";
+        $message = "ZapLink API {$status} {$reason} — {$method} {$path}: {$messageText}";
 
         // An intermediary that rewrites the body may send a non-string `error`; the kind stays unset then.
         $errorKind = is_string($envelope['error'] ?? null) ? $envelope['error'] : null;
 
-        return OpenWAApiException::classify(
+        return ZapLinkApiException::classify(
             $status,
             $message,
             $data,

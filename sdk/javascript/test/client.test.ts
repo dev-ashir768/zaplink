@@ -1,34 +1,34 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  OpenWAClient,
+  ZapLinkClient,
   buildUrl,
-  OpenWAApiError,
-  OpenWAAuthError,
-  OpenWAForbiddenError,
-  OpenWANotFoundError,
-  OpenWAConflictError,
-  OpenWARateLimitError,
-  OpenWANotImplementedError,
-  OpenWAServiceUnavailableError,
-  OpenWATimeoutError,
+  ZapLinkApiError,
+  ZapLinkAuthError,
+  ZapLinkForbiddenError,
+  ZapLinkNotFoundError,
+  ZapLinkConflictError,
+  ZapLinkRateLimitError,
+  ZapLinkNotImplementedError,
+  ZapLinkServiceUnavailableError,
+  ZapLinkTimeoutError,
 } from '../src';
 import type { FetchLike } from '../src';
 import { MockTransport, type MockResponseSpec } from './helpers';
 
-function client(transport: MockTransport): OpenWAClient {
-  return new OpenWAClient({
+function client(transport: MockTransport): ZapLinkClient {
+  return new ZapLinkClient({
     baseUrl: 'http://localhost:2785',
     apiKey: 'owa_k1_test',
     fetch: transport.asFetch(),
   });
 }
 
-describe('OpenWAClient', () => {
+describe('ZapLinkClient', () => {
   // A client that is logged, inspected or captured by an error tracker while a call is debugged must not
   // write its bearer-equivalent key out.
   it('does not show the API key when the client is printed or serialized', () => {
     const secret = 'owa_k1_do_not_print';
-    const printed = new OpenWAClient({ baseUrl: 'http://localhost:2785', apiKey: secret });
+    const printed = new ZapLinkClient({ baseUrl: 'http://localhost:2785', apiKey: secret });
 
     // What a logger, util.inspect and an error tracker walk is the enumerable own properties.
     const seen = new Set<unknown>();
@@ -43,8 +43,8 @@ describe('OpenWAClient', () => {
   });
 
   it('requires baseUrl and apiKey', () => {
-    expect(() => new OpenWAClient({ baseUrl: '', apiKey: 'x' })).toThrow();
-    expect(() => new OpenWAClient({ baseUrl: 'http://x', apiKey: '' })).toThrow();
+    expect(() => new ZapLinkClient({ baseUrl: '', apiKey: 'x' })).toThrow();
+    expect(() => new ZapLinkClient({ baseUrl: 'http://x', apiKey: '' })).toThrow();
   });
 
   it('sends the API key as X-API-Key and JSON content type', async () => {
@@ -56,18 +56,18 @@ describe('OpenWAClient', () => {
 
   it('strips a trailing slash from baseUrl', async () => {
     const t = new MockTransport().on('GET', '/api/sessions', { body: [] });
-    const c = new OpenWAClient({ baseUrl: 'http://localhost:2785/', apiKey: 'k', fetch: t.asFetch() });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost:2785/', apiKey: 'k', fetch: t.asFetch() });
     await c.sessions.list();
     expect(t.lastCall!.url).toBe('http://localhost:2785/api/sessions');
   });
 
   it('keeps a base URL path prefix on typed and raw calls', async () => {
-    // Behind a reverse proxy at /openwa/, losing the prefix would send every call to a route that 404s.
-    const t = new MockTransport().on('GET', '/openwa/', { body: [] });
-    const c = new OpenWAClient({ baseUrl: 'http://h/openwa/', apiKey: 'k', fetch: t.asFetch() });
+    // Behind a reverse proxy at /zaplink/, losing the prefix would send every call to a route that 404s.
+    const t = new MockTransport().on('GET', '/zaplink/', { body: [] });
+    const c = new ZapLinkClient({ baseUrl: 'http://h/zaplink/', apiKey: 'k', fetch: t.asFetch() });
     await c.sessions.list();
     await c.request({ method: 'GET', path: '//api/x', query: { limit: 5 } });
-    expect(t.calls.map(call => call.url)).toEqual(['http://h/openwa/api/sessions', 'http://h/openwa//api/x?limit=5']);
+    expect(t.calls.map(call => call.url)).toEqual(['http://h/zaplink/api/sessions', 'http://h/zaplink//api/x?limit=5']);
   });
 
   it('does not auto-follow redirects (passes redirect: manual to fetch)', async () => {
@@ -78,7 +78,7 @@ describe('OpenWAClient', () => {
       seenInit = init as RequestInit;
       return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
     };
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: recordingFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: recordingFetch });
     await c.health.check();
     expect(seenInit?.redirect).toBe('manual');
   });
@@ -88,19 +88,19 @@ describe('OpenWAClient', () => {
     // JS transport aligned with the Python and PHP SDKs (which now also error on >= 300).
     const redirectingFetch: FetchLike = async () =>
       new Response('{"redirected":true}', { status: 302, headers: { location: 'http://evil.example/x' } });
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: redirectingFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: redirectingFetch });
     await expect(c.sessions.list()).rejects.toThrow();
   });
 
-  it('surfaces a real opaque unfollowed redirect (status 0) as a clear OpenWAApiError', async () => {
+  it('surfaces a real opaque unfollowed redirect (status 0) as a clear ZapLinkApiError', async () => {
     // With `redirect: 'manual'` the runtime returns an opaque response with status 0 (not a 3xx);
     // this is the actual shape the no-redirect guard produces, and it must throw a clear error.
     const opaqueRedirectFetch: FetchLike = async () => Response.error();
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: opaqueRedirectFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: opaqueRedirectFetch });
     const err = await c.sessions.list().catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(OpenWAApiError);
-    expect((err as OpenWAApiError).status).toBe(0);
-    expect((err as OpenWAApiError).message).toMatch(/redirect/i);
+    expect(err).toBeInstanceOf(ZapLinkApiError);
+    expect((err as ZapLinkApiError).status).toBe(0);
+    expect((err as ZapLinkApiError).message).toMatch(/redirect/i);
   });
 
   it('percent-encodes path segments but keeps @ in JIDs readable', async () => {
@@ -294,16 +294,16 @@ describe('OpenWAClient', () => {
     );
   });
 
-  it('maps a 404 to OpenWANotFoundError with parsed body', async () => {
+  it('maps a 404 to ZapLinkNotFoundError with parsed body', async () => {
     const t = new MockTransport().on('GET', '/api/sessions/missing', {
       status: 404,
       body: { statusCode: 404, message: 'Session not found', error: 'Not Found' },
     });
-    await expect(client(t).sessions.get('missing')).rejects.toBeInstanceOf(OpenWANotFoundError);
+    await expect(client(t).sessions.get('missing')).rejects.toBeInstanceOf(ZapLinkNotFoundError);
     await expect(client(t).sessions.get('missing')).rejects.toMatchObject({ status: 404 });
   });
 
-  it('maps a 503 to OpenWAServiceUnavailableError', async () => {
+  it('maps a 503 to ZapLinkServiceUnavailableError', async () => {
     // The gateway answers 503 when the engine never confirmed an operation: a transport failure, which
     // is worth retrying, as a 429 is. It used to fall through to the base class while 501, which is
     // permanent, had a subclass of its own.
@@ -312,7 +312,7 @@ describe('OpenWAClient', () => {
       body: { statusCode: 503, message: 'WhatsApp did not answer in time', error: 'Service Unavailable' },
     });
     await expect(client(t).messages.sendText('s1', { chatId: 'c@c.us', text: 'x' })).rejects.toBeInstanceOf(
-      OpenWAServiceUnavailableError,
+      ZapLinkServiceUnavailableError,
     );
   });
 
@@ -326,9 +326,9 @@ describe('OpenWAClient', () => {
       .health.ready()
       .catch((e: unknown) => e);
 
-    expect(err).toBeInstanceOf(OpenWAServiceUnavailableError);
-    expect((err as OpenWAApiError).message).toContain('"mainDatabase":{"status":"down"}');
-    expect((err as OpenWAApiError).message).not.toContain('[object Object]');
+    expect(err).toBeInstanceOf(ZapLinkServiceUnavailableError);
+    expect((err as ZapLinkApiError).message).toContain('"mainDatabase":{"status":"down"}');
+    expect((err as ZapLinkApiError).message).not.toContain('[object Object]');
   });
 
   it('exposes all expected resource properties', () => {
@@ -359,13 +359,13 @@ describe('OpenWAClient', () => {
     await expect(client(t).sessions.delete('x')).resolves.toBeNull();
   });
 
-  it('OpenWAApiError.fromResponse parses the NestJS envelope', async () => {
+  it('ZapLinkApiError.fromResponse parses the NestJS envelope', async () => {
     const t = new MockTransport().on('POST', /send-text/, {
       status: 409,
       body: { statusCode: 409, message: 'Engine not ready', error: 'Conflict' },
     });
     await expect(client(t).messages.sendText('s', { chatId: 'a@c.us', text: 'hi' })).rejects.toBeInstanceOf(
-      OpenWAApiError,
+      ZapLinkApiError,
     );
   });
 
@@ -381,12 +381,12 @@ describe('OpenWAClient', () => {
       .sessions.create({ name: 'x' })
       .catch((e: unknown) => e);
 
-    expect(err).toBeInstanceOf(OpenWAApiError);
-    expect((err as OpenWAApiError).message).toContain('Bad Request');
-    expect((err as OpenWAApiError).message).not.toContain('[object Object]');
-    expect((err as OpenWAApiError).status).toBe(400);
+    expect(err).toBeInstanceOf(ZapLinkApiError);
+    expect((err as ZapLinkApiError).message).toContain('Bad Request');
+    expect((err as ZapLinkApiError).message).not.toContain('[object Object]');
+    expect((err as ZapLinkApiError).status).toBe(400);
     // No `error` key was sent, so there is no kind to report — undefined, not a stringified object.
-    expect((err as OpenWAApiError).errorKind).toBeUndefined();
+    expect((err as ZapLinkApiError).errorKind).toBeUndefined();
   });
 
   it('still reads `error` as the kind when the gateway sends one', async () => {
@@ -398,18 +398,18 @@ describe('OpenWAClient', () => {
       .sessions.create({ name: 'x' })
       .catch((e: unknown) => e);
 
-    expect((err as OpenWAApiError).errorKind).toBe('Bad Request');
-    expect((err as OpenWAApiError).message).toContain('name must be a string');
+    expect((err as ZapLinkApiError).errorKind).toBe('Bad Request');
+    expect((err as ZapLinkApiError).message).toContain('name must be a string');
   });
 
   it('maps each status code to its typed error subclass', async () => {
-    const cases: Array<[number, new (...a: never[]) => OpenWAApiError]> = [
-      [401, OpenWAAuthError],
-      [403, OpenWAForbiddenError],
-      [404, OpenWANotFoundError],
-      [409, OpenWAConflictError],
-      [429, OpenWARateLimitError],
-      [501, OpenWANotImplementedError],
+    const cases: Array<[number, new (...a: never[]) => ZapLinkApiError]> = [
+      [401, ZapLinkAuthError],
+      [403, ZapLinkForbiddenError],
+      [404, ZapLinkNotFoundError],
+      [409, ZapLinkConflictError],
+      [429, ZapLinkRateLimitError],
+      [501, ZapLinkNotImplementedError],
     ];
     for (const [status, cls] of cases) {
       const t = new MockTransport().on('GET', '/api/sessions', {
@@ -421,17 +421,17 @@ describe('OpenWAClient', () => {
   });
 
   it('exposes the body code, the retry delay and the response headers on an API error', async () => {
-    const fail = async (spec: MockResponseSpec): Promise<OpenWAApiError> =>
+    const fail = async (spec: MockResponseSpec): Promise<ZapLinkApiError> =>
       (await client(new MockTransport().passthrough(spec))
         .sessions.list()
-        .catch((e: unknown) => e)) as OpenWAApiError;
+        .catch((e: unknown) => e)) as ZapLinkApiError;
 
     const throttled = await fail({
       status: 429,
       headers: { 'Retry-After': '7' },
       body: { statusCode: 429, message: 'ThrottlerException: Too Many Requests' },
     });
-    expect(throttled).toBeInstanceOf(OpenWARateLimitError);
+    expect(throttled).toBeInstanceOf(ZapLinkRateLimitError);
     expect(throttled.retryAfterSeconds).toBe(7);
     expect(throttled.code).toBeUndefined();
     expect(throttled.headers?.get('retry-after')).toBe('7');
@@ -489,10 +489,10 @@ describe('OpenWAClient', () => {
     const t = new MockTransport().on('GET', '/api/sessions', { status: 502, text: page, contentType: 'text/html' });
     const err = (await client(t)
       .sessions.list()
-      .catch((e: unknown) => e)) as OpenWAApiError;
+      .catch((e: unknown) => e)) as ZapLinkApiError;
 
-    expect(err).toBeInstanceOf(OpenWAApiError);
-    expect(err.name).toBe('OpenWAApiError');
+    expect(err).toBeInstanceOf(ZapLinkApiError);
+    expect(err.name).toBe('ZapLinkApiError');
     expect(err.status).toBe(502);
     expect(err.body).toBe(page);
     expect(err.message).toContain(page);
@@ -505,28 +505,28 @@ describe('OpenWAClient', () => {
     });
     const err = (await client(t)
       .sessions.create({ name: '' })
-      .catch((e: unknown) => e)) as OpenWAApiError;
+      .catch((e: unknown) => e)) as ZapLinkApiError;
 
     expect(err.message).toContain('name must be a string, name should not be empty');
   });
 
-  it('falls back to the generic OpenWAApiError (with .status) for an unmapped status', async () => {
+  it('falls back to the generic ZapLinkApiError (with .status) for an unmapped status', async () => {
     const t = new MockTransport().on('GET', '/api/sessions', {
       status: 418,
       body: { statusCode: 418, message: 'teapot', error: 'Teapot' },
     });
     await expect(client(t).sessions.list()).rejects.toMatchObject({ status: 418 });
-    await expect(client(t).sessions.list()).rejects.toBeInstanceOf(OpenWAApiError);
+    await expect(client(t).sessions.list()).rejects.toBeInstanceOf(ZapLinkApiError);
   });
 
-  it('throws OpenWATimeoutError when the request aborts', async () => {
+  it('throws ZapLinkTimeoutError when the request aborts', async () => {
     const abortingFetch: FetchLike = async () => {
       const e = new Error('aborted');
       e.name = 'AbortError';
       throw e;
     };
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: abortingFetch });
-    await expect(c.sessions.list()).rejects.toBeInstanceOf(OpenWATimeoutError);
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: abortingFetch });
+    await expect(c.sessions.list()).rejects.toBeInstanceOf(ZapLinkTimeoutError);
   });
 
   it('leaves no timer running once a request has resolved or been refused', async () => {
@@ -543,7 +543,7 @@ describe('OpenWAClient', () => {
       await c.sessions.list();
       expect(vi.getTimerCount()).toBe(0);
 
-      await expect(c.sessions.get('missing')).rejects.toBeInstanceOf(OpenWANotFoundError);
+      await expect(c.sessions.get('missing')).rejects.toBeInstanceOf(ZapLinkNotFoundError);
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
@@ -561,7 +561,7 @@ describe('OpenWAClient', () => {
             reject(e);
           });
         });
-      const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: unanswered });
+      const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: unanswered });
       const outcome = c.sessions.list().then(
         () => 'resolved',
         (e: unknown) => e,
@@ -574,9 +574,9 @@ describe('OpenWAClient', () => {
 
       await vi.advanceTimersByTimeAsync(2);
       const err = await outcome;
-      expect(err).toBeInstanceOf(OpenWATimeoutError);
-      expect((err as OpenWATimeoutError).name).toBe('OpenWATimeoutError');
-      expect((err as OpenWATimeoutError).message).toContain('30000ms');
+      expect(err).toBeInstanceOf(ZapLinkTimeoutError);
+      expect((err as ZapLinkTimeoutError).name).toBe('ZapLinkTimeoutError');
+      expect((err as ZapLinkTimeoutError).message).toContain('30000ms');
     } finally {
       vi.useRealTimers();
     }
@@ -585,7 +585,7 @@ describe('OpenWAClient', () => {
   it('warns about a remote http:// base URL, and about no other', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
-      new OpenWAClient({ baseUrl: 'http://gateway.example', apiKey: 'k' });
+      new ZapLinkClient({ baseUrl: 'http://gateway.example', apiKey: 'k' });
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0][0])).toContain('gateway.example');
 
@@ -596,7 +596,7 @@ describe('OpenWAClient', () => {
         'http://[::1]:2785',
         'https://gateway.example',
       ]) {
-        new OpenWAClient({ baseUrl, apiKey: 'k' });
+        new ZapLinkClient({ baseUrl, apiKey: 'k' });
       }
       expect(warn).not.toHaveBeenCalled();
     } finally {
@@ -618,9 +618,9 @@ describe('OpenWAClient', () => {
       });
       return new Response(body, { status: 200 });
     };
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', timeoutMs: 5, fetch: stalledBodyFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', timeoutMs: 5, fetch: stalledBodyFetch });
 
-    await expect(c.sessions.list()).rejects.toBeInstanceOf(OpenWATimeoutError);
+    await expect(c.sessions.list()).rejects.toBeInstanceOf(ZapLinkTimeoutError);
   });
 
   it('reports a timeout, not the status, when a non-2xx response body stalls', async () => {
@@ -637,9 +637,9 @@ describe('OpenWAClient', () => {
       });
       return new Response(body, { status: 500 });
     };
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', timeoutMs: 5, fetch: stalledErrorFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', timeoutMs: 5, fetch: stalledErrorFetch });
 
-    await expect(c.sessions.list()).rejects.toBeInstanceOf(OpenWATimeoutError);
+    await expect(c.sessions.list()).rejects.toBeInstanceOf(ZapLinkTimeoutError);
   });
 
   it('turns the timeout off for 0 or Infinity, and caps a delay setTimeout cannot hold', async () => {
@@ -655,13 +655,13 @@ describe('OpenWAClient', () => {
       return new Response('[]', { status: 200 });
     };
     for (const timeoutMs of [0, Infinity, 2 ** 31]) {
-      const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs, fetch: slowFetch });
+      const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs, fetch: slowFetch });
       await expect(c.sessions.list()).resolves.toEqual([]);
     }
   });
 
   it('arms the timeout for a numeric string from untyped config', async () => {
-    // A plain-JS caller passing process.env.OPENWA_TIMEOUT_MS hands over a string.
+    // A plain-JS caller passing process.env.ZAPLINK_TIMEOUT_MS hands over a string.
     const slowFetch: FetchLike = async (_url, init) => {
       await new Promise(resolve => setTimeout(resolve, 50));
       if (init?.signal?.aborted) {
@@ -672,8 +672,8 @@ describe('OpenWAClient', () => {
       return new Response('[]', { status: 200 });
     };
     const timeoutMs = '5' as unknown as number;
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs, fetch: slowFetch });
-    await expect(c.sessions.list()).rejects.toThrow(new OpenWATimeoutError(5));
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs, fetch: slowFetch });
+    await expect(c.sessions.list()).rejects.toThrow(new ZapLinkTimeoutError(5));
   });
 
   it('refuses a timeout that is not a number of milliseconds instead of turning it off', () => {
@@ -681,33 +681,33 @@ describe('OpenWAClient', () => {
     // stalled request hang forever.
     for (const timeoutMs of ['', ' ', '30s', 'abc', -1]) {
       expect(
-        () => new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs: timeoutMs as unknown as number }),
+        () => new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs: timeoutMs as unknown as number }),
       ).toThrow(TypeError);
     }
   });
 
   it('trims a key read from a file, and refuses what fetch cannot send without repeating it', async () => {
     const t = new MockTransport().on('GET', '/api/sessions', { body: [] });
-    const c = new OpenWAClient({ baseUrl: 'http://x', apiKey: ' owa_k1_secret\n', fetch: t.asFetch() });
+    const c = new ZapLinkClient({ baseUrl: 'http://x', apiKey: ' owa_k1_secret\n', fetch: t.asFetch() });
     await c.sessions.list();
     expect(t.lastCall!.headers['x-api-key']).toBe('owa_k1_secret');
 
     // An inner space is part of a passphrase key and is sent as it is.
-    const spaced = new OpenWAClient({ baseUrl: 'http://x', apiKey: 'correct horse battery', fetch: t.asFetch() });
+    const spaced = new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'correct horse battery', fetch: t.asFetch() });
     await spaced.sessions.list();
     expect(t.lastCall!.headers['x-api-key']).toBe('correct horse battery');
 
     for (const bad of ['owa_k1_se\ncret', 'owa_k1_se\u0000cret', 'owa_k1_s\u2603cret']) {
       let message = '';
       try {
-        new OpenWAClient({ baseUrl: 'http://x', apiKey: bad });
+        new ZapLinkClient({ baseUrl: 'http://x', apiKey: bad });
       } catch (error) {
         message = String((error as Error).message);
       }
       expect(message).toContain('apiKey');
       expect(message).not.toContain('cret');
     }
-    expect(() => new OpenWAClient({ baseUrl: 'http://x', apiKey: '  \n' })).toThrow('apiKey is required');
+    expect(() => new ZapLinkClient({ baseUrl: 'http://x', apiKey: '  \n' })).toThrow('apiKey is required');
   });
 
   it('refuses a default header value fetch cannot send, naming the header and not the value', () => {
@@ -718,7 +718,7 @@ describe('OpenWAClient', () => {
     ]) {
       let message = '';
       try {
-        new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', defaultHeaders: { [name]: value } });
+        new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', defaultHeaders: { [name]: value } });
       } catch (error) {
         message = String((error as Error).message);
       }
@@ -728,16 +728,16 @@ describe('OpenWAClient', () => {
     // A tab, printable ASCII and a Latin-1 character are sent as before, and a line break at either end of a
     // value read from a file is what fetch trims.
     expect(
-      () => new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', defaultHeaders: { 'X-Trace': 'a\tb caf\u00e9' } }),
+      () => new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', defaultHeaders: { 'X-Trace': 'a\tb caf\u00e9' } }),
     ).not.toThrow();
     expect(
-      () => new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', defaultHeaders: { 'X-Proxy-Token': 'tok\n' } }),
+      () => new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', defaultHeaders: { 'X-Proxy-Token': 'tok\n' } }),
     ).not.toThrow();
   });
 
   it('keeps X-API-Key winning over defaultHeaders', async () => {
     const t = new MockTransport().on('GET', '/api/sessions', { body: [] });
-    const c = new OpenWAClient({
+    const c = new ZapLinkClient({
       baseUrl: 'http://x',
       apiKey: 'REAL',
       defaultHeaders: { 'X-API-Key': 'EVIL', 'X-Trace': 'keep' },
@@ -750,7 +750,7 @@ describe('OpenWAClient', () => {
 
   it('keeps the JSON Content-Type winning over a defaultHeaders override', async () => {
     const t = new MockTransport().on('GET', '/api/sessions', { body: [] });
-    const c = new OpenWAClient({
+    const c = new ZapLinkClient({
       baseUrl: 'http://x',
       apiKey: 'k',
       defaultHeaders: { 'Content-Type': 'text/plain', 'X-Trace': 'keep' },
@@ -769,7 +769,7 @@ describe('OpenWAClient', () => {
       wire = new Headers(init?.headers);
       return new Response('[]', { status: 200 });
     };
-    const c = new OpenWAClient({
+    const c = new ZapLinkClient({
       baseUrl: 'http://localhost',
       apiKey: 'REAL',
       defaultHeaders: { 'x-api-key': 'EVIL', 'x-trace': 'keep' },
@@ -787,7 +787,7 @@ describe('OpenWAClient', () => {
       wire = new Headers(init?.headers);
       return new Response('[]', { status: 200 });
     };
-    const c = new OpenWAClient({
+    const c = new ZapLinkClient({
       baseUrl: 'http://localhost',
       apiKey: 'k',
       defaultHeaders: { Accept: 'a', 'X-Trace': 'keep' },
@@ -806,7 +806,7 @@ describe('OpenWAClient', () => {
       sent.push(init?.method);
       return new Response('[]', { status: 200 });
     };
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: recordingFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: recordingFetch });
     for (const method of ['get', 'post', 'put', 'patch', 'delete', 'Patch', 'PATCH']) {
       await c.request({ method: method as never, path: '/api/sessions' });
     }
@@ -819,7 +819,7 @@ describe('OpenWAClient', () => {
     vi.useFakeTimers();
     try {
       const fetchSpy = vi.fn<FetchLike>(async () => new Response('[]', { status: 200 }));
-      const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs: 5000, fetch: fetchSpy });
+      const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', timeoutMs: 5000, fetch: fetchSpy });
       await expect(c.request({ method: 5 as never, path: '/api/sessions' })).rejects.toBeInstanceOf(TypeError);
       await expect(c.requestBytes({ method: {} as never, path: '/api/sessions' })).rejects.toBeInstanceOf(TypeError);
       expect(vi.getTimerCount()).toBe(0);
@@ -836,7 +836,7 @@ describe('OpenWAClient', () => {
       return Promise.resolve(new Response('[]', { status: 200 }));
     });
     try {
-      const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k' });
+      const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k' });
       await expect(c.sessions.list()).resolves.toEqual([]);
     } finally {
       vi.unstubAllGlobals();
@@ -851,7 +851,7 @@ describe('OpenWAClient', () => {
       if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
       return Promise.resolve(new Response('[]', { status: 200 }));
     } as unknown as FetchLike;
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: strictFetch });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: strictFetch });
     await expect(c.sessions.list()).resolves.toEqual([]);
     expect(receivers).toEqual([undefined]);
   });

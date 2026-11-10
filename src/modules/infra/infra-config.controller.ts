@@ -328,7 +328,7 @@ export class InfraConfigController {
   // also loads ahead of data/.env.generated with override:false. load-env merges the generated
   // file into process.env too, so reading process.env alone would hand back the very file this
   // save is replacing: the guard would then bless a flip by validating the OLD config (a
-  // built-in -> external switch keeping the bundled 'openwa' password would save cleanly and
+  // built-in -> external switch keeping the bundled 'zaplink' password would save cleanly and
   // crash-loop the next production boot, the exact case this guard exists for). isEnvPinned's
   // snapshot is taken before that file loads; isOsProvidedEnv keeps the no-snapshot default of
   // assuming an override.
@@ -430,7 +430,7 @@ export class InfraConfigController {
       return `${key}=${encoded}`;
     });
     const contents = [
-      '# OpenWA Configuration',
+      '# ZapLink Configuration',
       `# Generated at ${new Date().toISOString()}`,
       '# Managed via Dashboard > Infrastructure. Values in process env or project .env take precedence.',
       '',
@@ -585,11 +585,11 @@ export class InfraConfigController {
       // data/.env.generated carries POSTGRES_BUILTIN=false, so a bare compose-profile restart would
       // otherwise tear down the very backend the app is running on. The dashboard fills this list from the
       // live /infra/status at save time: the builtIn services minus the new profiles, plus a running container
-      // OpenWA created whose host the environment pins elsewhere, less any whose next-boot host (the pinned one,
+      // ZapLink created whose host the environment pins elsewhere, less any whose next-boot host (the pinned one,
       // else the saved config read back, else the one the save sent when that read fails) still reaches it, and
       // less any whose host it cannot tell. A container is left running when that status read had failed, or when
       // the next boot still dials it (dropped above).
-      // Only ever tear down OpenWA-managed services. An arbitrary profile name (or the empty string)
+      // Only ever tear down ZapLink-managed services. An arbitrary profile name (or the empty string)
       // would otherwise reach stopManagedService and, via container-name matching, could stop an unrelated
       // container — so constrain teardown to the managed allowlist and drop anything else.
       const requested = profilesToRemove.filter(p => !profiles.includes(p));
@@ -602,8 +602,8 @@ export class InfraConfigController {
       // First, start containers for enabled services, so a refused restart leaves the running ones as they are.
       // Start shares the SAME managed allowlist as teardown below: a non-managed name reaching orchestrateProfiles
       // could, via container-name matching, select an unrelated host container, so constrain start to the managed
-      // profiles too and drop anything else. (DockerService already hard-prefixes openwa-<service> and filters on
-      // the com.openwa.service label, so this is defense-in-depth, not the sole control.)
+      // profiles too and drop anything else. (DockerService already hard-prefixes zaplink-<service> and filters on
+      // the com.zaplink.service label, so this is defense-in-depth, not the sole control.)
       const toStart = profiles.filter(p => MANAGED_DOCKER_PROFILES.includes(p));
       const ignoredStart = profiles.filter(p => !MANAGED_DOCKER_PROFILES.includes(p));
       if (ignoredStart.length > 0) {

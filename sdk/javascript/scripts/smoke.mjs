@@ -12,10 +12,10 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const cjs = require('../dist/cjs/index.js');
-if (typeof cjs.OpenWAClient !== 'function') throw new Error('CJS: OpenWAClient missing');
+if (typeof cjs.ZapLinkClient !== 'function') throw new Error('CJS: ZapLinkClient missing');
 
 const esm = await import(new URL('../dist/esm/index.js', import.meta.url).href);
-if (typeof esm.OpenWAClient !== 'function') throw new Error('ESM: OpenWAClient missing');
+if (typeof esm.ZapLinkClient !== 'function') throw new Error('ESM: ZapLinkClient missing');
 
 // The webhook helper is a value export in both builds; on Node 18 this also runs its node:crypto
 // fallback through the real CJS require() and ESM import() paths.
@@ -55,18 +55,18 @@ try {
     ['CJS', cjs],
     ['ESM', esm],
   ]) {
-    const client = new mod.OpenWAClient({ baseUrl, apiKey: 'smoke-key' });
+    const client = new mod.ZapLinkClient({ baseUrl, apiKey: 'smoke-key' });
     const health = await client.health.check();
     if (health?.apiKey !== 'smoke-key') {
       throw new Error(`${format}: health.check() did not send the key or parse JSON: ${JSON.stringify(health)}`);
     }
     const notFound = await client.health.live().catch(err => err);
-    if (!(notFound instanceof mod.OpenWANotFoundError) || notFound.status !== 404) {
-      throw new Error(`${format}: a 404 did not raise OpenWANotFoundError (got ${notFound})`);
+    if (!(notFound instanceof mod.ZapLinkNotFoundError) || notFound.status !== 404) {
+      throw new Error(`${format}: a 404 did not raise ZapLinkNotFoundError (got ${notFound})`);
     }
     const unanswered = await client.request({ method: 'GET', path: '/hang', timeoutMs: 100 }).catch(err => err);
-    if (!(unanswered instanceof mod.OpenWATimeoutError)) {
-      throw new Error(`${format}: an unanswered request did not raise OpenWATimeoutError (got ${unanswered})`);
+    if (!(unanswered instanceof mod.ZapLinkTimeoutError)) {
+      throw new Error(`${format}: an unanswered request did not raise ZapLinkTimeoutError (got ${unanswered})`);
     }
   }
 } finally {
@@ -98,4 +98,4 @@ if (dot?.types !== undefined) {
   throw new Error('exports["."] must not carry a top-level "types" condition (see TS1479 note above)');
 }
 
-console.log('smoke OK: require() + import() both resolve OpenWAClient and send requests, each condition types itself');
+console.log('smoke OK: require() + import() both resolve ZapLinkClient and send requests, each condition types itself');

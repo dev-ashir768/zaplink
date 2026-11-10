@@ -1,4 +1,4 @@
-"""Unit tests for the OpenWA Python SDK — assert exact paths and bodies."""
+"""Unit tests for the ZapLink Python SDK — assert exact paths and bodies."""
 
 from __future__ import annotations
 
@@ -11,22 +11,22 @@ from typing import Callable, get_args, get_type_hints
 import httpx
 import pytest
 
-from openwa import (
-    OpenWAApiError,
-    OpenWAAuthError,
-    OpenWAClient,
-    OpenWAConflictError,
-    OpenWAForbiddenError,
-    OpenWANotFoundError,
-    OpenWANotImplementedError,
-    OpenWARateLimitError,
-    OpenWATimeoutError,
+from zaplink import (
+    ZapLinkApiError,
+    ZapLinkAuthError,
+    ZapLinkClient,
+    ZapLinkConflictError,
+    ZapLinkForbiddenError,
+    ZapLinkNotFoundError,
+    ZapLinkNotImplementedError,
+    ZapLinkRateLimitError,
+    ZapLinkTimeoutError,
 )
-from openwa._http import build_url
-from openwa.errors import OpenWAServiceUnavailableError
-from openwa.resources.catalog import CatalogResource
-from openwa.resources.messages import MessagesResource
-from openwa.types import (
+from zaplink._http import build_url
+from zaplink.errors import ZapLinkServiceUnavailableError
+from zaplink.resources.catalog import CatalogResource
+from zaplink.resources.messages import MessagesResource
+from zaplink.types import (
     AuthValidateResponse,
     BatchCancelResponse,
     HealthReadyResponse,
@@ -54,9 +54,9 @@ from conftest import MockBackend, make_client
 class TestClientCore:
     def test_requires_base_url_and_api_key(self):
         with pytest.raises(ValueError):
-            OpenWAClient(base_url="", api_key="k")
+            ZapLinkClient(base_url="", api_key="k")
         with pytest.raises(ValueError):
-            OpenWAClient(base_url="http://x", api_key="")
+            ZapLinkClient(base_url="http://x", api_key="")
 
     def test_sends_api_key_header(self):
         backend = MockBackend().on("GET", "/api/sessions", body=[])
@@ -68,7 +68,7 @@ class TestClientCore:
     def test_default_headers_cannot_override_api_key(self):
         # A caller-supplied default header must NEVER clobber the auth/JSON headers.
         backend = MockBackend().on("GET", "/api/sessions", body=[])
-        client = OpenWAClient(
+        client = ZapLinkClient(
             base_url="http://x",
             api_key="REAL_KEY",
             default_headers={"X-API-Key": "EVIL", "Content-Type": "text/plain", "X-Trace": "keep"},
@@ -82,7 +82,7 @@ class TestClientCore:
     def test_default_headers_cannot_override_api_key_in_another_case(self):
         # Header names are case-insensitive: a lowercase copy must be replaced, not sent alongside.
         backend = MockBackend().on("GET", "/api/sessions", body=[])
-        client = OpenWAClient(
+        client = ZapLinkClient(
             base_url="http://localhost",
             api_key="REAL_KEY",
             default_headers={"x-api-key": "EVIL", "content-type": "text/plain"},
@@ -98,7 +98,7 @@ class TestClientCore:
         def handler(_req: httpx.Request) -> httpx.Response:
             return httpx.Response(200, content=b"plain text", headers={"content-type": "text/plain"})
 
-        client = OpenWAClient(base_url="http://x", api_key="k", transport=httpx.MockTransport(handler))
+        client = ZapLinkClient(base_url="http://x", api_key="k", transport=httpx.MockTransport(handler))
         # A non-JSON 2xx body must surface as text, not raise a raw JSONDecodeError.
         assert client.sessions.list() == "plain text"
 
@@ -167,10 +167,10 @@ class TestClientCore:
                 content=b'{"redirected": true}',
             )
 
-        client = OpenWAClient(base_url="http://x", api_key="k", transport=httpx.MockTransport(handler))
+        client = ZapLinkClient(base_url="http://x", api_key="k", transport=httpx.MockTransport(handler))
         # A redirect is NOT followed (which would re-send X-API-Key to the target). An unfollowed 3xx
         # is not a usable response, so it surfaces as an API error — matching the JS transport.
-        with pytest.raises(OpenWAApiError):
+        with pytest.raises(ZapLinkApiError):
             client.sessions.list()
         assert len(calls) == 1  # the redirect target was never requested
 
@@ -183,12 +183,12 @@ class TestClientCore:
         def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(status, content=b"" if status == 204 else b'{"status": "ok"}')
 
-        with OpenWAClient(base_url="http://localhost", api_key="k", transport=httpx.MockTransport(handler)) as client:
+        with ZapLinkClient(base_url="http://localhost", api_key="k", transport=httpx.MockTransport(handler)) as client:
             call = (lambda: client.messages.media("s", "c", "m")) if binary else client.health.check
             if ok:
                 call()
             else:
-                with pytest.raises(OpenWAApiError) as caught:
+                with pytest.raises(ZapLinkApiError) as caught:
                     call()
                 assert caught.value.status == status
 
@@ -203,8 +203,8 @@ class TestClientCore:
         transport = httpx.MockTransport(
             lambda _: httpx.Response(429, json={"statusCode": 429, "message": "slow down"}, headers=headers)
         )
-        with OpenWAClient(base_url="http://localhost", api_key="k", transport=transport) as client:
-            with pytest.raises(OpenWARateLimitError) as caught:
+        with ZapLinkClient(base_url="http://localhost", api_key="k", transport=transport) as client:
+            with pytest.raises(ZapLinkRateLimitError) as caught:
                 client.messages.media("s", "c", "m") if binary else client.health.check()
         assert caught.value.status == 429
         assert caught.value.retry_after_seconds is None
@@ -214,25 +214,25 @@ class TestClientCore:
         import copy
         import pickle
 
-        err = OpenWAApiError.from_response(
+        err = ZapLinkApiError.from_response(
             429,
             '{"statusCode": 429, "message": "slow", "error": "Too Many Requests", "code": "SEND_PACING_LIMITED"}',
             "POST /x",
             headers={"Retry-After": "7"},
         )
         for clone in (pickle.loads(pickle.dumps(err)), copy.copy(err), copy.deepcopy(err)):
-            assert type(clone) is OpenWARateLimitError
+            assert type(clone) is ZapLinkRateLimitError
             assert str(clone) == str(err)
             assert (clone.status, clone.body, clone.error_kind, clone.code) == (429, err.body, "Too Many Requests", err.code)
             assert clone.retry_after_seconds == 7
             assert clone.headers == {"Retry-After": "7"}
-        timeout = pickle.loads(pickle.dumps(OpenWATimeoutError(30.0)))
+        timeout = pickle.loads(pickle.dumps(ZapLinkTimeoutError(30.0)))
         assert str(timeout) == "Request timed out after 30.0s"
         assert timeout.timeout == 30.0
 
     def test_strips_trailing_slash(self):
         backend = MockBackend().on("GET", "/api/sessions", body=[])
-        client = OpenWAClient(base_url="http://localhost:2785/", api_key="k", transport=backend.as_transport())
+        client = ZapLinkClient(base_url="http://localhost:2785/", api_key="k", transport=backend.as_transport())
         client.sessions.list()
         assert backend.last_call.url == "http://localhost:2785/api/sessions"
 
@@ -292,7 +292,7 @@ class TestClientCore:
             calls.append(str(request.url))
             return httpx.Response(200, json={"ok": True})
 
-        client = OpenWAClient(
+        client = ZapLinkClient(
             base_url="http://localhost:2785",
             api_key="owa_test_key",
             transport=httpx.MockTransport(handler),
@@ -320,7 +320,7 @@ class TestClientCore:
             calls.append(str(request.url))
             return httpx.Response(200, json={"ok": True})
 
-        client = OpenWAClient(
+        client = ZapLinkClient(
             base_url="http://localhost:2785",
             api_key="owa_test_key",
             transport=httpx.MockTransport(handler),
@@ -338,12 +338,12 @@ class TestClientCore:
         assert len(backend.calls) == 1
 
     def test_a_base_url_path_prefix_is_kept_by_typed_and_raw_calls(self) -> None:
-        # Behind a reverse proxy at /openwa/, losing the prefix would send every call to a route that 404s.
-        backend = MockBackend().on("GET", "/openwa/", body=[])
-        client = make_client(backend, base_url="http://h/openwa/")
+        # Behind a reverse proxy at /zaplink/, losing the prefix would send every call to a route that 404s.
+        backend = MockBackend().on("GET", "/zaplink/", body=[])
+        client = make_client(backend, base_url="http://h/zaplink/")
         client.sessions.list()
         client.request("GET", "//api/x", query={"limit": 5})
-        assert [c.url for c in backend.calls] == ["http://h/openwa/api/sessions", "http://h/openwa//api/x?limit=5"]
+        assert [c.url for c in backend.calls] == ["http://h/zaplink/api/sessions", "http://h/zaplink//api/x?limit=5"]
 
     def test_204_is_none(self):
         # `delete` is declared `-> None`, so asserting on its result is a type error and proves
@@ -357,24 +357,24 @@ class TestClientCore:
         backend = MockBackend().on("GET", "/api/sessions/missing", status=404, body={
             "statusCode": 404, "message": "Session not found", "error": "Not Found"
         })
-        with pytest.raises(OpenWANotFoundError):
+        with pytest.raises(ZapLinkNotFoundError):
             make_client(backend).sessions.get("missing")
 
     def test_error_exposes_code_retry_after_and_headers(self):
         from email.utils import formatdate
 
-        from openwa.errors import OpenWARateLimitError
+        from zaplink.errors import ZapLinkRateLimitError
 
-        def fail(status: int, body: object = None, headers: dict[str, str] | None = None, text: str = "") -> OpenWAApiError:
+        def fail(status: int, body: object = None, headers: dict[str, str] | None = None, text: str = "") -> ZapLinkApiError:
             content = json.dumps(body).encode() if body is not None else text.encode()
             transport = httpx.MockTransport(lambda _: httpx.Response(status, content=content, headers=headers))
-            client = OpenWAClient(base_url="https://x", api_key="k", transport=transport)
-            with pytest.raises(OpenWAApiError) as caught:
+            client = ZapLinkClient(base_url="https://x", api_key="k", transport=transport)
+            with pytest.raises(ZapLinkApiError) as caught:
                 client.sessions.list()
             return caught.value
 
         throttled = fail(429, {"statusCode": 429, "message": "ThrottlerException: Too Many Requests"}, {"Retry-After": "7"})
-        assert isinstance(throttled, OpenWARateLimitError)
+        assert isinstance(throttled, ZapLinkRateLimitError)
         assert throttled.retry_after_seconds == 7
         assert throttled.code is None
         assert throttled.headers is not None and throttled.headers["retry-after"] == "7"
@@ -407,8 +407,8 @@ class TestClientCore:
     def test_an_error_with_no_body_names_the_status_text_not_none(self):
         # A proxy in front of the gateway answers 502 and 504 with nothing.
         transport = httpx.MockTransport(lambda _: httpx.Response(502, content=b""))
-        client = OpenWAClient(base_url="https://x", api_key="k", transport=transport)
-        with pytest.raises(OpenWAApiError) as caught:
+        client = ZapLinkClient(base_url="https://x", api_key="k", transport=transport)
+        with pytest.raises(ZapLinkApiError) as caught:
             client.health.live()
         assert "Bad Gateway" in str(caught.value)
         assert "None" not in str(caught.value)
@@ -416,30 +416,30 @@ class TestClientCore:
     def test_an_httpx_timeout_or_a_tuple_is_taken_as_given(self):
         # The published 0.5.1 handed `timeout` straight to httpx, which takes both.
         per_operation = httpx.Timeout(10.0, connect=2.0)
-        client = OpenWAClient(base_url="https://x", api_key="k", timeout=per_operation)
+        client = ZapLinkClient(base_url="https://x", api_key="k", timeout=per_operation)
         assert client._http._client.timeout == per_operation
-        client = OpenWAClient(base_url="https://x", api_key="k", timeout=(1.0, 2.0, 3.0, 4.0))
+        client = ZapLinkClient(base_url="https://x", api_key="k", timeout=(1.0, 2.0, 3.0, 4.0))
         assert client._http._client.timeout == httpx.Timeout(connect=1.0, read=2.0, write=3.0, pool=4.0)
         for bad in [(1.0, 2.0), (1.0, 2.0, 3.0, -1.0), (1.0, "2", 3.0, 4.0)]:
             with pytest.raises(ValueError, match="timeout tuple"):
-                OpenWAClient(base_url="https://x", api_key="k", timeout=bad)  # type: ignore[arg-type]
+                ZapLinkClient(base_url="https://x", api_key="k", timeout=bad)  # type: ignore[arg-type]
         # 0 and infinity mean no limit for that operation, as they do for the scalar: left as they are,
         # httpx fails the first connect or read, or raises OverflowError, instead of the call.
-        client = OpenWAClient(base_url="https://x", api_key="k", timeout=(5, 0, 5, math.inf))
+        client = ZapLinkClient(base_url="https://x", api_key="k", timeout=(5, 0, 5, math.inf))
         assert client._http._client.timeout == httpx.Timeout(connect=5.0, read=None, write=5.0, pool=None)
 
     def test_the_api_key_loses_a_trailing_newline_and_an_illegal_one_is_refused_without_being_quoted(self):
-        client = OpenWAClient(base_url="https://x", api_key="owa_k1_secret\n")
+        client = ZapLinkClient(base_url="https://x", api_key="owa_k1_secret\n")
         assert client._http._client.headers["X-API-Key"] == "owa_k1_secret"
         for bad in ["owa_k1_se\tcret", "owa_k1_se\x00cret", "owa_k1_sécret", "owa_k1_se\ncret"]:
             with pytest.raises(ValueError, match="api_key") as raised:
-                OpenWAClient(base_url="https://x", api_key=bad)
+                ZapLinkClient(base_url="https://x", api_key=bad)
             assert bad not in str(raised.value)
         with pytest.raises(ValueError, match="required"):
-            OpenWAClient(base_url="https://x", api_key="  \n")
+            ZapLinkClient(base_url="https://x", api_key="  \n")
 
     def test_a_key_with_an_inner_space_is_accepted_as_the_gateway_and_other_clients_take_it(self):
-        client = OpenWAClient(base_url="https://x", api_key="correct horse battery staple correct horse\n")
+        client = ZapLinkClient(base_url="https://x", api_key="correct horse battery staple correct horse\n")
         assert client._http._client.headers["X-API-Key"] == "correct horse battery staple correct horse"
 
     def test_a_default_header_the_stack_would_refuse_is_refused_without_quoting_its_value(self):
@@ -449,34 +449,34 @@ class TestClientCore:
             ("X-Trace", "a\x00b"),
         ]:
             with pytest.raises(ValueError, match=name) as raised:
-                OpenWAClient(base_url="https://x", api_key="k", default_headers={name: value})
+                ZapLinkClient(base_url="https://x", api_key="k", default_headers={name: value})
             assert value.strip() not in str(raised.value)
         with pytest.raises(ValueError, match="header name"):
-            OpenWAClient(base_url="https://x", api_key="k", default_headers={"X Bad": "v"})
+            ZapLinkClient(base_url="https://x", api_key="k", default_headers={"X Bad": "v"})
         # A tab and plain printable ASCII are fine.
-        client = OpenWAClient(base_url="https://x", api_key="k", default_headers={"X-Trace": "a\tb c"})
+        client = ZapLinkClient(base_url="https://x", api_key="k", default_headers={"X-Trace": "a\tb c"})
         assert client._http._client.headers["X-Trace"] == "a\tb c"
 
     def test_a_default_header_value_is_trimmed_of_the_spaces_the_stack_would_refuse_at_its_ends(self):
-        client = OpenWAClient(
+        client = ZapLinkClient(
             base_url="https://x", api_key="k", default_headers={"X-Proxy-Cred": "  token \t", "X-Other": "\tv"}
         )
         assert client._http._client.headers["X-Proxy-Cred"] == "token"
         assert client._http._client.headers["X-Other"] == "v"
 
     def test_default_headers_take_every_shape_httpx_takes_and_refuse_the_rest_by_name(self):
-        pairs = OpenWAClient(
+        pairs = ZapLinkClient(
             base_url="https://x", api_key="k", default_headers=[("X-Trace", "abc"), ("X-Two", "2")]  # type: ignore[arg-type]
         )
         assert pairs._http._client.headers["X-Trace"] == "abc"
         assert pairs._http._client.headers["X-Two"] == "2"
-        raw = OpenWAClient(base_url="https://x", api_key="k", default_headers={b"X-Trace": b"abc"})  # type: ignore[dict-item]
+        raw = ZapLinkClient(base_url="https://x", api_key="k", default_headers={b"X-Trace": b"abc"})  # type: ignore[dict-item]
         assert raw._http._client.headers["X-Trace"] == "abc"
         with pytest.raises(ValueError, match="X-Trace") as raised:
-            OpenWAClient(base_url="https://x", api_key="k", default_headers={"X-Trace": b"s3cret\n"})  # type: ignore[dict-item]
+            ZapLinkClient(base_url="https://x", api_key="k", default_headers={"X-Trace": b"s3cret\n"})  # type: ignore[dict-item]
         assert "s3cret" not in str(raised.value)
         # An httpx.Headers keeps a repeated name as separate lines, and so does the client.
-        repeated = OpenWAClient(
+        repeated = ZapLinkClient(
             base_url="https://x",
             api_key="k",
             default_headers=httpx.Headers([("Cookie", "a=1"), ("Cookie", "b=2")]),
@@ -484,17 +484,17 @@ class TestClientCore:
         assert repeated._http._client.headers.get_list("Cookie") == ["a=1", "b=2"]
         for bad in (42, ["X-Trace"], [("X-Trace", "a", "b")]):
             with pytest.raises(ValueError, match="default_headers"):
-                OpenWAClient(base_url="https://x", api_key="k", default_headers=bad)  # type: ignore[arg-type]
+                ZapLinkClient(base_url="https://x", api_key="k", default_headers=bad)  # type: ignore[arg-type]
 
     def test_timeout_zero_none_and_inf_mean_none_and_a_bad_value_raises(self):
         for none in (0, None, float("inf")):
-            client = OpenWAClient(base_url="https://x", api_key="k", timeout=none)
+            client = ZapLinkClient(base_url="https://x", api_key="k", timeout=none)
             assert client._http._client.timeout == httpx.Timeout(None)
-        client = OpenWAClient(base_url="https://x", api_key="k", timeout=2.5)
+        client = ZapLinkClient(base_url="https://x", api_key="k", timeout=2.5)
         assert client._http._client.timeout == httpx.Timeout(2.5)
         for bad in (-1, float("nan"), "30", True):
             with pytest.raises(ValueError, match="timeout"):
-                OpenWAClient(base_url="https://x", api_key="k", timeout=bad)  # type: ignore[arg-type]
+                ZapLinkClient(base_url="https://x", api_key="k", timeout=bad)  # type: ignore[arg-type]
 
     def test_maps_503_to_service_unavailable(self):
         # The gateway answers 503 when the engine never confirmed an operation: a transport failure,
@@ -504,33 +504,33 @@ class TestClientCore:
         backend.on("GET", "/api/sessions/s1", 503, {
             "statusCode": 503, "message": "WhatsApp did not answer", "error": "Service Unavailable"
         })
-        with pytest.raises(OpenWAServiceUnavailableError):
+        with pytest.raises(ZapLinkServiceUnavailableError):
             make_client(backend).sessions.get("s1")
 
     @pytest.mark.parametrize(
         ("status", "cls"),
         [
-            (401, OpenWAAuthError),
-            (403, OpenWAForbiddenError),
-            (404, OpenWANotFoundError),
-            (409, OpenWAConflictError),
-            (429, OpenWARateLimitError),
-            (501, OpenWANotImplementedError),
-            (503, OpenWAServiceUnavailableError),
-            (400, OpenWAApiError),
-            (500, OpenWAApiError),
-            (502, OpenWAApiError),
+            (401, ZapLinkAuthError),
+            (403, ZapLinkForbiddenError),
+            (404, ZapLinkNotFoundError),
+            (409, ZapLinkConflictError),
+            (429, ZapLinkRateLimitError),
+            (501, ZapLinkNotImplementedError),
+            (503, ZapLinkServiceUnavailableError),
+            (400, ZapLinkApiError),
+            (500, ZapLinkApiError),
+            (502, ZapLinkApiError),
         ],
     )
     def test_each_status_maps_to_its_own_error_class_with_status_body_and_kind(
-        self, status: int, cls: type[OpenWAApiError]
+        self, status: int, cls: type[ZapLinkApiError]
     ) -> None:
         envelope = {"statusCode": status, "message": "x", "error": "E"}
         backend = MockBackend().on("GET", "/api/sessions", status=status, body=envelope)
-        with pytest.raises(OpenWAApiError) as caught:
+        with pytest.raises(ZapLinkApiError) as caught:
             make_client(backend).sessions.list()
         err = caught.value
-        # The exact class, not isinstance: every one of them is also an OpenWAApiError.
+        # The exact class, not isinstance: every one of them is also an ZapLinkApiError.
         assert type(err) is cls
         assert err.status == status
         assert err.body == envelope
@@ -543,8 +543,8 @@ class TestClientCore:
         transport = httpx.MockTransport(
             lambda _: httpx.Response(502, content=page.encode(), headers={"content-type": "text/html"})
         )
-        client = OpenWAClient(base_url="https://x", api_key="k", transport=transport)
-        with pytest.raises(OpenWAApiError) as caught:
+        client = ZapLinkClient(base_url="https://x", api_key="k", transport=transport)
+        with pytest.raises(ZapLinkApiError) as caught:
             client.health.live()
         assert caught.value.status == 502
         assert caught.value.body == page
@@ -554,7 +554,7 @@ class TestClientCore:
         backend = MockBackend().on("POST", "/api/sessions", status=400, body={
             "statusCode": 400, "message": ["name must be a string", "name should not be empty"], "error": "Bad Request"
         })
-        with pytest.raises(OpenWAApiError) as caught:
+        with pytest.raises(ZapLinkApiError) as caught:
             make_client(backend).sessions.create({"name": ""})
         assert "name must be a string, name should not be empty" in str(caught.value)
 
@@ -562,7 +562,7 @@ class TestClientCore:
         "failure",
         [httpx.ConnectTimeout("t"), httpx.ReadTimeout("t"), httpx.WriteTimeout("t"), httpx.PoolTimeout("t")],
     )
-    def test_a_transport_timeout_raises_openwa_timeout_error_with_the_configured_seconds(
+    def test_a_transport_timeout_raises_zaplink_timeout_error_with_the_configured_seconds(
         self, failure: httpx.TimeoutException
     ) -> None:
         def stall(_: httpx.Request) -> httpx.Response:
@@ -573,30 +573,30 @@ class TestClientCore:
             ((1.0, 2.0, 3.0, 4.0), 4.0),  # the longest operation that has a limit
             (httpx.Timeout(10.0, connect=2.0), 10.0),
         ):
-            client = OpenWAClient(base_url="https://x", api_key="k", timeout=timeout, transport=httpx.MockTransport(stall))
+            client = ZapLinkClient(base_url="https://x", api_key="k", timeout=timeout, transport=httpx.MockTransport(stall))
             # Both the JSON path and the binary path map it.
             for call in (client.sessions.list, lambda: client.messages.media("s", "c", "m")):
-                with pytest.raises(OpenWATimeoutError) as caught:
+                with pytest.raises(ZapLinkTimeoutError) as caught:
                     call()
                 assert caught.value.timeout == seconds
                 assert caught.value.__cause__ is failure
 
     def test_a_remote_http_base_url_warns_and_a_local_or_https_one_does_not(self) -> None:
         with pytest.warns(UserWarning, match="insecure http://"):
-            OpenWAClient(base_url="http://gateway.example", api_key="k")
+            ZapLinkClient(base_url="http://gateway.example", api_key="k")
         # Recorded rather than raised: the check swallows any exception, a warning turned into one included.
         with warnings.catch_warnings(record=True) as seen:
             warnings.simplefilter("always")
             for url in ("http://localhost:2785", "http://127.0.0.1:2785", "http://[::1]:2785", "https://gateway.example"):
-                OpenWAClient(base_url=url, api_key="k")
+                ZapLinkClient(base_url=url, api_key="k")
         assert [str(w.message) for w in seen] == []
 
     def test_the_context_manager_closes_the_client(self) -> None:
-        with OpenWAClient(base_url="https://x", api_key="k") as client:
+        with ZapLinkClient(base_url="https://x", api_key="k") as client:
             assert not client._http._client.is_closed
         assert client._http._client.is_closed
 
-        closed = OpenWAClient(base_url="https://x", api_key="k")
+        closed = ZapLinkClient(base_url="https://x", api_key="k")
         closed.close()
         assert closed._http._client.is_closed
 
@@ -666,7 +666,7 @@ class TestMessages:
     def test_send_key_overrides_default_header_without_changing_defaults(self) -> None:
         backend = MockBackend().on("POST", "/send-text", body={"messageId": "m", "timestamp": 1})
         defaults = {"iDeMpOtEnCy-KeY": "default-key", "X-Trace": "trace"}
-        client = OpenWAClient(
+        client = ZapLinkClient(
             base_url="http://localhost:2785", api_key="owa_k1_test",
             default_headers=defaults, transport=backend.as_transport(),
         )
@@ -1068,7 +1068,7 @@ class TestCalls:
         backend = MockBackend().on("POST", "/reject", status=404, body={
             "statusCode": 404, "message": "Call not found or no longer ringing", "error": "Not Found"
         })
-        with pytest.raises(OpenWANotFoundError):
+        with pytest.raises(ZapLinkNotFoundError):
             make_client(backend).calls.reject_call("s", "CALL1")
 
 
@@ -1261,7 +1261,7 @@ class TestStatus:
         backend.fallback = lambda _: httpx.Response(
             404, content=b'{"statusCode": 404, "message": "Status media not found or expired"}'
         )
-        with pytest.raises(OpenWANotFoundError):
+        with pytest.raises(ZapLinkNotFoundError):
             make_client(backend).status.media("s", "w1")
 
 
@@ -1604,7 +1604,7 @@ class TestChannelAdminOwnership:
 # Twelve routes no other test calls. Each row is written from the contract (openapi.json: verb, path,
 # query and request-body keys), not read off the client, so a changed verb or a renamed body key fails here.
 _BASE = "http://localhost:2785"
-_UNTESTED_ROUTES: list[tuple[str, Callable[[OpenWAClient], object], str, str, object]] = [
+_UNTESTED_ROUTES: list[tuple[str, Callable[[ZapLinkClient], object], str, str, object]] = [
     ("sessions.get_config", lambda c: c.sessions.get_config("s1"), "GET", f"{_BASE}/api/sessions/s1/config", None),
     (
         "sessions.update_config",
@@ -1685,7 +1685,7 @@ class TestRoutesNoOtherTestCalls:
         ids=[row[0] for row in _UNTESTED_ROUTES],
     )
     def test_verb_path_query_and_body(
-        self, call: Callable[[OpenWAClient], object], method: str, url: str, body: object
+        self, call: Callable[[ZapLinkClient], object], method: str, url: str, body: object
     ) -> None:
         backend = MockBackend(
             fallback=lambda _: httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})

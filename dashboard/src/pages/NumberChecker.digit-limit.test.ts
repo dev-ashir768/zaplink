@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 function renderPage(): void {
-  sessionStorage.setItem('openwa_user_role', 'operator');
+  sessionStorage.setItem('zaplink_user_role', 'operator');
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
   rtl.render(
     createElement(

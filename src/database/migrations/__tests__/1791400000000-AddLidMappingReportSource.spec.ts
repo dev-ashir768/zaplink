@@ -11,9 +11,9 @@ describe('AddLidMappingReportSource migration', () => {
     type: 'postgres' as const,
     host: process.env.DATABASE_HOST || '127.0.0.1',
     port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'openwa',
-    password: process.env.DATABASE_PASSWORD || 'openwa',
-    database: process.env.DATABASE_NAME || 'openwa',
+    username: process.env.DATABASE_USERNAME || 'zaplink',
+    password: process.env.DATABASE_PASSWORD || 'zaplink',
+    database: process.env.DATABASE_NAME || 'zaplink',
   };
   const migration = new AddLidMappingReportSource1791400000000();
   let ds: DataSource;

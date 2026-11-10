@@ -3,7 +3,7 @@ import { EngineThrottledError } from '../../common/errors/engine-throttled.error
 import { EngineTransportError } from '../../common/errors/engine-transport.error';
 
 /**
- * A deadline OpenWA owns, for Baileys calls whose outcome cannot be read from their return value.
+ * A deadline ZapLink owns, for Baileys calls whose outcome cannot be read from their return value.
  *
  * Baileys' `query()` catches its own `defaultQueryTimeoutMs` and RESOLVES `undefined` rather than
  * throwing (Socket/socket.js: "Catch timeout and return undefined instead of throwing"). Callers

@@ -9,7 +9,7 @@
 
 ## 10.1 Infrastructure Overview
 
-OpenWA is a **single-process** application, so a deployment is exactly one app instance per
+ZapLink is a **single-process** application, so a deployment is exactly one app instance per
 session-data volume (`replicas: 1` — see §10.2). The repo has no staging/production environments and
 no auto-deploy: CI builds and publishes images, and pulling one onto a server is the operator's step.
 
@@ -25,7 +25,7 @@ flowchart TB
 
     subgraph Deployment["Deployment (single server)"]
         PROXY[Reverse Proxy]
-        PROXY --> APP[OpenWA - one instance]
+        PROXY --> APP[ZapLink - one instance]
         APP --> DB[(PostgreSQL or SQLite)]
         APP --> REDIS[(Redis - optional)]
         APP --> VOL["Data volume (/app/data)"]
@@ -59,12 +59,12 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f "http://localhost:${PORT:-2785}/api/health/ready" || exit 1
 
 # dumb-init is PID 1; the entrypoint runs as root, fixes /app/data ownership, then drops to the
-# openwa user with gosu before it execs the command.
+# zaplink user with gosu before it execs the command.
 ENTRYPOINT ["dumb-init", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/main"]
 ```
 
-The image deliberately has no `USER openwa` directive and no `chown -R` over `/app`: a full chown
+The image deliberately has no `USER zaplink` directive and no `chown -R` over `/app`: a full chown
 walks every production dependency (#1045), so the entrypoint re-owns only the writable data volume
 and then drops privileges. Chromium comes from Chrome for Testing on amd64 and from Debian's
 `chromium` package on arm64; see the `Dockerfile` for the multi-arch build.
@@ -100,9 +100,9 @@ services:
       - DATABASE_TYPE=postgres
       - DATABASE_HOST=postgres
       - DATABASE_PORT=5432
-      - DATABASE_NAME=openwa
-      - DATABASE_USERNAME=openwa
-      - DATABASE_PASSWORD=openwa
+      - DATABASE_NAME=zaplink
+      - DATABASE_USERNAME=zaplink
+      - DATABASE_PASSWORD=zaplink
       - REDIS_ENABLED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -117,7 +117,7 @@ services:
       - /app/node_modules
       # Everything the app writes locally (session auth, the main (auth/audit) SQLite DB, media,
       # plugins) lives under /app/data; with DATABASE_TYPE=postgres above, the data DB does not
-      - openwa-data:/app/data
+      - zaplink-data:/app/data
     depends_on:
       - postgres
       - redis
@@ -126,9 +126,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=openwa
-      - POSTGRES_PASSWORD=openwa
-      - POSTGRES_DB=openwa
+      - POSTGRES_USER=zaplink
+      - POSTGRES_PASSWORD=zaplink
+      - POSTGRES_DB=zaplink
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
@@ -147,7 +147,7 @@ services:
 volumes:
   postgres-data:
   redis-data:
-  openwa-data:
+  zaplink-data:
 ```
 
 ### Docker Compose (Production)
@@ -166,7 +166,7 @@ version: '3.8'
 
 services:
   app:
-    image: ghcr.io/rmyndharis/openwa:latest
+    image: ghcr.io/dev-ashir768/zaplink:latest
     # Teardown takes up to 63 s with every datastore on; raise this by the amount SHUTDOWN_DELAY_MS or
     # WEBHOOK_SHUTDOWN_DRAIN_MS exceeds its default, or Docker's 10 s default kills the container mid-teardown.
     stop_grace_period: 75s
@@ -197,7 +197,7 @@ services:
     volumes:
       # Session auth, the main (auth/audit) SQLite DB, media and plugins all live here — losing
       # this volume loses the linked WhatsApp sessions and the API keys.
-      - openwa-data:/app/data
+      - zaplink-data:/app/data
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:2785/api/health/ready']
       interval: 30s
@@ -218,7 +218,7 @@ services:
     restart: always
 
 volumes:
-  openwa-data:
+  zaplink-data:
     driver: local
 ```
 
@@ -240,10 +240,10 @@ volumes:
 
 ### Helm Chart (Kubernetes)
 
-The maintained way to deploy on Kubernetes is the Helm chart at `charts/openwa/`:
+The maintained way to deploy on Kubernetes is the Helm chart at `charts/zaplink/`:
 
 ```bash
-helm install openwa ./charts/openwa \
+helm install zaplink ./charts/zaplink \
   --set secretEnv.API_MASTER_KEY=$(openssl rand -base64 32)
 ```
 
@@ -252,7 +252,7 @@ the compose warning above) with a PVC for `/app/data`, the compose hardening mir
 (read-only rootfs, dropped capabilities, writable `emptyDir` at `/tmp`), and optional
 Ingress / PodDisruptionBudget / ServiceMonitor. Configuration goes through free-form
 `env` and `secretEnv` maps — any variable from `.env.example` works; see
-`charts/openwa/README.md` and the inline comments in `charts/openwa/values.yaml`.
+`charts/zaplink/README.md` and the inline comments in `charts/zaplink/values.yaml`.
 The k8s manifests in [13 - Horizontal Scaling Guide](./13-horizontal-scaling.md) are
 an illustrative design sketch; the chart is the authoritative artifact.
 
@@ -299,7 +299,7 @@ the pending Dependabot digest refresh, or refresh both FROM lines by hand.
 flowchart TB
     subgraph Server["Single Server"]
         NGINX[Nginx Reverse Proxy]
-        NGINX --> APP[OpenWA App]
+        NGINX --> APP[ZapLink App]
         APP --> PG[(PostgreSQL)]
         APP --> RD[(Redis)]
         APP --> FS[File Storage]
@@ -310,8 +310,8 @@ flowchart TB
 
 ### Multi-Server Deployment
 
-> **Design sketch, not a supported topology.** OpenWA is single-process with in-memory engine state,
-> so the multi-`OpenWA` fan-out below would corrupt WhatsApp auth across replicas. It is retained only
+> **Design sketch, not a supported topology.** ZapLink is single-process with in-memory engine state,
+> so the multi-`ZapLink` fan-out below would corrupt WhatsApp auth across replicas. It is retained only
 > as the target architecture once the remaining gaps listed in
 > [13 - Horizontal Scaling Guide](./13-horizontal-scaling.md) are closed. Deploy with `replicas: 1`.
 
@@ -326,9 +326,9 @@ flowchart TB
     end
 
     subgraph AppServers["Application Servers"]
-        APP1[OpenWA 1]
-        APP2[OpenWA 2]
-        APP3[OpenWA N]
+        APP1[ZapLink 1]
+        APP2[ZapLink 2]
+        APP3[ZapLink N]
     end
 
     subgraph DataLayer["Data Layer"]
@@ -372,13 +372,13 @@ LOG_FORMAT=json
 # Option 1: SQLite (for minimal deployments)
 # For SQLite, DATABASE_NAME is the database FILE PATH.
 # DATABASE_TYPE=sqlite
-# DATABASE_NAME=./data/openwa.sqlite
+# DATABASE_NAME=./data/zaplink.sqlite
 
 # Option 2: PostgreSQL (for production) — DATABASE_NAME is the database NAME here
 # DATABASE_TYPE=postgres
 # DATABASE_HOST=localhost
 # DATABASE_PORT=5432
-# DATABASE_NAME=openwa
+# DATABASE_NAME=zaplink
 # DATABASE_USERNAME=user
 # DATABASE_PASSWORD=pass
 # DATABASE_POOL_SIZE=10
@@ -406,7 +406,7 @@ LOG_FORMAT=json
 
 # Option 2: S3 (AWS) — leave S3_ENDPOINT unset; the SDK derives it from the region
 # STORAGE_TYPE=s3
-# S3_BUCKET=openwa
+# S3_BUCKET=zaplink
 # S3_REGION=ap-southeast-1
 # S3_ACCESS_KEY_ID=your-access-key
 # S3_SECRET_ACCESS_KEY=your-secret-key
@@ -415,7 +415,7 @@ LOG_FORMAT=json
 # Setting S3_ENDPOINT is what enables path-style addressing; there is no separate flag.
 # STORAGE_TYPE=s3
 # S3_ENDPOINT=http://minio:9000
-# S3_BUCKET=openwa
+# S3_BUCKET=zaplink
 # S3_ACCESS_KEY_ID=your-access-key
 # S3_SECRET_ACCESS_KEY=your-secret-key
 
@@ -509,7 +509,7 @@ WEBHOOK_DISPATCH_MAX_QUEUED=1000
 # quarter of WEBHOOK_DISPATCH_CONCURRENCY deliveries run at once, divided among the session's
 # webhooks that name the event, and three quarters of
 # WEBHOOK_DISPATCH_MAX_QUEUED events wait; further ones are dropped, not replayed, and counted in
-# openwa_webhook_delivery_failures_total. A webhook whose receiver never answers holds only its own
+# zaplink_webhook_delivery_failures_total. A webhook whose receiver never answers holds only its own
 # places, but the pool is shared: a session holds at most a quarter of it at once (four at the
 # defaults) however many of its webhooks name the event, and another session's events wait for a slot
 # once such sessions together hold all of them, which is four sessions at the defaults. There is
@@ -543,8 +543,8 @@ export default () => ({
   dataDatabase: {
     type: process.env.DATABASE_TYPE || 'sqlite',
     // SQLite file path when type is sqlite; PostgreSQL database name when type is postgres
-    database: process.env.DATABASE_NAME || './data/openwa.sqlite',
-    name: process.env.DATABASE_NAME || 'openwa',
+    database: process.env.DATABASE_NAME || './data/zaplink.sqlite',
+    name: process.env.DATABASE_NAME || 'zaplink',
     host: process.env.DATABASE_HOST || 'localhost',
     port: parseInt(process.env.DATABASE_PORT || '5432', 10),
     username: process.env.DATABASE_USERNAME,
@@ -744,7 +744,7 @@ rule_files:
   - 'alerts.yml'
 
 scrape_configs:
-  - job_name: 'openwa'
+  - job_name: 'zaplink'
     static_configs:
       - targets: ['app:2785']
     metrics_path: '/api/metrics'
@@ -766,27 +766,27 @@ scrape_configs:
 
 ### Alert Rules
 
-These rules use the metric names OpenWA actually exports (`openwa_*`). The memory rule below uses a
+These rules use the metric names ZapLink actually exports (`zaplink_*`). The memory rule below uses a
 node-exporter metric — an **external** exporter, not the app — and is kept as a host-level example.
 
 ```yaml
 # monitoring/alerts.yml
 groups:
-  - name: openwa-alerts
+  - name: zaplink-alerts
     rules:
-      # Service Down — openwa_up disappears (or the scrape fails)
+      # Service Down — zaplink_up disappears (or the scrape fails)
       - alert: ServiceDown
-        expr: up{job="openwa"} == 0 or absent(openwa_up)
+        expr: up{job="zaplink"} == 0 or absent(zaplink_up)
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: 'OpenWA service is down'
-          description: 'The OpenWA application is not responding'
+          summary: 'ZapLink service is down'
+          description: 'The ZapLink application is not responding'
 
       # Session(s) disconnected
       - alert: SessionDisconnected
-        expr: openwa_sessions{status="disconnected"} > 0
+        expr: zaplink_sessions{status="disconnected"} > 0
         for: 2m
         labels:
           severity: warning
@@ -796,7 +796,7 @@ groups:
 
       # Failed messages currently stored
       - alert: FailedMessagesPresent
-        expr: openwa_messages_failed_total > 0
+        expr: zaplink_messages_failed_total > 0
         for: 5m
         labels:
           severity: warning
@@ -806,15 +806,15 @@ groups:
 
       # Process memory growth (app-exported RSS; ~2GB example threshold)
       - alert: HighProcessMemory
-        expr: openwa_process_resident_memory_bytes > 2e9
+        expr: zaplink_process_resident_memory_bytes > 2e9
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: 'High OpenWA process memory'
+          summary: 'High ZapLink process memory'
           description: 'RSS is {{ $value | humanize1024 }}B'
 
-      # Host memory pressure — EXTERNAL (node-exporter), not exported by OpenWA
+      # Host memory pressure — EXTERNAL (node-exporter), not exported by ZapLink
       - alert: HighHostMemoryUsage
         expr: |
           (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
@@ -853,19 +853,19 @@ route:
 receivers:
   - name: 'slack-notifications'
     slack_configs:
-      - channel: '#openwa-alerts'
+      - channel: '#zaplink-alerts'
         send_resolved: true
 
   - name: 'slack-critical'
     slack_configs:
-      - channel: '#openwa-critical'
+      - channel: '#zaplink-critical'
         send_resolved: true
         title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
         text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
 
   - name: 'slack-warnings'
     slack_configs:
-      - channel: '#openwa-alerts'
+      - channel: '#zaplink-alerts'
         send_resolved: true
         title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
 ```
@@ -924,16 +924,16 @@ The readiness route is public and exempt from the throttler, so a flood of calle
 
 ### Prometheus Metrics Implementation
 
-The metrics surface is small, so OpenWA emits Prometheus text exposition format (v0.0.4) **by hand** —
+The metrics surface is small, so ZapLink emits Prometheus text exposition format (v0.0.4) **by hand** —
 there is **no `prom-client` dependency** and **no `collectDefaultMetrics`**. `MetricsService` reads an
 aggregate overview from `StatsService` plus `process.memoryUsage()`, memoizes the rendered text for a
 short TTL (~5s, so back-to-back scrapes don't repeat the DB scan), and exposes it at
 `GET /api/metrics`.
 
 A scrape waits at most 2 seconds for that overview. When the read fails, the database-derived series are
-left out and `openwa_stats_available` reads 0, and the result the last good read kept is discarded. When it is
+left out and `zaplink_stats_available` reads 0, and the result the last good read kept is discarded. When it is
 still pending after that, the scrape serves the last result it kept, up to 5 minutes after that read started, and
-`openwa_stats_available` stays 1; the late result fills the memo and is kept for the next scrape. With no result
+`zaplink_stats_available` stays 1; the late result fills the memo and is kept for the next scrape. With no result
 that recent, such as the first scrape after start, or a read that has hung for more than 5 minutes after the last
 good one, the series are left out and the gauge reads 0. A read still pending after 5 minutes is given up on and the
 next scrape starts a new one. The process, HTTP, webhook and queue series are served as usual. While a read is
@@ -962,25 +962,25 @@ export class MetricsService {
 
   async render(): Promise<string> {
     // Guarded: an unreachable data database must cost the DB-derived series, not the whole scrape.
-    // `overview` is null on failure or after the 2-second wait, which is what openwa_stats_available reports.
+    // `overview` is null on failure or after the 2-second wait, which is what zaplink_stats_available reports.
     const overview = await this.readOverviewOrNull();
     const mem = process.memoryUsage();
     const lines: string[] = [];
     // ... gauge() helper pushes `# HELP` / `# TYPE` / value lines ...
-    gauge('openwa_up', '...', 1);
-    gauge('openwa_process_uptime_seconds', '...', Math.round(process.uptime()));
-    gauge('openwa_process_resident_memory_bytes', '...', mem.rss);
-    gauge('openwa_process_heap_used_bytes', '...', mem.heapUsed);
-    gauge('openwa_stats_available', '...', overview ? 1 : 0);
+    gauge('zaplink_up', '...', 1);
+    gauge('zaplink_process_uptime_seconds', '...', Math.round(process.uptime()));
+    gauge('zaplink_process_resident_memory_bytes', '...', mem.rss);
+    gauge('zaplink_process_heap_used_bytes', '...', mem.heapUsed);
+    gauge('zaplink_stats_available', '...', overview ? 1 : 0);
     if (overview) {
-      gauge('openwa_sessions_total', '...', overview.sessions.total);
-      gauge('openwa_sessions_active', '...', overview.sessions.active);
-      // openwa_sessions{status="..."} — one line per status
-      // openwa_messages_total{direction="outgoing"|"incoming"}
-      // openwa_messages_failed_total
+      gauge('zaplink_sessions_total', '...', overview.sessions.total);
+      gauge('zaplink_sessions_active', '...', overview.sessions.active);
+      // zaplink_sessions{status="..."} — one line per status
+      // zaplink_messages_total{direction="outgoing"|"incoming"}
+      // zaplink_messages_failed_total
     }
     // ... then the process-start counters (webhook delivery failures, session reconnect attempts
-    // and loop alerts), openwa_sessions_restricted, and the pacing refusals — see the table below
+    // and loop alerts), zaplink_sessions_restricted, and the pacing refusals — see the table below
     // for the full list. The real method also memoizes this string for METRICS_RENDER_TTL_MS.
     return lines.join('\n') + '\n';
   }
@@ -989,33 +989,33 @@ export class MetricsService {
 
 **Exported metric names** (the complete set — nothing else is emitted):
 
-| Metric                                       | Type      | Labels                              | Meaning                                                                                                                                                                                            |
-| -------------------------------------------- | --------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `openwa_up`                                  | gauge     | —                                   | Always `1` when scraped                                                                                                                                                                            |
-| `openwa_process_uptime_seconds`              | gauge     | —                                   | Process uptime                                                                                                                                                                                     |
-| `openwa_process_resident_memory_bytes`       | gauge     | —                                   | RSS                                                                                                                                                                                                |
-| `openwa_process_heap_used_bytes`             | gauge     | —                                   | V8 heap used                                                                                                                                                                                       |
-| `openwa_event_loop_delay_p99_seconds`        | gauge     | none                                | p99 event-loop delay since the previous uncached scrape                                                                                                                                            |
-| `openwa_event_loop_delay_max_seconds`        | gauge     | none                                | Maximum event-loop delay since the previous uncached scrape                                                                                                                                        |
-| `openwa_unhandled_rejections_total`          | counter   | `kind`                              | Unhandled promise rejections since process start (`other` or `page_context_lost`)                                                                                                                  |
-| `openwa_queue_jobs`                          | gauge     | `queue`, `state`                    | BullMQ jobs per queue in `wait`/`active`/`delayed`/`failed` (cluster-wide, from Redis)                                                                                                             |
-| `openwa_stats_available`                     | gauge     | —                                   | 1 when the last overview read of the database-derived series below succeeded or a kept result under 5 minutes old stands in, else 0                                                                |
-| `openwa_sessions_total`                      | gauge     | —                                   | Configured sessions                                                                                                                                                                                |
-| `openwa_sessions_active`                     | gauge     | —                                   | READY (active) sessions                                                                                                                                                                            |
-| `openwa_sessions`                            | gauge     | `status`                            | Session count per status                                                                                                                                                                           |
-| `openwa_messages_total`                      | gauge     | `direction` (`incoming`/`outgoing`) | Current stored messages by direction                                                                                                                                                               |
-| `openwa_messages_failed_total`               | gauge     | —                                   | Current messages in FAILED state                                                                                                                                                                   |
-| `openwa_webhook_delivery_failures_total`     | counter   | —                                   | Webhook delivery failures since process start: retries exhausted, never sent, or stopped by shutdown between direct retries                                                                        |
-| `openwa_ingress_dedup_body_mismatches_total` | counter   | none                                | Ingress requests with different body bytes under an existing delivery id since process start                                                                                                       |
-| `openwa_session_reconnect_attempts_total`    | counter   | —                                   | Reconnect attempts scheduled across all sessions since process start                                                                                                                               |
-| `openwa_session_reconnect_loop_alerts_total` | counter   | —                                   | Reconnect-loop alerts emitted since process start                                                                                                                                                  |
-| `openwa_sessions_restricted`                 | gauge     | —                                   | Sessions whose account WhatsApp is currently restricting                                                                                                                                           |
-| `openwa_send_pacing_refusals_total`          | counter   | `reason`                            | Sends refused by the pacing governor since process start                                                                                                                                           |
-| `http_requests_total`                        | counter   | `method`, `route`, `status`         | API (`/api`) requests by method, route and status, refusals and preflights included (`(unmatched)`); `499` if the client left during handling, `408`/`503` for a dropped body; Bull Board excluded |
-| `http_request_duration_seconds`              | histogram | `method`, `route`                   | HTTP request duration (`_bucket` / `_sum` / `_count`)                                                                                                                                              |
+| Metric                                        | Type      | Labels                              | Meaning                                                                                                                                                                                            |
+| --------------------------------------------- | --------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `zaplink_up`                                  | gauge     | —                                   | Always `1` when scraped                                                                                                                                                                            |
+| `zaplink_process_uptime_seconds`              | gauge     | —                                   | Process uptime                                                                                                                                                                                     |
+| `zaplink_process_resident_memory_bytes`       | gauge     | —                                   | RSS                                                                                                                                                                                                |
+| `zaplink_process_heap_used_bytes`             | gauge     | —                                   | V8 heap used                                                                                                                                                                                       |
+| `zaplink_event_loop_delay_p99_seconds`        | gauge     | none                                | p99 event-loop delay since the previous uncached scrape                                                                                                                                            |
+| `zaplink_event_loop_delay_max_seconds`        | gauge     | none                                | Maximum event-loop delay since the previous uncached scrape                                                                                                                                        |
+| `zaplink_unhandled_rejections_total`          | counter   | `kind`                              | Unhandled promise rejections since process start (`other` or `page_context_lost`)                                                                                                                  |
+| `zaplink_queue_jobs`                          | gauge     | `queue`, `state`                    | BullMQ jobs per queue in `wait`/`active`/`delayed`/`failed` (cluster-wide, from Redis)                                                                                                             |
+| `zaplink_stats_available`                     | gauge     | —                                   | 1 when the last overview read of the database-derived series below succeeded or a kept result under 5 minutes old stands in, else 0                                                                |
+| `zaplink_sessions_total`                      | gauge     | —                                   | Configured sessions                                                                                                                                                                                |
+| `zaplink_sessions_active`                     | gauge     | —                                   | READY (active) sessions                                                                                                                                                                            |
+| `zaplink_sessions`                            | gauge     | `status`                            | Session count per status                                                                                                                                                                           |
+| `zaplink_messages_total`                      | gauge     | `direction` (`incoming`/`outgoing`) | Current stored messages by direction                                                                                                                                                               |
+| `zaplink_messages_failed_total`               | gauge     | —                                   | Current messages in FAILED state                                                                                                                                                                   |
+| `zaplink_webhook_delivery_failures_total`     | counter   | —                                   | Webhook delivery failures since process start: retries exhausted, never sent, or stopped by shutdown between direct retries                                                                        |
+| `zaplink_ingress_dedup_body_mismatches_total` | counter   | none                                | Ingress requests with different body bytes under an existing delivery id since process start                                                                                                       |
+| `zaplink_session_reconnect_attempts_total`    | counter   | —                                   | Reconnect attempts scheduled across all sessions since process start                                                                                                                               |
+| `zaplink_session_reconnect_loop_alerts_total` | counter   | —                                   | Reconnect-loop alerts emitted since process start                                                                                                                                                  |
+| `zaplink_sessions_restricted`                 | gauge     | —                                   | Sessions whose account WhatsApp is currently restricting                                                                                                                                           |
+| `zaplink_send_pacing_refusals_total`          | counter   | `reason`                            | Sends refused by the pacing governor since process start                                                                                                                                           |
+| `http_requests_total`                         | counter   | `method`, `route`, `status`         | API (`/api`) requests by method, route and status, refusals and preflights included (`(unmatched)`); `499` if the client left during handling, `408`/`503` for a dropped body; Bull Board excluded |
+| `http_request_duration_seconds`               | histogram | `method`, `route`                   | HTTP request duration (`_bucket` / `_sum` / `_count`)                                                                                                                                              |
 
 The last two are deliberately **unprefixed** so a generic RED dashboard or alert rule matches them
-without knowing anything about OpenWA. They come from `src/common/metrics/request-metrics.ts`, which
+without knowing anything about ZapLink. They come from `src/common/metrics/request-metrics.ts`, which
 `render()` splices into the same output.
 
 The `status` label is the status the gateway sent. A request that ends without one is counted under the status
@@ -1034,17 +1034,17 @@ series). A request cut off before routing is counted under `(unmatched)`. A resp
 request was cut keeps the status it sent.
 
 Not every row appears on every scrape, and the difference matters when you write alerts. The
-database-derived series (`openwa_sessions*`, `openwa_messages*`) are **omitted entirely** when the
-overview read failed, or is late with no result from the last 5 minutes — `openwa_stats_available` is what tells the two cases apart, so alert on it
-rather than reading a missing series as zero. `openwa_send_pacing_refusals_total` appears only once
-the governor has refused something. `openwa_queue_jobs` appears only with `QUEUE_ENABLED=true`, and a
+database-derived series (`zaplink_sessions*`, `zaplink_messages*`) are **omitted entirely** when the
+overview read failed, or is late with no result from the last 5 minutes — `zaplink_stats_available` is what tells the two cases apart, so alert on it
+rather than reading a missing series as zero. `zaplink_send_pacing_refusals_total` appears only once
+the governor has refused something. `zaplink_queue_jobs` appears only with `QUEUE_ENABLED=true`, and a
 queue whose counts cannot be read within 2 s is left out of that scrape. For these, `absent()` is the
 correct alerting primitive.
 
-Two rows need care when aggregating. `openwa_queue_jobs` is read from the shared Redis, so every node
+Two rows need care when aggregating. `zaplink_queue_jobs` is read from the shared Redis, so every node
 reports the same cluster-wide value: aggregate it with `max`, not `sum`. The event-loop delay window
 runs from the previous uncached render (renders are cached for 5 s), so with several scrapers it is
-shared between them, and scrapes that arrive while a render is running share that render. `openwa_unhandled_rejections_total{kind="page_context_lost"}` counts the expected
+shared between them, and scrapes that arrive while a render is running share that render. `zaplink_unhandled_rejections_total{kind="page_context_lost"}` counts the expected
 Puppeteer rejections a page navigation or an engine teardown leaves without an owner; alert on
 `kind="other"`. A whatsapp-web.js session reports a failed re-inject into its reloaded page itself, as a
 `page_reinject_failed` warning naming the session, so that one is not counted here. A re-inject that
@@ -1064,14 +1064,14 @@ one of the files it reads. A series added to either file without a row here fail
 from a module that is neither — and not spliced through `lines.push(...renderX())` — would not be
 seen, so keep new renderers on that composition.
 
-> **The database-derived series can be absent.** `openwa_sessions_*`, `openwa_messages_*` and the per-status
+> **The database-derived series can be absent.** `zaplink_sessions_*`, `zaplink_messages_*` and the per-status
 > breakdown come from `StatsService.getOverview()`, which is memoized for `STATS_CACHE_TTL_MS` (default 30 s,
 > shared with `GET /api/stats/overview`) behind the 5 s render cache. If that read fails, or takes over 2 s with no result from the last 5 minutes to serve — an
 > outage, a statement timeout, pool exhaustion, a `SQLITE_BUSY` under load — they are OMITTED rather than reported
-> as zero, and `openwa_stats_available` goes to 0. The process, HTTP and webhook series keep being served, so `up` stays 1
-> and still means "the process is alive". Alert on `openwa_stats_available == 0` for the degradation itself;
-> an alert written as `openwa_sessions_active == 0` would never fire for it, and one written with `absent()`
-> would. Because of the two caches, `openwa_stats_available` can keep reporting 1, and the series their last
+> as zero, and `zaplink_stats_available` goes to 0. The process, HTTP and webhook series keep being served, so `up` stays 1
+> and still means "the process is alive". Alert on `zaplink_stats_available == 0` for the degradation itself;
+> an alert written as `zaplink_sessions_active == 0` would never fire for it, and one written with `absent()`
+> would. Because of the two caches, `zaplink_stats_available` can keep reporting 1, and the series their last
 > values, for up to `STATS_CACHE_TTL_MS` + 5 s after the data database fails. When the database stops answering
 > instead of failing, the last kept result stands in for the late read, so it can keep reporting 1 for up to 5
 > minutes after the last good read started. Expect an alert on it to fire up to that much later; a `for:` adds to
@@ -1081,55 +1081,55 @@ seen, so keep new renderers on that composition.
 ### Grafana Dashboard Definition
 
 ```json
-// monitoring/grafana/dashboards/openwa.json — panels use the openwa_* metrics OpenWA exports
+// monitoring/grafana/dashboards/zaplink.json — panels use the zaplink_* metrics ZapLink exports
 {
-  "title": "OpenWA Dashboard",
-  "uid": "openwa-main",
+  "title": "ZapLink Dashboard",
+  "uid": "zaplink-main",
   "panels": [
     {
       "title": "Active Sessions",
       "type": "stat",
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "openwa_sessions_active" }]
+      "targets": [{ "expr": "zaplink_sessions_active" }]
     },
     {
       "title": "Stored Outgoing Messages",
       "type": "stat",
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "openwa_messages_total{direction=\"outgoing\"}" }]
+      "targets": [{ "expr": "zaplink_messages_total{direction=\"outgoing\"}" }]
     },
     {
       "title": "Failed Messages",
       "type": "stat",
       "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "openwa_messages_failed_total" }]
+      "targets": [{ "expr": "zaplink_messages_failed_total" }]
     },
     {
       "title": "Sessions by Status",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
-      "targets": [{ "expr": "openwa_sessions", "legendFormat": "{{status}}" }]
+      "targets": [{ "expr": "zaplink_sessions", "legendFormat": "{{status}}" }]
     },
     {
       "title": "Stored Messages by Direction",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
-      "targets": [{ "expr": "openwa_messages_total", "legendFormat": "{{direction}}" }]
+      "targets": [{ "expr": "zaplink_messages_total", "legendFormat": "{{direction}}" }]
     },
     {
       "title": "Process Memory",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
       "targets": [
-        { "expr": "openwa_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "RSS (MB)" },
-        { "expr": "openwa_process_heap_used_bytes / 1024 / 1024", "legendFormat": "Heap used (MB)" }
+        { "expr": "zaplink_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "RSS (MB)" },
+        { "expr": "zaplink_process_heap_used_bytes / 1024 / 1024", "legendFormat": "Heap used (MB)" }
       ]
     },
     {
       "title": "Uptime",
       "type": "stat",
       "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
-      "targets": [{ "expr": "openwa_process_uptime_seconds" }]
+      "targets": [{ "expr": "zaplink_process_uptime_seconds" }]
     }
   ]
 }
@@ -1163,7 +1163,7 @@ as an array of its values.
 
 The same logger is installed as Nest's framework logger, so framework lines (route mapping, unhandled
 exception stacks from the exception handler) follow `LOG_LEVEL` and `LOG_FORMAT` and carry the
-request id like every other line; they are tagged `[OpenWA]` in pretty output, not `[Nest]`.
+request id like every other line; they are tagged `[ZapLink]` in pretty output, not `[Nest]`.
 
 There is no in-app Loki transport: in the stack above, logs reach Loki because **promtail** scrapes
 the container's stdout and stderr from `/var/lib/docker/containers`.
@@ -1190,25 +1190,25 @@ export class MessageService {
 
 ### Key Metrics to Monitor
 
-These are the metrics OpenWA actually exports at `GET /api/metrics`:
+These are the metrics ZapLink actually exports at `GET /api/metrics`:
 
-| Category     | Metric                                        | Description                                             | Alert Idea                       |
-| ------------ | --------------------------------------------- | ------------------------------------------------------- | -------------------------------- |
-| **Liveness** | `openwa_up`                                   | Always `1` when scraped (absence/scrape-failure = down) | Target down                      |
-| **Sessions** | `openwa_sessions_total`                       | Configured sessions                                     | Near your expected session count |
-| **Sessions** | `openwa_sessions_active`                      | READY (active) sessions                                 | Drops below expected             |
-| **Sessions** | `openwa_sessions{status="..."}`               | Per-status counts (e.g. `disconnected`, `failed`)       | `disconnected`/`failed` > 0      |
-| **Messages** | `openwa_messages_total{direction="outgoing"}` | Current stored outgoing messages                        | Unexpected change                |
-| **Messages** | `openwa_messages_total{direction="incoming"}` | Current stored incoming messages                        | Unexpected change                |
-| **Messages** | `openwa_messages_failed_total`                | Current messages in FAILED state                        | Above acceptable threshold       |
-| **System**   | `openwa_process_resident_memory_bytes`        | RSS                                                     | Growth / near limit              |
-| **System**   | `openwa_process_heap_used_bytes`              | V8 heap used                                            | Growth                           |
-| **System**   | `openwa_process_uptime_seconds`               | Process uptime                                          | Frequent restarts (resets)       |
+| Category     | Metric                                         | Description                                             | Alert Idea                       |
+| ------------ | ---------------------------------------------- | ------------------------------------------------------- | -------------------------------- |
+| **Liveness** | `zaplink_up`                                   | Always `1` when scraped (absence/scrape-failure = down) | Target down                      |
+| **Sessions** | `zaplink_sessions_total`                       | Configured sessions                                     | Near your expected session count |
+| **Sessions** | `zaplink_sessions_active`                      | READY (active) sessions                                 | Drops below expected             |
+| **Sessions** | `zaplink_sessions{status="..."}`               | Per-status counts (e.g. `disconnected`, `failed`)       | `disconnected`/`failed` > 0      |
+| **Messages** | `zaplink_messages_total{direction="outgoing"}` | Current stored outgoing messages                        | Unexpected change                |
+| **Messages** | `zaplink_messages_total{direction="incoming"}` | Current stored incoming messages                        | Unexpected change                |
+| **Messages** | `zaplink_messages_failed_total`                | Current messages in FAILED state                        | Above acceptable threshold       |
+| **System**   | `zaplink_process_resident_memory_bytes`        | RSS                                                     | Growth / near limit              |
+| **System**   | `zaplink_process_heap_used_bytes`              | V8 heap used                                            | Growth                           |
+| **System**   | `zaplink_process_uptime_seconds`               | Process uptime                                          | Frequent restarts (resets)       |
 
 > This table is a starting subset. The HTTP (`http_requests_total`, `http_request_duration_seconds`),
-> webhook (`openwa_webhook_delivery_failures_total`), queue (`openwa_queue_jobs`) and event-loop
-> (`openwa_event_loop_delay_*`) series are in the complete list under **Exported metric names** above.
-> OpenWA does **not** expose Node default (`nodejs_*`) metrics or host/container CPU and memory
+> webhook (`zaplink_webhook_delivery_failures_total`), queue (`zaplink_queue_jobs`) and event-loop
+> (`zaplink_event_loop_delay_*`) series are in the complete list under **Exported metric names** above.
+> ZapLink does **not** expose Node default (`nodejs_*`) metrics or host/container CPU and memory
 > signals; scrape cAdvisor (`container_*`) or node-exporter (`node_*`) for those. `up` is recorded by
 > Prometheus itself for every scrape target.
 
@@ -1232,7 +1232,7 @@ flowchart TB
         DUMP --> STAGE
         COPY --> STAGE
         STAGE --> TAR[tar -czf + min-content check]
-        TAR --> ARCHIVE["BACKUP_DIR/openwa-backup-TIMESTAMP.tar.gz"]
+        TAR --> ARCHIVE["BACKUP_DIR/zaplink-backup-TIMESTAMP.tar.gz"]
     end
 
     subgraph Operator["Operator-managed (not in the script)"]
@@ -1248,7 +1248,7 @@ flowchart TB
 A retention step matching the script's default location and name, for example 30 days:
 
 ```bash
-find ./backups -name 'openwa-backup-*.tar.gz' -mtime +30 -delete
+find ./backups -name 'zaplink-backup-*.tar.gz' -mtime +30 -delete
 ```
 
 ### Backup Script
@@ -1269,7 +1269,7 @@ before restoring; PostgreSQL dumps still require the explicit `psql` step descri
 
 ### Vertical Scaling
 
-OpenWA scales **vertically** — add CPU/RAM to a single instance. The table below is **unbenchmarked
+ZapLink scales **vertically** — add CPU/RAM to a single instance. The table below is **unbenchmarked
 starting guidance**, not measured figures; actual usage depends heavily on engine choice
 (whatsapp-web.js spawns a Chromium per session; Baileys is far lighter), message volume, and media.
 Size up from your own monitoring.
@@ -1283,7 +1283,7 @@ Size up from your own monitoring.
 
 ### Horizontal Scaling
 
-**Not currently supported.** OpenWA is a single-process application with in-memory engine state, so
+**Not currently supported.** ZapLink is a single-process application with in-memory engine state, so
 multiple replicas against a shared session volume corrupt WhatsApp auth. Run exactly **one** API
 instance per session-data volume (`replicas: 1`). Session claims and leases ship; the rest of the design
 that would be required to scale out is documented — as a future design sketch, not a shipped feature —

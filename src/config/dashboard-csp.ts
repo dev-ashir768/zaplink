@@ -1,4 +1,4 @@
-export const DASHBOARD_CSP_NONCE_PLACEHOLDER = '__OPENWA_CSP_NONCE__';
+export const DASHBOARD_CSP_NONCE_PLACEHOLDER = '__ZAPLINK_CSP_NONCE__';
 
 /**
  * Inject the response-specific CSP nonce into the bundled dashboard document.

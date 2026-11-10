@@ -15,13 +15,13 @@ const SDK_503_TEXTS = [
   'sdk/go/README.md',
   'sdk/go/errors.go',
   'sdk/java/README.md',
-  'sdk/java/src/main/java/com/rmyndharis/openwa/errors/OpenWAServiceUnavailableError.java',
+  'sdk/java/src/main/java/com/rmyndharis/zaplink/errors/ZapLinkServiceUnavailableError.java',
   'sdk/php/README.md',
-  'sdk/php/src/Exceptions/OpenWAServiceUnavailableException.php',
+  'sdk/php/src/Exceptions/ZapLinkServiceUnavailableException.php',
   'sdk/javascript/README.md',
   'sdk/javascript/src/errors.ts',
   'sdk/python/README.md',
-  'sdk/python/openwa/errors.py',
+  'sdk/python/zaplink/errors.py',
   'docs/18-sdk-design.md',
 ];
 

@@ -26,7 +26,7 @@ describePosix('runFfmpeg', () => {
   let workDir: string;
 
   beforeAll(async () => {
-    workDir = await mkdtemp(join(tmpdir(), 'openwa-ffmpeg-stub-'));
+    workDir = await mkdtemp(join(tmpdir(), 'zaplink-ffmpeg-stub-'));
     stubPath = join(workDir, 'fake-ffmpeg');
     // Behaves like ffmpeg to the degree this code depends on: writes the file named last, and
     // reports failure on stderr with a non-zero exit.
@@ -77,7 +77,7 @@ esac
 
   /** Temp directories this module creates, so cleanup can be asserted rather than assumed. */
   const convertDirs = async (): Promise<string[]> =>
-    (await readdir(tmpdir())).filter(name => name.startsWith('openwa-convert-'));
+    (await readdir(tmpdir())).filter(name => name.startsWith('zaplink-convert-'));
 
   // ffmpeg decodes bytes a caller chose, on every Baileys voice note too: it gets no secret of the gateway's.
   // Read from the spawn options: Jest sandboxes process.env, so what the child printed could not tell.

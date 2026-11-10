@@ -61,7 +61,7 @@ describe('sanitizeCustomHeaders', () => {
         'X-Custom': 'v',
         Authorization: 'Bearer t',
         'Content-Type': 'text/plain',
-        'X-OpenWA-Event': 'x',
+        'X-ZapLink-Event': 'x',
       }),
     ).toEqual({ 'X-Custom': 'v', Authorization: 'Bearer t' });
   });
@@ -80,7 +80,7 @@ describe('sanitizeCustomHeaders', () => {
   // joined with the system value rather than replaced by it.
   it('sends only the system User-Agent when the custom map carries a lowercase one', () => {
     const headers = buildDeliveryHeaders({ headers: { 'user-agent': 'custom' } }, 'message.received', 'k', 'd', '{}');
-    expect(new Headers(headers).get('user-agent')).toBe('OpenWA-Webhook/1.0.0');
+    expect(new Headers(headers).get('user-agent')).toBe('ZapLink-Webhook/1.0.0');
   });
 
   // undici throws on several of these (every delivery then fails with "fetch failed") and a wrong

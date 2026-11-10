@@ -1,4 +1,4 @@
-package openwa
+package zaplink
 
 import (
 	"bytes"
@@ -1893,7 +1893,7 @@ func TestTimeoutReportsTheBudgetThatExpired(t *testing.T) {
 		_, err = c.Messages.Media(ctx, "s1", "c1", "m1")
 		cancel()
 		te = nil
-		if !errors.As(err, &te) || te.Timeout != 0 || err.Error() != "openwa: request timed out" {
+		if !errors.As(err, &te) || te.Timeout != 0 || err.Error() != "zaplink: request timed out" {
 			t.Errorf("flush=%v caller deadline: err = %v, want a *TimeoutError without a duration", flush, err)
 		}
 	}
@@ -1932,7 +1932,7 @@ func TestRequestLogRedactsBaseURLPassword(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	_, _ = c.Health.Check(context.Background())
-	if got := lg.text.String(); !strings.Contains(got, "openwa retrying request") || strings.Contains(got, "s3cret") {
+	if got := lg.text.String(); !strings.Contains(got, "zaplink retrying request") || strings.Contains(got, "s3cret") {
 		t.Errorf("retry log = %q, want the retry logged without the password", got)
 	}
 }

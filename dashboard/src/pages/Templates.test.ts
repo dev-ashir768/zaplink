@@ -107,7 +107,7 @@ before(async () => {
     configurable: true,
     value: { writeText: (text: string) => (copied.push(text), Promise.resolve()) },
   });
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   const { i18nReady } = await import('../i18n/index.ts');
   await i18nReady;
   rtl = await import('@testing-library/react');
@@ -134,7 +134,7 @@ afterEach(() => {
   deleted.length = 0;
   deletePaths.length = 0;
   templateReads = 0;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
 });
 
 function renderTemplates(): void {
@@ -170,7 +170,7 @@ test('a write key can delete a template from its row', async () => {
 // A read-only key is never sent the list, so it has no row to delete from.
 test('a read-only key is shown the permission state without a list request the gateway would refuse', async () => {
   templates = [{ id: 'tpl-1', name: 'invoice-reminder', body: 'Hi {{name}}' }];
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
   renderTemplates();
 
   await rtl.screen.findByText('No access to templates');
@@ -267,7 +267,7 @@ test('a selected session that disappears from the list is replaced by the first 
   templatesStatus = 200;
   templates = [{ id: 'tpl-1', name: 'invoice-reminder', body: 'Hi {{name}}' }];
   extraSessions = [{ id: 'sess-2', name: 'support-bot' }];
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   await screen.findByText('invoice-reminder');
@@ -281,12 +281,12 @@ test('a selected session that disappears from the list is replaced by the first 
   assert.equal(select.value, 'sess-2');
   assert.equal(screen.queryByText('invoice-reminder') === null, true);
   screen.getByText('Saved under support-bot');
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
 });
 
 test('a successful create clears the form for the next template', async () => {
   const { screen, fireEvent, waitFor } = rtl;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   await screen.findByText('No templates saved');
@@ -312,7 +312,7 @@ for (const [field, max] of [
 ] as const) {
   test(`a ${field.toLowerCase()} past ${max} characters holds Create and says so`, async () => {
     const { screen, fireEvent } = rtl;
-    window.sessionStorage.setItem('openwa_user_role', 'operator');
+    window.sessionStorage.setItem('zaplink_user_role', 'operator');
     renderTemplates();
 
     await screen.findByText('No templates saved');
@@ -336,7 +336,7 @@ test('a create that resolves after a session switch keeps the draft typed since'
   extraSessions = [{ id: 'sess-2', name: 'support-bot' }];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   await screen.findByText('No templates saved');
@@ -371,7 +371,7 @@ test('edits typed while a create is in flight are saved as an update to the new 
   const { screen, fireEvent, waitFor } = rtl;
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   await screen.findByText('No templates saved');
@@ -402,7 +402,7 @@ test('an update that resolves after starting a new template keeps the new draft'
   templates = [{ id: 'tpl-1', name: 'welcome', body: 'Hello' }];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));
@@ -431,7 +431,7 @@ test('edits typed while an update is in flight keep the editor on the renamed te
   templates = [{ id: 'tpl-1', name: 'welcome', body: 'Hello' }];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));
@@ -458,7 +458,7 @@ test('the template being updated stays inert until its update settles', async ()
   templates = [{ id: 'tpl-1', name: 'welcome', body: 'Hello' }];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));
@@ -490,7 +490,7 @@ test('other templates stay openable while a save is in flight', async () => {
   ];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));
@@ -532,7 +532,7 @@ test('reopening a template after its update loads the saved values even if the l
   templates = [{ id: 'tpl-1', name: 'welcome', body: 'Hello' }];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));
@@ -562,7 +562,7 @@ test('an update that resolves after its session disappeared leaves the next sess
   extraSessions = [{ id: 'sess-2', name: 'support-bot' }];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));
@@ -624,7 +624,7 @@ test('a save that resolves after another template was opened keeps the editor on
   ];
   let release!: () => void;
   saveGate = new Promise<void>(resolve => (release = resolve));
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderTemplates();
 
   fireEvent.click(await screen.findByText('welcome'));

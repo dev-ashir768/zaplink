@@ -65,15 +65,15 @@ before(async () => {
 afterEach(() => {
   rtl.cleanup();
   scoped = false;
-  window.sessionStorage.removeItem('openwa_key_scoped');
+  window.sessionStorage.removeItem('zaplink_key_scoped');
 });
 
 function renderAt(path: string, as: string): void {
   role = as;
   requested.length = 0;
   window.history.replaceState(null, '', path);
-  window.sessionStorage.setItem('openwa_api_key', 'test-key');
-  window.sessionStorage.setItem('openwa_user_role', as);
+  window.sessionStorage.setItem('zaplink_api_key', 'test-key');
+  window.sessionStorage.setItem('zaplink_user_role', as);
   rtl.render(createElement(App));
 }
 
@@ -108,7 +108,7 @@ test('an operator opening /number-checker gets the Number Checker page', async (
 for (const page of ['api-keys', 'infrastructure', 'plugins']) {
   test(`a session-scoped admin opening /${page} is sent home without calling its routes`, async () => {
     scoped = true;
-    window.sessionStorage.setItem('openwa_key_scoped', 'true');
+    window.sessionStorage.setItem('zaplink_key_scoped', 'true');
     renderAt(`/${page}`, 'admin');
     await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')));
     await rtl.waitFor(() => assert.equal(window.location.pathname, '/'));
@@ -135,8 +135,8 @@ test('a startup validation that lands after a sign-in with another key is ignore
   }) as typeof fetch;
   try {
     window.history.replaceState(null, '', '/');
-    window.sessionStorage.setItem('openwa_api_key', 'old-admin-key');
-    window.sessionStorage.setItem('openwa_user_role', 'admin');
+    window.sessionStorage.setItem('zaplink_api_key', 'old-admin-key');
+    window.sessionStorage.setItem('zaplink_user_role', 'admin');
     rtl.render(createElement(App));
 
     const logout = await rtl.waitFor(() => {
@@ -161,7 +161,7 @@ test('a startup validation that lands after a sign-in with another key is ignore
       await new Promise(resolve => setTimeout(resolve, 50));
     });
     assert.equal(logsLink() === null, true, "the old key's admin role was applied to the new viewer session");
-    assert.equal(window.sessionStorage.getItem('openwa_api_key'), 'new-viewer-key');
+    assert.equal(window.sessionStorage.getItem('zaplink_api_key'), 'new-viewer-key');
   } finally {
     globalThis.fetch = previous;
   }

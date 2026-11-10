@@ -24,16 +24,16 @@ import { BuiltInFtsProvider, TRIGRAM_BUILD_LOCK, TRIGRAM_BUILD_LOCK_KEY } from '
 const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 
 /** Named for the suite so a crashed run leaves an obvious orphan rather than a mystery database. */
-const SCRATCH_DB = 'openwa_contains_search_probe';
+const SCRATCH_DB = 'zaplink_contains_search_probe';
 /** The same, created with a C ctype. */
-const SCRATCH_C_DB = 'openwa_contains_search_probe_c';
+const SCRATCH_C_DB = 'zaplink_contains_search_probe_c';
 
 const connection = (database: string): DataSourceOptions => ({
   type: 'postgres',
   host: process.env.DATABASE_HOST || 'localhost',
   port: Number(process.env.DATABASE_PORT || 5432),
-  username: process.env.DATABASE_USERNAME || 'openwa',
-  password: process.env.DATABASE_PASSWORD || 'openwa',
+  username: process.env.DATABASE_USERNAME || 'zaplink',
+  password: process.env.DATABASE_PASSWORD || 'zaplink',
   database,
 });
 
@@ -54,13 +54,13 @@ const containsOn = new ConfigService({ search: { containsEnabled: true } });
     (
       await ds.query<Array<{ extensions: number; fn: boolean; idx: boolean | null }>>(
         `SELECT (SELECT count(*)::int FROM pg_extension WHERE extname IN ('pg_trgm', 'unaccent')) AS extensions,
-                to_regprocedure('openwa_unaccent(text)') IS NOT NULL AS fn,
+                to_regprocedure('zaplink_unaccent(text)') IS NOT NULL AS fn,
                 (SELECT i.indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = 'idx_messages_body_trgm') AS idx`,
       )
     )[0];
 
   beforeAll(async () => {
-    admin = new DataSource(connection(process.env.DATABASE_NAME || 'openwa'));
+    admin = new DataSource(connection(process.env.DATABASE_NAME || 'zaplink'));
     await admin.initialize();
     await admin.query(`DROP DATABASE IF EXISTS "${SCRATCH_DB}"`);
     await admin.query(`CREATE DATABASE "${SCRATCH_DB}"`);
@@ -81,7 +81,7 @@ const containsOn = new ConfigService({ search: { containsEnabled: true } });
   beforeEach(async () => {
     await ds.query(`DELETE FROM "messages"`);
     await ds.query(`DROP INDEX IF EXISTS "idx_messages_body_trgm"`);
-    await ds.query(`DROP FUNCTION IF EXISTS openwa_unaccent(text)`);
+    await ds.query(`DROP FUNCTION IF EXISTS zaplink_unaccent(text)`);
     await ds.query(`DROP EXTENSION IF EXISTS pg_trgm`);
     await ds.query(`DROP EXTENSION IF EXISTS unaccent`);
     await insert('m1', 's1', 'Your invoice INV-2048 is ready for download', 10);

@@ -1,18 +1,18 @@
-# rmyndharis/openwa
+# rmyndharis/zaplink
 
-This document describes SDK 0.10.0. `messages->receipts` requires OpenWA 0.28.0 or later. `contacts->lid` requires OpenWA 0.27.1 or later. `groups->setMemberLabel` and the `match` search key require OpenWA 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require OpenWA 0.25.0 or later.
+This document describes SDK 0.10.0. `messages->receipts` requires ZapLink 0.28.0 or later. `contacts->lid` requires ZapLink 0.27.1 or later. `groups->setMemberLabel` and the `match` search key require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later.
 
-Official PHP SDK for [OpenWA](https://github.com/rmyndharis/OpenWA), the open-source WhatsApp API Gateway. OpenWA is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
+Official PHP SDK for [ZapLink](https://github.com/dev-ashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
 
 A synchronous client built on [Guzzle](https://docs.guzzlephp.org/), PSR-4 autoloaded.
 
 ## Install
 
 ```bash
-composer require rmyndharis/openwa
+composer require rmyndharis/zaplink
 ```
 
-Requires PHP 8.1+ and Guzzle 7.9+ or 8.x. The namespace is `OpenWA\`.
+Requires PHP 8.1+ and Guzzle 7.9+ or 8.x. The namespace is `ZapLink\`.
 
 ## Usage
 
@@ -20,7 +20,7 @@ Requires PHP 8.1+ and Guzzle 7.9+ or 8.x. The namespace is `OpenWA\`.
 <?php
 require 'vendor/autoload.php';
 
-use OpenWA\Client;
+use ZapLink\Client;
 
 $client = new Client([
     'baseUrl' => 'https://your-gateway.example.com',
@@ -36,7 +36,7 @@ $client->sessions->start($session['id']);
 // then wait for status 'ready'. An unlinked session answers the send with 409.
 $result = $client->messages->sendText($session['id'], [
     'chatId' => '628123456789@c.us',
-    'text'   => 'Hello from the OpenWA PHP SDK!',
+    'text'   => 'Hello from the ZapLink PHP SDK!',
 ]);
 echo $result['messageId'];
 ```
@@ -63,12 +63,12 @@ The optional `defaultHeaders` map accepts strings, scalar values, null, and non-
 
 ## Errors
 
-A non-2xx response throws a typed `OpenWA\Exceptions\OpenWAApiException` subclass —
-`OpenWAAuthException` (401), `OpenWAForbiddenException` (403), `OpenWANotFoundException` (404),
-`OpenWAConflictException` (409), `OpenWARateLimitException` (429), `OpenWANotImplementedException`
-(501), `OpenWAServiceUnavailableException` (503) — each exposing `getStatus()` and the parsed
-`getBody()`. A timeout throws `OpenWATimeoutException`, though the gateway may still complete the
-request: retry a send only with the same `Idempotency-Key`. Both extend `OpenWAException`, which
+A non-2xx response throws a typed `ZapLink\Exceptions\ZapLinkApiException` subclass —
+`ZapLinkAuthException` (401), `ZapLinkForbiddenException` (403), `ZapLinkNotFoundException` (404),
+`ZapLinkConflictException` (409), `ZapLinkRateLimitException` (429), `ZapLinkNotImplementedException`
+(501), `ZapLinkServiceUnavailableException` (503) — each exposing `getStatus()` and the parsed
+`getBody()`. A timeout throws `ZapLinkTimeoutException`, though the gateway may still complete the
+request: retry a send only with the same `Idempotency-Key`. Both extend `ZapLinkException`, which
 covers API responses and timeouts only: a transport failure (a refused or reset connection, a DNS
 failure, a cut body) is a `GuzzleHttp\Exception\TransferException`, and an invalid argument (an empty
 or dot id, a bad raw path or idempotency key) an `\InvalidArgumentException`. 503 means the gateway
@@ -99,12 +99,12 @@ when a gateway stays silent past the timeout, before the response headers on eit
 Guzzle 7, in the middle of the body, where a silence can last up to about twice the `timeout` before it
 is cut off. On Guzzle 7 that handler bounds each wait, not the whole call, so a body that keeps trickling
 bytes is not cut off and arrives however long it takes; cURL, and Guzzle 8's stream handler, bound the
-whole call. The SDK turns such a failure into `OpenWATimeoutException` when it has no
+whole call. The SDK turns such a failure into `ZapLinkTimeoutException` when it has no
 response and lasted at least the whole `timeout`, so a failure of that length from another cause, such as a
 slow name-resolution error, is reported as a timeout too. A `timeout` of `0` has no bound to compare with, and
 on Guzzle 7 the wait for the response headers is still ended by PHP's `default_socket_timeout` (60 seconds by
 default), which surfaces as a `GuzzleHttp\Exception\ConnectException`: catch
-`GuzzleHttp\Exception\TransferException` as well as `OpenWATimeoutException` if the application sets
+`GuzzleHttp\Exception\TransferException` as well as `ZapLinkTimeoutException` if the application sets
 `timeout` to `0` on such a host.
 
 A body that ends before the `Content-Length` it declares, such as a media download the gateway cut off
@@ -116,27 +116,27 @@ chunked body (the gateway sends a `Content-Length` with media whenever the store
 compressed body the application asked for with its own `Accept-Encoding` default header.
 
 ```php
-use OpenWA\Exceptions\OpenWANotFoundException;
+use ZapLink\Exceptions\ZapLinkNotFoundException;
 
 try {
     $client->sessions->get('00000000-0000-0000-0000-000000000000');
-} catch (OpenWANotFoundException $e) {
+} catch (ZapLinkNotFoundException $e) {
     echo $e->getStatus();  // 404
 }
 ```
 
 ## Receiving webhooks
 
-A webhook configured with a secret signs each delivery in its `X-OpenWA-Signature` header. Check it
+A webhook configured with a secret signs each delivery in its `X-ZapLink-Signature` header. Check it
 with `WebhookSignature::verify` against the raw request body, exactly as received, and decode the
 JSON only after the check passes: a re-encoded body can differ byte for byte and will not verify.
 The helper returns `false` for a missing, malformed or non-matching signature.
 
 ```php
-use OpenWA\WebhookSignature;
+use ZapLink\WebhookSignature;
 
 $raw = file_get_contents('php://input');
-if (!WebhookSignature::verify($raw, $_SERVER['HTTP_X_OPENWA_SIGNATURE'] ?? null, $secret)) {
+if (!WebhookSignature::verify($raw, $_SERVER['HTTP_X_ZAPLINK_SIGNATURE'] ?? null, $secret)) {
     http_response_code(401);
     exit;
 }
@@ -145,7 +145,7 @@ $delivery = json_decode($raw, true);
 ```
 
 The signature covers the body only and carries no timestamp, so a captured delivery still verifies
-when it is sent again. Dedupe on `$delivery['idempotencyKey']` (also the `X-OpenWA-Idempotency-Key`
+when it is sent again. Dedupe on `$delivery['idempotencyKey']` (also the `X-ZapLink-Idempotency-Key`
 header): the gateway's own retries and an operator's redrive of a failed delivery reuse it, so a key
 you have already handled is the same event arriving again.
 
@@ -169,7 +169,7 @@ you have already handled is the same event arriving again.
 ## Releasing
 
 Packagist installs this SDK from the mirror repository
-[`rmyndharis/openwa-php`](https://github.com/rmyndharis/openwa-php), not from the
+[`rmyndharis/zaplink-php`](https://github.com/rmyndharis/openwa-php), not from the
 monorepo — Composer needs `composer.json` at a repository root and does not
 support subdirectories. Two workflows keep that mirror correct:
 
@@ -215,7 +215,7 @@ MIT
 
 ## Send idempotency
 
-The example below requires SDK 0.6.0 or later and OpenWA 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
+The example below requires SDK 0.6.0 or later and ZapLink 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
 
 Supply a unique caller-owned key for one logical send and reuse it when retrying that same call. Keys contain 1-255 visible ASCII characters; unrelated calls must use different keys. The SDK forwards the key without changing its retry policy or generating one automatically.
 

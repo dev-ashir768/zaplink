@@ -71,7 +71,7 @@ test("the sidebar theme and language buttons join their name with the language's
   const wrong: string[] = [];
   for (const [lang, separator] of SEPARATORS) {
     await i18n.changeLanguage(lang);
-    localStorage.removeItem('openwa_theme');
+    localStorage.removeItem('zaplink_theme');
     const footer = renderSidebar().querySelector('.sidebar-footer')!;
     for (const button of footer.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn')) {
       const shown = button.textContent?.trim() ?? '';

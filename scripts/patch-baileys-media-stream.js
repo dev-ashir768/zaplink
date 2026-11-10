@@ -5,12 +5,12 @@
  * Transform with a bare `fetched.pipe(output)`. `pipe` forwards data, not errors, and it attaches no
  * 'error' listener to `fetched`. So two things go wrong once the consumer stops reading early:
  *
- *  1. OpenWA destroys `output` when an inbound download passes MEDIA_DOWNLOAD_TIMEOUT_MS or the byte
+ *  1. ZapLink destroys `output` when an inbound download passes MEDIA_DOWNLOAD_TIMEOUT_MS or the byte
  *     cap (baileys-events.ts, downloadInboundMediaCapped). That unpipes `fetched` but never destroys
  *     it, so the HTTP/2 stream stays open with nobody reading it.
  *  2. When that idle stream is later reset (NGHTTP2_PROTOCOL_ERROR / NGHTTP2_INTERNAL_ERROR, or
  *     ECONNRESET on HTTP/1.1), undici's body Readable emits 'error' with no listener. Node turns that
- *     into an uncaughtException ("TypeError: terminated"), and OpenWA exits by design.
+ *     into an uncaughtException ("TypeError: terminated"), and ZapLink exits by design.
  *
  * Seen in production three times: each crash followed one or more "Inbound media download passed
  * MEDIA_DOWNLOAD_TIMEOUT_MS" warnings for ~15 MB media by between 3 s and ~60 s.
@@ -36,7 +36,7 @@ const { writeFileAtomic } = require('./atomic-write');
 const DEFAULT_BAILEYS = path.join(__dirname, '..', 'node_modules', '@whiskeysockets', 'baileys');
 const MEDIA_PATH = path.join('lib', 'Utils', 'messages-media.js');
 
-const MARKER = 'OpenWA: an abandoned media body must not crash the process';
+const MARKER = 'ZapLink: an abandoned media body must not crash the process';
 
 const PIPE_FIND = `    return fetched.pipe(output, { end: true });`;
 

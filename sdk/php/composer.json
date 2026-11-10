@@ -1,18 +1,18 @@
 {
-    "name": "rmyndharis/openwa",
-    "description": "Official PHP SDK for OpenWA, the open-source WhatsApp API Gateway (not affiliated with WhatsApp or Meta)",
+    "name": "rmyndharis/zaplink",
+    "description": "Official PHP SDK for ZapLink, the open-source WhatsApp API Gateway (not affiliated with WhatsApp or Meta)",
     "type": "library",
     "license": "MIT",
     "keywords": [
         "whatsapp",
         "api",
         "sdk",
-        "openwa",
+        "zaplink",
         "gateway"
     ],
     "authors": [
         {
-            "name": "OpenWA Contributors"
+            "name": "ZapLink Contributors"
         }
     ],
     "require": {
@@ -24,12 +24,12 @@
     },
     "autoload": {
         "psr-4": {
-            "OpenWA\\": "src/"
+            "ZapLink\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "OpenWA\\Tests\\": "tests/"
+            "ZapLink\\Tests\\": "tests/"
         }
     },
     "config": {

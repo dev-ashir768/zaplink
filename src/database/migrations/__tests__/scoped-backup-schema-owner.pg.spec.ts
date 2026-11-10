@@ -26,8 +26,8 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
     const host = process.env.DATABASE_HOST || 'localhost';
     const port = Number(process.env.DATABASE_PORT || 5432);
     const superuser = {
-      username: process.env.DATABASE_USERNAME || 'openwa',
-      password: process.env.DATABASE_PASSWORD || 'openwa',
+      username: process.env.DATABASE_USERNAME || 'zaplink',
+      password: process.env.DATABASE_PASSWORD || 'zaplink',
     };
     const schema = 'granted_app';
     let admin: DataSource;
@@ -38,7 +38,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         host,
         port,
         ...superuser,
-        database: process.env.DATABASE_NAME || 'openwa',
+        database: process.env.DATABASE_NAME || 'zaplink',
       }).initialize();
     });
 
@@ -83,7 +83,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
       const role = `granted_role_${process.pid}`;
       const source = `granted_src_${process.pid}`;
       const target = `granted_dst_${process.pid}`;
-      const work = mkdtempSync(path.join(tmpdir(), 'openwa-granted-backup-'));
+      const work = mkdtempSync(path.join(tmpdir(), 'zaplink-granted-backup-'));
       try {
         await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${role}'`);
         await admin.query(`CREATE DATABASE "${source}"`);
@@ -162,7 +162,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
           const restored = await boot(role, database);
           try {
             const [{ hits }] = await restored.query<Array<{ hits: number }>>(
-              `SELECT count(*)::int AS hits FROM messages WHERE openwa_unaccent(body) LIKE '%earchab%'`,
+              `SELECT count(*)::int AS hits FROM messages WHERE zaplink_unaccent(body) LIKE '%earchab%'`,
             );
             expect(hits).toBe(1);
           } finally {

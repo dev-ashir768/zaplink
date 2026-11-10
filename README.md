@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/logo/openwa_logo.webp" alt="OpenWA Logo" width="200"/>
+  <img src="docs/logo/zaplink_logo.webp" alt="ZapLink Logo" width="200"/>
 </p>
 
-<h1 align="center">OpenWA</h1>
+<h1 align="center">ZapLink</h1>
 <p align="center">
   <strong>Open Source WhatsApp API Gateway</strong>
 </p>
@@ -16,36 +16,36 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmyndharis/OpenWA/actions/workflows/ci.yml"><img src="https://github.com/rmyndharis/OpenWA/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
-  <img src="https://img.shields.io/github/package-json/v/rmyndharis/OpenWA?label=version&color=blue" alt="Version"/>
+  <a href="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml"><img src="https://github.com/dev-ashir768/zaplink/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
+  <img src="https://img.shields.io/github/package-json/v/dev-ashir768/zaplink?label=version&color=blue" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/>
   <img src="https://img.shields.io/badge/node-22_LTS-brightgreen.svg" alt="Node"/>
-  <img src="https://img.shields.io/github/package-json/dependency-version/rmyndharis/OpenWA/@nestjs/core?label=NestJS&color=red" alt="NestJS"/>
+  <img src="https://img.shields.io/github/package-json/dependency-version/dev-ashir768/zaplink/@nestjs/core?label=NestJS&color=red" alt="NestJS"/>
   <img src="https://img.shields.io/badge/docker-ready-blue.svg" alt="Docker"/>
-  <img src="https://img.shields.io/github/package-json/dependency-version/rmyndharis/OpenWA/dev/typescript?label=TypeScript&color=3178C6" alt="TypeScript"/>
+  <img src="https://img.shields.io/github/package-json/dependency-version/dev-ashir768/zaplink/dev/typescript?label=TypeScript&color=3178C6" alt="TypeScript"/>
   <a href="https://buymeacoffee.com/rmyndharis"><img src="https://img.shields.io/badge/Buy_Me_a_Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee"/></a>
 </p>
 
 ---
 
-## ✨ Why OpenWA?
+## ✨ Why ZapLink?
 
-**OpenWA** is a free, open-source WhatsApp API Gateway designed for developers who need full control over their messaging infrastructure—without vendor lock-in or hidden paywalls.
+**ZapLink** is a free, open-source WhatsApp API Gateway designed for developers who need full control over their messaging infrastructure—without vendor lock-in or hidden paywalls.
 
-Built on a **pluggable architecture**, OpenWA lets you select database engines (SQLite/PostgreSQL), media storage backends (Local/S3), and an optional Redis (queue, rate limits, WebSocket fan-out) through configuration rather than application-code changes. The storage backend is the live store for status media and, when chat-media archiving is enabled, archived chat media; other message media is returned inline to API and webhook consumers. Of the media, `scripts/backup.sh` archives only the local media directory, so an S3 bucket needs a backup of its own.
+Built on a **pluggable architecture**, ZapLink lets you select database engines (SQLite/PostgreSQL), media storage backends (Local/S3), and an optional Redis (queue, rate limits, WebSocket fan-out) through configuration rather than application-code changes. The storage backend is the live store for status media and, when chat-media archiving is enabled, archived chat media; other message media is returned inline to API and webhook consumers. Of the media, `scripts/backup.sh` archives only the local media directory, so an S3 bucket needs a backup of its own.
 
-|                               |                                                                                                                                          |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 🔓 **100% Open Source**       | No licensing fees, no feature locks, full source code access                                                                             |
-| 🏗️ **Pluggable Architecture** | Swap adapters for database and storage via config                                                                                        |
-| 🖥️ **Full Dashboard**         | Modern React UI for session, webhook, and API key management                                                                             |
-| 🔹 **Multi-Session Ready**    | Run multiple WhatsApp sessions concurrently on one instance                                                                              |
-| 🐳 **Docker Native**          | Production-ready with zero configuration                                                                                                 |
-| 🧩 **Official Plugins**       | Chatwoot, Typebot & more as sandboxed plugins on the Integration Fabric — [OpenWA-plugins](https://github.com/rmyndharis/OpenWA-plugins) |
-| 🔗 **n8n Integration**        | Community nodes for workflow automation                                                                                                  |
-| 🧩 **Community Adapters**     | Third-party integrations (e.g. ioBroker) — see [docs](./docs/23-community-integrations.md)                                               |
-| 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                             |
-| 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own    |
+|                               |                                                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔓 **100% Open Source**       | No licensing fees, no feature locks, full source code access                                                                              |
+| 🏗️ **Pluggable Architecture** | Swap adapters for database and storage via config                                                                                         |
+| 🖥️ **Full Dashboard**         | Modern React UI for session, webhook, and API key management                                                                              |
+| 🔹 **Multi-Session Ready**    | Run multiple WhatsApp sessions concurrently on one instance                                                                               |
+| 🐳 **Docker Native**          | Production-ready with zero configuration                                                                                                  |
+| 🧩 **Official Plugins**       | Chatwoot, Typebot & more as sandboxed plugins on the Integration Fabric — [ZapLink-plugins](https://github.com/rmyndharis/OpenWA-plugins) |
+| 🔗 **n8n Integration**        | Community nodes for workflow automation                                                                                                   |
+| 🧩 **Community Adapters**     | Third-party integrations (e.g. ioBroker) — see [docs](./docs/23-community-integrations.md)                                                |
+| 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                              |
+| 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own     |
 
 ### Session-scoped operator & viewer tokens
 
@@ -78,7 +78,7 @@ None of this changes the ban-risk guidance below. It limits what a _key_ can rea
 
 ## ⚠️ Before you connect a number — please read
 
-OpenWA is an unofficial, community-maintained gateway. It connects to WhatsApp through **reverse-engineered clients** (the [`whatsapp-web.js`](https://github.com/pedroslopez/whatsapp-web.js) project and [`@whiskeysockets/baileys`](https://github.com/WhiskeySockets/Baileys)), **not** through Meta's official Cloud API. This has real consequences you should understand before you link a phone number.
+ZapLink is an unofficial, community-maintained gateway. It connects to WhatsApp through **reverse-engineered clients** (the [`whatsapp-web.js`](https://github.com/pedroslopez/whatsapp-web.js) project and [`@whiskeysockets/baileys`](https://github.com/WhiskeySockets/Baileys)), **not** through Meta's official Cloud API. This has real consequences you should understand before you link a phone number.
 
 ### What this means in practice
 
@@ -106,15 +106,15 @@ These are practical guardrails, not guarantees — but they materially reduce th
 
 ### Known platform behaviour (not bugs)
 
-A few things that look like bugs but are actually server-side WhatsApp policy, not OpenWA defects — we track them separately so we can distinguish them from real bugs:
+A few things that look like bugs but are actually server-side WhatsApp policy, not ZapLink defects — we track them separately so we can distinguish them from real bugs:
 
-- **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves OpenWA, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of OpenWA. Background in [#830](https://github.com/rmyndharis/OpenWA/issues/830).
-- **Accounts that get restricted cannot be "unrestricted" by us.** If WhatsApp disables a number, you need to appeal through their channels — OpenWA has no lever to pull.
-- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no OpenWA setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See [the FAQ entry](docs/12-troubleshooting-faq.md#issue-linking-asks-for-a-passkey-and-never-completes-both-engines); background in [#560](https://github.com/rmyndharis/OpenWA/issues/560).
+- **First message to a brand-new contact sometimes never arrives.** The API returns success because the message leaves ZapLink, but WhatsApp's server-side reach-out / trust policy drops it at delivery. This is independent of ZapLink. Background in [#830](https://github.com/dev-ashir768/zaplink/issues/830).
+- **Accounts that get restricted cannot be "unrestricted" by us.** If WhatsApp disables a number, you need to appeal through their channels — ZapLink has no lever to pull.
+- **Some accounts cannot link a new device at all.** WhatsApp has added a passkey step to companion linking for some accounts: the phone asks to "Create a passkey" or "Continue on your other device" and the session stays at `qr_ready`. Neither engine implements that step, so switching engine or using a pairing code does not help, and no ZapLink setting changes it. Avoid logging out or re-linking a session that works, since linking it again may hit the same gate, and keep the fallback from rule 5 above. See [the FAQ entry](docs/12-troubleshooting-faq.md#issue-linking-asks-for-a-passkey-and-never-completes-both-engines); background in [#560](https://github.com/dev-ashir768/zaplink/issues/560).
 
 ### Compliance
 
-For any deployment where ethical, legal, or regulatory compliance matters (healthcare, finance, large-scale commercial messaging, anything touching end users in the EU/EEA under DMA/GDPR framings), treat OpenWA as **not approved** and use Meta's [official WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api). OpenWA is an excellent fit for personal projects, internal tooling, automation hobbyists, and learning — it is not a drop-in replacement for the official API in regulated environments.
+For any deployment where ethical, legal, or regulatory compliance matters (healthcare, finance, large-scale commercial messaging, anything touching end users in the EU/EEA under DMA/GDPR framings), treat ZapLink as **not approved** and use Meta's [official WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api). ZapLink is an excellent fit for personal projects, internal tooling, automation hobbyists, and learning — it is not a drop-in replacement for the official API in regulated environments.
 
 📖 For the deeper, maintainer-side risk analysis (protocol-change exposure, dependency strategy, security posture), see [Risk Management (`docs/16`)](./docs/16-risk-management.md).
 
@@ -179,8 +179,8 @@ For any deployment where ethical, legal, or regulatory compliance matters (healt
 
 ```bash
 # Clone and start
-git clone https://github.com/rmyndharis/OpenWA.git
-cd OpenWA
+git clone https://github.com/dev-ashir768/zaplink.git
+cd ZapLink
 docker compose -f docker-compose.dev.yml up -d
 
 # Access (the dashboard is bundled into the API image and served on the same port)
@@ -190,7 +190,7 @@ docker compose -f docker-compose.dev.yml up -d
 ```
 
 **Your API key.** The first boot generates an admin API key, prints it once in the log and stores it at
-`/app/data/.api-key` inside the container. Read it with `docker exec openwa-api cat /app/data/.api-key`
+`/app/data/.api-key` inside the container. Read it with `docker exec zaplink-api cat /app/data/.api-key`
 (the file has no trailing newline, so the shell prompt follows the key on the same line; copy only the key),
 then use it to sign in to the dashboard and as the `X-API-Key` header wherever this README shows
 `YOUR_API_KEY`. Later boots log only a masked prefix. See [API Key](docs/README.md#api-key).
@@ -212,8 +212,8 @@ Source installs on Linux x64/arm64 hosts using glibc need **glibc 2.34 or newer*
 
 ```bash
 # Clone repository
-git clone https://github.com/rmyndharis/OpenWA.git
-cd OpenWA
+git clone https://github.com/dev-ashir768/zaplink.git
+cd ZapLink
 
 # Install the locked dependencies (includes dashboard)
 npm ci
@@ -229,7 +229,7 @@ npm run dev
 
 The first boot writes the admin API key to `data/.api-key` (read it with `cat data/.api-key`; the file has no trailing newline, so copy only the key).
 
-Use `npm install` instead when intentionally changing dependencies. OpenWA's committed lockfile uses
+Use `npm install` instead when intentionally changing dependencies. ZapLink's committed lockfile uses
 registry artifacts only, so npm 12 works with its secure default that blocks Git dependencies; do not
 disable that policy globally.
 
@@ -242,7 +242,7 @@ disable that policy globally.
 The production stack never exposes `/var/run/docker.sock` directly to the application container. Instead, a dedicated `docker-proxy` sidecar (based on [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy)) acts as the sole gateway to the Docker daemon:
 
 ```
-openwa-api  ──TCP 2375──▶  docker-proxy  ──unix──▶  /var/run/docker.sock
+zaplink-api  ──TCP 2375──▶  docker-proxy  ──unix──▶  /var/run/docker.sock
 ```
 
 Only the operations needed for container orchestration are enabled (`CONTAINERS`, `IMAGES`, `VOLUMES`, `PING`, plus the `POST` method switch). The application connects via the `DOCKER_HOST=tcp://docker-proxy:2375` environment variable, which `DockerService` detects automatically. Note this is an operational gateway, not a fine-grained privilege boundary: with `POST` enabled the proxy admits every method to the enabled paths and cannot scope container-create payloads, so a compromised API container would be host-root-equivalent — see `SECURITY.md` for the full threat model, mitigations, and how to disable the proxy if you don't use the built-in datastore orchestration.
@@ -254,16 +254,16 @@ The production image never runs the Node.js process as root. On startup, the con
 ```
 dumb-init (PID 1)
   └─ docker-entrypoint.sh (root — fixes named-volume ownership via chown)
-       └─ gosu openwa node dist/main  (drops to the openwa user)
+       └─ gosu zaplink node dist/main  (drops to the zaplink user)
 ```
 
 - **dumb-init** is PID 1 and forwards signals (SIGTERM, etc.) for graceful shutdown.
-- **docker-entrypoint.sh** runs as root only long enough to `chown` the named-volume mount points so the `openwa` user can write to them.
+- **docker-entrypoint.sh** runs as root only long enough to `chown` the named-volume mount points so the `zaplink` user can write to them.
 - **gosu** performs a clean `exec`-based privilege drop — no `su` or `sudo` wrappers, so the node process is the direct child of dumb-init.
 
-Named volumes (e.g. `openwa-data`) get their ownership corrected automatically on every start, so no manual `chown` step is needed after volume creation.
+Named volumes (e.g. `zaplink-data`) get their ownership corrected automatically on every start, so no manual `chown` step is needed after volume creation.
 
-The image can also start as the `openwa` user directly (uid/gid 997: `--user 997:997`, or the Helm chart's `podSecurityContext`). The entrypoint then skips the `chown` and the `gosu` drop and needs no added capabilities, provided `/app/data` is writable by that uid.
+The image can also start as the `zaplink` user directly (uid/gid 997: `--user 997:997`, or the Helm chart's `podSecurityContext`). The entrypoint then skips the `chown` and the `gosu` drop and needs no added capabilities, provided `/app/data` is writable by that uid.
 
 ---
 
@@ -289,28 +289,28 @@ docker compose --profile full up -d
 | `minio`    | S3-compatible storage (MinIO fork `pgsty/silo`) |
 | `full`     | All services above                              |
 
-A profile only starts the container; OpenWA keeps using SQLite and local storage until it is told
+A profile only starts the container; ZapLink keeps using SQLite and local storage until it is told
 to use the new service. The simplest route is **Dashboard > Infrastructure**: pick the built-in
-option, save, and restart from there, and OpenWA starts the container itself. The built-in storage
-option creates its own `openwa-minio` container, so do not also start the `minio` or `full` profile
+option, save, and restart from there, and ZapLink starts the container itself. The built-in storage
+option creates its own `zaplink-minio` container, so do not also start the `minio` or `full` profile
 for it. The same goes for built-in PostgreSQL and Redis: each built-in option creates its own
 container, and the compose profiles are for the manual `.env` route below. The compose `minio`
 service starts only once `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` are set in the `.env` next to
-`docker-compose.yml`; if it was already started without them, run `docker rm -f openwa-minio` before
+`docker-compose.yml`; if it was already started without them, run `docker rm -f zaplink-minio` before
 you enable built-in storage. To use a profile directly, set these in the `.env` next to
 `docker-compose.yml` first:
 
-- PostgreSQL: `DATABASE_TYPE=postgres`, `DATABASE_HOST=postgres`, `DATABASE_USERNAME=openwa`,
+- PostgreSQL: `DATABASE_TYPE=postgres`, `DATABASE_HOST=postgres`, `DATABASE_USERNAME=zaplink`,
   `DATABASE_PASSWORD=<strong password>`
 - Redis: `REDIS_ENABLED=true`, `REDIS_HOST=redis`
 - MinIO: `STORAGE_TYPE=s3`, `S3_ENDPOINT=http://minio:9000`, `S3_ACCESS_KEY_ID=<user>`,
   `S3_SECRET_ACCESS_KEY=<strong password>`
 
 PostgreSQL refuses to initialize a new volume with an empty password, MinIO refuses to start
-without one, and a production boot rejects default credentials such as `openwa` or `minioadmin`.
+without one, and a production boot rejects default credentials such as `zaplink` or `minioadmin`.
 
 > The dashboard is bundled into the API image and served by NestJS on the API port, so it
-> needs no profile — it is always available wherever `openwa-api` runs. For TLS/public exposure,
+> needs no profile — it is always available wherever `zaplink-api` runs. For TLS/public exposure,
 > put your own reverse proxy (nginx, Caddy, a cloud load balancer, or a k8s Ingress) in front;
 > see the nginx example in `docs/12-troubleshooting-faq.md`.
 
@@ -329,11 +329,11 @@ To run a published image instead of building from source, add a `docker-compose.
 
 ```yaml
 services:
-  openwa-api:
-    image: ghcr.io/rmyndharis/openwa:latest
+  zaplink-api:
+    image: ghcr.io/dev-ashir768/zaplink:latest
 ```
 
-Run `docker compose pull openwa-api && docker compose up -d --no-build`. To upgrade, update the checkout
+Run `docker compose pull zaplink-api && docker compose up -d --no-build`. To upgrade, update the checkout
 first (`git pull`, or `git checkout v<version>` when pinning), then run the same command: the override
 replaces only the image, and `docker-compose.yml` forwards an explicit variable list with no `env_file`,
 so an outdated copy drops the variables a newer release adds and keeps the old service definitions. Pin a
@@ -386,7 +386,7 @@ curl -X POST http://localhost:2785/api/sessions/{sessionId}/messages/send-text \
   -H "X-API-Key: YOUR_API_KEY" \
   -d '{
     "chatId": "628123456789@c.us",
-    "text": "Hello from OpenWA!"
+    "text": "Hello from ZapLink!"
   }'
 ```
 
@@ -412,7 +412,7 @@ curl -X POST http://localhost:2785/api/sessions/{sessionId}/webhooks \
 
 ## 🤖 MCP Server (AI Agents)
 
-OpenWA can expose a **curated set of tools over the [Model Context Protocol](https://modelcontextprotocol.io)** so AI agents (Claude, Cursor, …) can drive WhatsApp. It is **off by default** and **additive** — every REST route keeps working unchanged.
+ZapLink can expose a **curated set of tools over the [Model Context Protocol](https://modelcontextprotocol.io)** so AI agents (Claude, Cursor, …) can drive WhatsApp. It is **off by default** and **additive** — every REST route keeps working unchanged.
 
 Set `MCP_ENABLED=true` to mount a stateless Streamable-HTTP transport at **`POST /mcp`** on the existing server (same port, no extra process). It mounts **26 read-only tools** by default — session, message, contact, group, webhook, label and automation-rule _reads_ — because the surface is read-only unless you opt out. Add `MCP_READONLY=false` to mount all **52 tools**, adding the write tier (send, reply, group operations). Either way it is a focused surface rather than the full API, so agents aren't overwhelmed.
 
@@ -425,7 +425,7 @@ Point an MCP client at it (e.g. for Claude Code, a `.mcp.json` at your project r
 ```json
 {
   "mcpServers": {
-    "openwa": {
+    "zaplink": {
       "type": "http",
       "url": "http://localhost:2785/mcp",
       "headers": { "Authorization": "Bearer YOUR_API_KEY" }
@@ -466,7 +466,7 @@ The key can be passed as `Authorization: Bearer …` or `X-API-Key: …`. Every 
 ## 📁 Project Structure
 
 ```
-openwa/
+zaplink/
 ├── src/
 │   ├── main.ts                 # Application entry point
 │   ├── app.module.ts           # Root module
@@ -529,7 +529,7 @@ Please read our [Development Guidelines](./docs/08-development-guidelines.md) fo
 
 ## ☕ Support
 
-OpenWA is free and open source. If it saves you time or helps your business, you can support its development by buying me a coffee.
+ZapLink is free and open source. If it saves you time or helps your business, you can support its development by buying me a coffee.
 
 <a href="https://buymeacoffee.com/rmyndharis"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="50"/></a>
 
@@ -537,7 +537,7 @@ OpenWA is free and open source. If it saves you time or helps your business, you
 
 ## Disclaimer
 
-OpenWA is an independent open-source project and is not affiliated, associated, authorized, endorsed by, or in any way officially connected with Meta Platforms, Inc., WhatsApp LLC, or any of their subsidiaries or affiliates. The official WhatsApp website can be found at [whatsapp.com](https://www.whatsapp.com). The name "WhatsApp" as well as related names, marks, emblems, and images are registered trademarks of their respective owners.
+ZapLink is an independent open-source project and is not affiliated, associated, authorized, endorsed by, or in any way officially connected with Meta Platforms, Inc., WhatsApp LLC, or any of their subsidiaries or affiliates. The official WhatsApp website can be found at [whatsapp.com](https://www.whatsapp.com). The name "WhatsApp" as well as related names, marks, emblems, and images are registered trademarks of their respective owners.
 
 Use it at your own risk; you are responsible for complying with WhatsApp's terms and the law where you operate.
 
@@ -553,12 +553,12 @@ See [LICENSE](./LICENSE) for details.
 
 <div align="center">
 
-**OpenWA** – Free, Open Source WhatsApp API Gateway
+**ZapLink** – Free, Open Source WhatsApp API Gateway
 
-[📖 Documentation](./docs/README.md) · [🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/rmyndharis/OpenWA/issues) · [💡 Request Feature](https://github.com/rmyndharis/OpenWA/issues)
+[📖 Documentation](./docs/README.md) · [🔌 API Docs](http://localhost:2785/api/docs) · [🐛 Report Bug](https://github.com/dev-ashir768/zaplink/issues) · [💡 Request Feature](https://github.com/dev-ashir768/zaplink/issues)
 
 <br/>
 
-<sub>Made with ❤️ by <a href="https://github.com/rmyndharis">Yudhi Armyndharis</a> and the OpenWA Community</sub>
+<sub>Made with ❤️ by <a href="https://github.com/rmyndharis">Yudhi Armyndharis</a> and the ZapLink Community</sub>
 
 </div>

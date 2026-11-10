@@ -30,14 +30,14 @@ const HELM_IMAGE = 'alpine/helm:4.2.3';
 const CHARTS = fileURLToPath(new URL('../charts', import.meta.url));
 
 const render = (...setArgs) =>
-  execFileSync('docker', ['run', '--rm', '-v', `${CHARTS}:/charts:ro`, HELM_IMAGE, 'template', 'ci', '/charts/openwa', ...setArgs], {
+  execFileSync('docker', ['run', '--rm', '-v', `${CHARTS}:/charts:ro`, HELM_IMAGE, 'template', 'ci', '/charts/zaplink', ...setArgs], {
     encoding: 'utf8',
     maxBuffer: 1 << 24,
   });
 
 /** Render with `valuesYaml` as a values file (`-f -`), which parses numbers unlike `--set`. */
 const renderValues = (valuesYaml, release = 'ci') =>
-  execFileSync('docker', ['run', '-i', '--rm', '-v', `${CHARTS}:/charts:ro`, HELM_IMAGE, 'template', release, '/charts/openwa', '-f', '-'], {
+  execFileSync('docker', ['run', '-i', '--rm', '-v', `${CHARTS}:/charts:ro`, HELM_IMAGE, 'template', release, '/charts/zaplink', '-f', '-'], {
     encoding: 'utf8',
     input: valuesYaml,
     maxBuffer: 1 << 24,
@@ -188,7 +188,7 @@ const check = (id, ok, detail) => results.push({ id, ok, detail });
   };
   const addsCaps = out => /^ {14}add:/m.test(byKind(out, 'StatefulSet')[0] ?? '');
   const byDefault = render();
-  const values = readFileSync(`${CHARTS}/openwa/values.yaml`, 'utf8');
+  const values = readFileSync(`${CHARTS}/zaplink/values.yaml`, 'utf8');
   const profile = /^# {3}podSecurityContext:\n(?:# {3}.*\n)+/m.exec(values)?.[0] ?? '';
   const nonRoot = renderValues(profile.replace(/^# {3}/gm, ''));
   const pod = podContext(nonRoot);
@@ -238,10 +238,10 @@ const check = (id, ok, detail) => results.push({ id, ok, detail });
 // token and no metrics arrive. The chart's own Secret stores each secretEnv entry under its variable name, which
 // the default key `token` is not, so the setup values.yaml documents is rendered and its key looked up there.
 {
-  const values = readFileSync(`${CHARTS}/openwa/values.yaml`, 'utf8');
+  const values = readFileSync(`${CHARTS}/zaplink/values.yaml`, 'utf8');
   const setup = /^# {3}serviceMonitor:\n(?:# {3}.*\n)+/m.exec(values)?.[0] ?? '';
   const documented = setup.replace(/^# {3}/gm, '');
-  const out = renderValues(`${documented}secretEnv:\n  METRICS_TOKEN: a-long-random-token\n`, 'openwa');
+  const out = renderValues(`${documented}secretEnv:\n  METRICS_TOKEN: a-long-random-token\n`, 'zaplink');
   const ref = mapAt(byKind(out, 'ServiceMonitor')[0] ?? '', ['bearerTokenSecret']) ?? {};
   const secret = byKind(out, 'Secret').find(doc => nameOf(doc) === ref.name);
   const keys = mapAt(secret ?? '', ['stringData']) ?? {};
@@ -307,12 +307,12 @@ const check = (id, ok, detail) => results.push({ id, ok, detail });
 // template` does not render NOTES, so this one goes through a client-side dry-run install.
 {
   const notes = (...setArgs) =>
-    execFileSync('docker', ['run', '--rm', '-v', `${CHARTS}:/charts:ro`, HELM_IMAGE, 'install', 'ci', '/charts/openwa', '--dry-run=client', ...setArgs], {
+    execFileSync('docker', ['run', '--rm', '-v', `${CHARTS}:/charts:ro`, HELM_IMAGE, 'install', 'ci', '/charts/zaplink', '--dry-run=client', ...setArgs], {
       encoding: 'utf8',
       maxBuffer: 1 << 24,
     }).split('\nNOTES:\n')[1] ?? '';
   const warns = out => out.includes('this ingress has no TLS');
-  const tls = ['--set', 'ingress.tls[0].secretName=openwa-tls', '--set', 'ingress.tls[0].hosts[0]=openwa.example.com'];
+  const tls = ['--set', 'ingress.tls[0].secretName=zaplink-tls', '--set', 'ingress.tls[0].hosts[0]=zaplink.example.com'];
   const cases = [
     ['ingress without TLS', true, ['--set', 'ingress.enabled=true']],
     ['CSP upgrade off', false, ['--set', 'ingress.enabled=true', '--set-string', 'env.CSP_UPGRADE_INSECURE_REQUESTS=false']],

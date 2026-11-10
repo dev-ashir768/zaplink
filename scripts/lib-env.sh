@@ -31,12 +31,12 @@
 # U+2028 or U+2029 outside an unquoted value. Nothing here exports anything: each key is looked up by
 # name, so a stray entry in an operator's .env can never reach the script's own environment.
 
-# openwa_env_lines - copy stdin with a line break wherever dotenv starts a line: at a bare CR, and at
+# zaplink_env_lines - copy stdin with a line break wherever dotenv starts a line: at a bare CR, and at
 # U+2028 or U+2029 unless an unquoted value without a `#` runs on past it. Each added line starts with
 # the CR or a U+2028, which the patterns read as a blank, and CRLF line ends lose their CR. It also
-# splits inside a quoted value, and after a stray quote in an unquoted one; openwa_env_opener skips
+# splits inside a quoted value, and after a stray quote in an unquoted one; zaplink_env_opener skips
 # the lines that adds inside a value.
-openwa_env_lines() (
+zaplink_env_lines() (
   export LC_ALL=C
   local line seg a b cr=$'\r' ls=$'\xe2\x80\xa8'
   local setting='^(export[[:space:]]+)?[A-Za-z0-9_.-]+([[:space:]]*=|:$|:[[:space:]])(.*)$'
@@ -68,7 +68,7 @@ openwa_env_lines() (
   done
 )
 
-# openwa_env_opener <s> <closes> - read the lines before the key's line, split by openwa_env_lines, and
+# zaplink_env_opener <s> <closes> - read the lines before the key's line, split by zaplink_env_lines, and
 # print the number of the one that opens a quoted value dotenv reads on to the key's line. <s> matches
 # one blank; <closes> lists the quote characters that a quote on or after the key's line, up to the
 # first such quote without a backslash before it, can close a value with: one only blanks or a comment
@@ -79,7 +79,7 @@ openwa_env_lines() (
 # blanks or a comment follow, up to the first quote without a backslash; with none, dotenv reads the
 # line after `NAME=`, `NAME: ` or a bare `NAME:` as an unquoted value, which runs on past a U+2028 or
 # U+2029 until a `#`, and any other line as no setting at all.
-openwa_env_opener() (
+zaplink_env_opener() (
   local LC_ALL=C
   local s="$1" closes="$2" l v r q c i=0 j n e u kind last prior open closer ls=$'\xe2\x80\xa8'
   local set="^$s*(export$s+)?[A-Za-z0-9_.-]+($s*=|:$s)" colon="^$s*(export$s+)?[A-Za-z0-9_.-]+:\$"
@@ -188,10 +188,10 @@ openwa_env_opener() (
   done
 )
 
-# openwa_env_file_value <file> <key> - print the value from one env-file layer. Returns 1 when the layer
+# zaplink_env_file_value <file> <key> - print the value from one env-file layer. Returns 1 when the layer
 # does not set the key and 2 when it may set it in a form rejected below; a blank value succeeds and
 # prints nothing.
-openwa_env_file_value() {
+zaplink_env_file_value() {
   local file="$1" key="$2" line match value n next prev rest tool q o closes bad=""
   # The trims below take only ASCII blanks whatever the operator's locale, so a Unicode blank after a
   # closing quote stops the run on every host.
@@ -271,9 +271,9 @@ openwa_env_file_value() {
   # that quote on its line, at the last quote before it that only blanks or a comment follow. So the
   # line is rejected when, for some quote character, such a quote sits on it or after it, up to the
   # first quote without a backslash, and an earlier line opens a value with that quote which no such
-  # quote closes before the line (openwa_env_opener). Lines are split where dotenv splits them
-  # (openwa_env_lines).
-  rest="$(LC_ALL=C tr '\000' '\377' 2>/dev/null <"$file" | LC_ALL=C tail -n +"$n" | openwa_env_lines)"
+  # quote closes before the line (zaplink_env_opener). Lines are split where dotenv splits them
+  # (zaplink_env_lines).
+  rest="$(LC_ALL=C tr '\000' '\377' 2>/dev/null <"$file" | LC_ALL=C tail -n +"$n" | zaplink_env_lines)"
   closes=""
   for q in "'" '"' '`'; do
     next="$rest"
@@ -283,12 +283,12 @@ openwa_env_file_value() {
   done
   o=""
   if [ "$n" -gt 1 ] && [ -n "$closes" ]; then
-    prev="$(LC_ALL=C tr '\000' '\377' 2>/dev/null <"$file" | LC_ALL=C sed -n "1,$((n - 1))p" | openwa_env_lines)"
-    o="$(openwa_env_opener "$s" "$closes" <<<"$prev")"
+    prev="$(LC_ALL=C tr '\000' '\377' 2>/dev/null <"$file" | LC_ALL=C sed -n "1,$((n - 1))p" | zaplink_env_lines)"
+    o="$(zaplink_env_opener "$s" "$closes" <<<"$prev")"
   fi
   if [ -n "$o" ]; then
-    # Count only the lines the file has, not the ones openwa_env_lines added. A file line that starts with
-    # a CR or U+2028 still counts: openwa_env_lines prints the empty text before that character first.
+    # Count only the lines the file has, not the ones zaplink_env_lines added. A file line that starts with
+    # a CR or U+2028 still counts: zaplink_env_lines prints the empty text before that character first.
     o="$(LC_ALL=C sed -n "1,${o}p" <<<"$prev" | LC_ALL=C grep -acvE "^("$'\r|\xe2\x80\xa8'")")" || true
     echo "[config] ERROR: $file opens a quoted value on line $o that the app can read on to line $n, which sets" >&2
     echo "[config]        $key, as part of that value. Close the quote on the line that opens it, or pass $key in" >&2
@@ -366,9 +366,9 @@ openwa_env_file_value() {
   return 2
 }
 
-# openwa_writable <path> - whether <path> can be written, or created when it does not exist yet (its
+# zaplink_writable <path> - whether <path> can be written, or created when it does not exist yet (its
 # nearest existing ancestor is then the directory that has to take it).
-openwa_writable() {
+zaplink_writable() {
   local p="$1"
   if [ -e "$p" ]; then
     [ -w "$p" ]
@@ -378,9 +378,9 @@ openwa_writable() {
   [ -d "$p" ] && [ -w "$p" ]
 }
 
-# openwa_physical <path> - <path> without trailing / or /., following a final symlink even when its
+# zaplink_physical <path> - <path> without trailing / or /., following a final symlink even when its
 # target is missing, and with its longest existing leading directory resolved by pwd -P.
-openwa_physical() {
+zaplink_physical() {
   local p="$1" t parent n=0
   while :; do
     while case "$p" in ?*/ | ?*/.) true ;; *) false ;; esac; do
@@ -399,39 +399,39 @@ openwa_physical() {
     printf '%s' "$parent"
     return
   fi
-  parent="$(openwa_physical "$(dirname -- "$p")")"
+  parent="$(zaplink_physical "$(dirname -- "$p")")"
   printf '%s/%s' "${parent%/}" "$(basename -- "$p")"
 }
 
-# openwa_is_cwd_data_dir - whether DATA_DIR is the working directory's ./data, however it is spelled:
+# zaplink_is_cwd_data_dir - whether DATA_DIR is the working directory's ./data, however it is spelled:
 # the same directory when either exists (by device and inode, so through a symlink or a bind mount),
 # else the same physical path, so a ./data link whose target is not created yet counts when DATA_DIR
 # names that target.
-openwa_is_cwd_data_dir() {
+zaplink_is_cwd_data_dir() {
   if [ -e "$DATA_DIR" ] || [ -e ./data ]; then
     [ "$DATA_DIR" -ef ./data ]
     return
   fi
-  [ "$(openwa_physical "$DATA_DIR")" = "$(openwa_physical ./data)" ]
+  [ "$(zaplink_physical "$DATA_DIR")" = "$(zaplink_physical ./data)" ]
 }
 
-# openwa_media_dir - STORAGE_LOCAL_PATH as the app settles it (src/config/storage-root.ts). v0.2.0 to
+# zaplink_media_dir - STORAGE_LOCAL_PATH as the app settles it (src/config/storage-root.ts). v0.2.0 to
 # v0.7.3 persisted ./uploads into .env.generated; where that cannot be created, as under the image's
 # root-owned /app, the app keeps media in ./data/media (<data dir>/media) instead, so the scripts have
 # to look there too. Writability alone cannot tell: `docker exec` runs these as root, which can create
 # /app/uploads while the app's own user cannot. The app creates a ./uploads it uses at boot, so a
-# missing one beside an existing <data dir>/media means that one is in use. With OPENWA_DATA_DIR naming
+# missing one beside an existing <data dir>/media means that one is in use. With ZAPLINK_DATA_DIR naming
 # another directory than the working directory's ./data, such as a volume's mountpoint on the host, the
 # working directory is not the app's: its ./uploads, present or not, is not the one the app would use,
 # which lies outside the volume, so <data dir>/media is the target even before it exists, as when
 # restoring into an empty volume. A value from the environment is the caller's own and skips that rule.
-openwa_media_dir() {
+zaplink_media_dir() {
   local dir
-  dir="$(openwa_resolve STORAGE_LOCAL_PATH "$DATA_DIR/media" path)" || return
+  dir="$(zaplink_resolve STORAGE_LOCAL_PATH "$DATA_DIR/media" path)" || return
   case "$dir" in
     ./uploads | uploads)
-      if ! openwa_writable "$dir" || { [ ! -d "$dir" ] && [ -d "$DATA_DIR/media" ]; } ||
-        { [ -z "$(printenv STORAGE_LOCAL_PATH)" ] && ! openwa_is_cwd_data_dir; }; then
+      if ! zaplink_writable "$dir" || { [ ! -d "$dir" ] && [ -d "$DATA_DIR/media" ]; } ||
+        { [ -z "$(printenv STORAGE_LOCAL_PATH)" ] && ! zaplink_is_cwd_data_dir; }; then
         local fix="Remove the line from ./.env or .env.generated."
         [ -z "$(printenv STORAGE_LOCAL_PATH)" ] || fix="Unset it in the environment."
         echo "[config] WARN: STORAGE_LOCAL_PATH=$dir is a leftover the app does not use here, so it keeps" >&2
@@ -453,20 +453,20 @@ openwa_media_dir() {
 
 # Layer 3. Set here rather than read from the environment, so it can never arrive from an operator's
 # shell; restore.sh points it at the archive's copy, which replaces this file during the restore.
-OPENWA_GENERATED_ENV="${DATA_DIR:-./data}/.env.generated"
+ZAPLINK_GENERATED_ENV="${DATA_DIR:-./data}/.env.generated"
 
-# openwa_resolve <key> <default> [path] - the application's precedence: environment, then ./.env,
-# then $OPENWA_GENERATED_ENV, then the built-in default. Requires DATA_DIR to be set before sourcing.
+# zaplink_resolve <key> <default> [path] - the application's precedence: environment, then ./.env,
+# then $ZAPLINK_GENERATED_ENV, then the built-in default. Requires DATA_DIR to be set before sourcing.
 # With a third argument of `path`, the value names a filesystem path: a ./data or ./data/... value
 # from either file is relative to the app's working directory, so it names a path in the data dir and
 # is taken under DATA_DIR, which on the host is the volume's mountpoint rather than the working
 # directory's ./data (compose hands ./.env's paths to the container, where ./data is the volume). A
 # value from the environment is the caller's own and is read as written, as are other keys (a
 # PostgreSQL name, user or password).
-# Fails, printing nothing, when a layer sets the key in a form openwa_env_file_value rejects. Callers
+# Fails, printing nothing, when a layer sets the key in a form zaplink_env_file_value rejects. Callers
 # must act on that status: set -e does for a top-level assignment, but not inside a function called
 # from a command substitution or for a substitution in a command's arguments.
-openwa_resolve() {
+zaplink_resolve() {
   local key="$1" fallback="$2" kind="${3:-}" current value layer rc
   current="$(printenv "$key" 2>/dev/null || true)"
   if [ -n "$current" ]; then
@@ -476,9 +476,9 @@ openwa_resolve() {
   # The first layer that sets the key ends the lookup, even with a blank value: dotenv sets a blank
   # line to '' and never overwrites a key already set, so the app reads its built-in default. A line
   # these scripts cannot parse still sets the key for the app, so it fails the lookup instead.
-  for layer in "./.env" "$OPENWA_GENERATED_ENV"; do
+  for layer in "./.env" "$ZAPLINK_GENERATED_ENV"; do
     rc=0
-    value="$(openwa_env_file_value "$layer" "$key")" || rc=$?
+    value="$(zaplink_env_file_value "$layer" "$key")" || rc=$?
     case "$rc" in
       0)
         if [ "$kind" = path ]; then
@@ -496,11 +496,11 @@ openwa_resolve() {
   printf '%s' "$fallback"
 }
 
-# openwa_pg_schema_valid <name> - whether <name> is a POSTGRES_SCHEMA the app accepts (src/config/env.validation.ts):
+# zaplink_pg_schema_valid <name> - whether <name> is a POSTGRES_SCHEMA the app accepts (src/config/env.validation.ts):
 # a lower-case letter or underscore, then lower-case letters, digits or underscores, at most 63 characters, and no
 # pg_ prefix. pg_dump folds an unquoted name to lower case and reads ? and * as wildcards, so no other name may
 # reach it, and the scripts write the name into SQL.
-openwa_pg_schema_valid() {
+zaplink_pg_schema_valid() {
   local LC_ALL=C
   [[ $1 =~ ^[a-z_][a-z0-9_]{0,62}$ ]] && [[ $1 != pg_* ]]
 }

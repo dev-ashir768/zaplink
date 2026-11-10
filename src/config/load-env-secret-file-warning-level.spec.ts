@@ -20,7 +20,7 @@ describe('first-run secret file warning under the configured log level', () => {
   beforeEach(() => {
     envBackup = { ...process.env };
     for (const key of ['NODE_ENV', 'LOG_LEVEL', 'LOG_FORMAT', 'NO_COLOR', 'FORCE_COLOR']) delete process.env[key];
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-secretwarn-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-secretwarn-'));
     jest.spyOn(process, 'cwd').mockReturnValue(dir);
     written = [];
     for (const method of ['log', 'warn', 'error'] as const) {

@@ -2,7 +2,7 @@
 
 ## 5.1 Overview
 
-OpenWA uses a database to store:
+ZapLink uses a database to store:
 
 - Session configuration & state
 - Webhook configurations
@@ -12,7 +12,7 @@ OpenWA uses a database to store:
 
 ### Database Support
 
-OpenWA supports two database backends that can be selected at deployment time:
+ZapLink supports two database backends that can be selected at deployment time:
 
 | Database       | Use Case                                    | Sessions | Horizontal Scaling |
 | -------------- | ------------------------------------------- | -------- | ------------------ |
@@ -37,11 +37,11 @@ always a SQLite file on each node, and running more than one replica is not supp
 
 ### Dual-Database Architecture
 
-OpenWA v0.2+ implements a **dual-database architecture** that separates boot configuration from user data:
+ZapLink v0.2+ implements a **dual-database architecture** that separates boot configuration from user data:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        OpenWA Application                        │
+│                        ZapLink Application                        │
 ├─────────────────────────────┬───────────────────────────────────┤
 │      Main DB (SQLite)       │        Data DB (Pluggable)        │
 │  Default ./data/main.sqlite │   SQLite or PostgreSQL (config)   │
@@ -89,32 +89,32 @@ others.
 
 #### Built-in PostgreSQL Orchestration
 
-With `DATABASE_TYPE=postgres` and `POSTGRES_BUILTIN=true`, `main.ts` starts the managed `postgres` container (creating it if it does not exist) **before** `NestFactory.create`. It has to run that early: the `data` connection is opened while Nest instantiates providers, before any `onModuleInit` hook, so a stopped `openwa-postgres` would otherwise fail every boot. The step is bounded at 15 seconds and never fails boot on its own. `DockerService.onModuleInit()` later runs the same orchestration for `redis` / `minio` when their own `REDIS_BUILTIN` / `MINIO_BUILTIN` flags are set. A flag set for a datastore the configuration does not use starts nothing: `postgres` needs `DATABASE_TYPE=postgres`, `minio` needs `STORAGE_TYPE=s3`, and `redis` needs one of `REDIS_ENABLED`, `QUEUE_ENABLED` or `CACHE_ENABLED`. Neither does one whose host the environment or the project `.env` pins to anything but the bundled container (`DATABASE_HOST`, `REDIS_HOST`, `S3_ENDPOINT`), the early PostgreSQL start included: the app dials the pinned host. A flag decides only that start: whether the app uses the container follows its host. A `*_BUILTIN=true` the environment pins starts the bundled container at every boot whatever host the saved file gives the app, so after the dashboard switched that datastore to an external server the container runs unused until the variable is unset.
+With `DATABASE_TYPE=postgres` and `POSTGRES_BUILTIN=true`, `main.ts` starts the managed `postgres` container (creating it if it does not exist) **before** `NestFactory.create`. It has to run that early: the `data` connection is opened while Nest instantiates providers, before any `onModuleInit` hook, so a stopped `zaplink-postgres` would otherwise fail every boot. The step is bounded at 15 seconds and never fails boot on its own. `DockerService.onModuleInit()` later runs the same orchestration for `redis` / `minio` when their own `REDIS_BUILTIN` / `MINIO_BUILTIN` flags are set. A flag set for a datastore the configuration does not use starts nothing: `postgres` needs `DATABASE_TYPE=postgres`, `minio` needs `STORAGE_TYPE=s3`, and `redis` needs one of `REDIS_ENABLED`, `QUEUE_ENABLED` or `CACHE_ENABLED`. Neither does one whose host the environment or the project `.env` pins to anything but the bundled container (`DATABASE_HOST`, `REDIS_HOST`, `S3_ENDPOINT`), the early PostgreSQL start included: the app dials the pinned host. A flag decides only that start: whether the app uses the container follows its host. A `*_BUILTIN=true` the environment pins starts the bundled container at every boot whatever host the saved file gives the app, so after the dashboard switched that datastore to an external server the container runs unused until the variable is unset.
 
 The container can still be coming up when the `data` connection first dials it, so that connection is configured with `retryAttempts: 10` and `retryDelay: 3000` (`src/app.module.ts`), giving the database roughly 30 seconds to become reachable.
 
 > [!NOTE]
-> If the Docker API is unreachable, the start is skipped with a warning: no container is started, and the `data` connection then fails its retries against whatever `DATABASE_HOST` points at. Start the container by hand (`docker start openwa-postgres`) and restart OpenWA.
+> If the Docker API is unreachable, the start is skipped with a warning: no container is started, and the `data` connection then fails its retries against whatever `DATABASE_HOST` points at. Start the container by hand (`docker start zaplink-postgres`) and restart ZapLink.
 
 #### PostgreSQL Schema Selection
 
-When using PostgreSQL, OpenWA can place its tables and migration ledger in a dedicated schema via the `POSTGRES_SCHEMA` environment variable:
+When using PostgreSQL, ZapLink can place its tables and migration ledger in a dedicated schema via the `POSTGRES_SCHEMA` environment variable:
 
-| Setting           | Default  | Description                                                                                                   |
-| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
-| `POSTGRES_SCHEMA` | `public` | PostgreSQL schema for OpenWA tables and TypeORM migration ledger (lower-case letters, digits and underscores) |
+| Setting           | Default  | Description                                                                                                    |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `POSTGRES_SCHEMA` | `public` | PostgreSQL schema for ZapLink tables and TypeORM migration ledger (lower-case letters, digits and underscores) |
 
 **Use Cases:**
 
 - **Managed PostgreSQL:** Use your cloud provider's project schema (e.g., a schema provisioned by the provider)
-- **Multi-tenant databases:** Isolate OpenWA from other applications sharing the same database
-- **Clean separation:** Keep OpenWA's tables organized separately from other schemas
+- **Multi-tenant databases:** Isolate ZapLink from other applications sharing the same database
+- **Clean separation:** Keep ZapLink's tables organized separately from other schemas
 
 **Configuration:**
 
 ```bash
 # .env or dashboard Infrastructure page
-POSTGRES_SCHEMA=openwa  # Use a dedicated schema
+POSTGRES_SCHEMA=zaplink  # Use a dedicated schema
 POSTGRES_SCHEMA=public   # Default behavior (historical)
 ```
 
@@ -142,11 +142,11 @@ POSTGRES_SCHEMA=public   # Default behavior (historical)
 - Invalid values cause fast boot failure rather than migration-time errors
 
 > [!NOTE]
-> TypeORM's `schema` option alone does not set the session `search_path`. OpenWA additionally sets `search_path=<schema>,public` on every pooled connection, by a statement right after it connects, so raw, unqualified migration DDL resolves to the configured schema. The migration ledger and all tables land in the specified schema while keeping `public` accessible for `pg_catalog` and helpers.
+> TypeORM's `schema` option alone does not set the session `search_path`. ZapLink additionally sets `search_path=<schema>,public` on every pooled connection, by a statement right after it connects, so raw, unqualified migration DDL resolves to the configured schema. The migration ledger and all tables land in the specified schema while keeping `public` accessible for `pg_catalog` and helpers.
 
 #### Data Migration API
 
-OpenWA provides endpoints for migrating data between database types:
+ZapLink provides endpoints for migrating data between database types:
 
 | Endpoint                 | Method | Description                          |
 | ------------------------ | ------ | ------------------------------------ |
@@ -176,7 +176,7 @@ curl -X POST 'http://localhost:2785/api/infra/import-data' \
 
 #### Cross-Database Date Portability
 
-To ensure date/time values work across both SQLite and PostgreSQL, OpenWA uses a `DateTransformer` together with `dateColumnType()`. On SQLite the column is `text` and dates are stored as ISO 8601 strings; on PostgreSQL the column is a native `timestamp` and the `Date` passes through to the driver:
+To ensure date/time values work across both SQLite and PostgreSQL, ZapLink uses a `DateTransformer` together with `dateColumnType()`. On SQLite the column is `text` and dates are stored as ISO 8601 strings; on PostgreSQL the column is a native `timestamp` and the `Date` passes through to the driver:
 
 ```typescript
 // src/common/transformers/date.transformer.ts
@@ -205,7 +205,7 @@ connectedAt!: Date | null;
 
 #### Timestamps on PostgreSQL are UTC
 
-Every timestamp column on the PostgreSQL data connection is `timestamp without time zone`, which stores no zone: the value means whatever the writer intended. OpenWA pins that meaning to **UTC**, on the connection rather than on the deployment (`src/database/postgres-utc.ts`):
+Every timestamp column on the PostgreSQL data connection is `timestamp without time zone`, which stores no zone: the value means whatever the writer intended. ZapLink pins that meaning to **UTC**, on the connection rather than on the deployment (`src/database/postgres-utc.ts`):
 
 - a JS `Date` parameter is bound as UTC (`parseInputDatesAsUTC`), so an app-written column such as `sessions.connectedAt` holds UTC wall-clock time whatever zone the host runs in;
 - a naive timestamp is parsed back as UTC, through a parser registered for the scalar `timestamp` OID only (the `timestamp[]` OID keeps the driver's array parser; the schema has no such column);
@@ -577,7 +577,7 @@ CREATE UNIQUE INDEX "UQ_messages_sessionId_waMessageId"
 ```
 
 > [!NOTE]
-> There is **no** PostgreSQL RANGE partitioning, `create_messages_partition()` function, or `pg_cron` schedule in OpenWA. `messages` is a single plain table on both backends. The `timestamp` column uses a `bigint→number` value transformer so the REST/SDK/MCP contract returns a JS number on both SQLite and PostgreSQL.
+> There is **no** PostgreSQL RANGE partitioning, `create_messages_partition()` function, or `pg_cron` schedule in ZapLink. `messages` is a single plain table on both backends. The `timestamp` column uses a `bigint→number` value transformer so the REST/SDK/MCP contract returns a JS number on both SQLite and PostgreSQL.
 
 > [!NOTE]
 > Message rows carry no separate `media`/`ack`/`from_me`/`is_group` columns. Media and other engine-specific details are stored in the `metadata` JSON column; delivery state is the `status` enum and `direction` distinguishes inbound vs. outbound.
@@ -747,7 +747,7 @@ The data connection also owns:
 
 `lid_mappings.isReported` distinguishes engine mapping reports from cache-only display data. Phone/LID alias authorization, candidate expansion and list filters use only reported mappings. A conflicting cached phone revokes alias trust without replacing the stored phone, and a later actual report restores it. The migration conservatively marks older mixed-origin rows as display data; backups carry the flag, and older backups restore with alias access disabled until a new report arrives.
 
-Additionally, the `AddMessagesFts` migration creates the full-text-search structures over `messages` (a FTS5 virtual table on SQLite, a generated `body_ts` `tsvector` column plus GIN index on PostgreSQL) that back the `/search` endpoint. With `SEARCH_CONTAINS_ENABLED=true` (off by default) the search provider, not a migration, also builds the trigram index behind `/search?match=contains`: a `messages_trgm` FTS5 trigram table with its sync triggers on SQLite; the `pg_trgm` and `unaccent` extensions, an `openwa_unaccent(text)` function and the `idx_messages_body_trgm` GIN trigram index on PostgreSQL (see [26 - Global Search](./26-global-search.md#269-enabling-matchcontains)).
+Additionally, the `AddMessagesFts` migration creates the full-text-search structures over `messages` (a FTS5 virtual table on SQLite, a generated `body_ts` `tsvector` column plus GIN index on PostgreSQL) that back the `/search` endpoint. With `SEARCH_CONTAINS_ENABLED=true` (off by default) the search provider, not a migration, also builds the trigram index behind `/search?match=contains`: a `messages_trgm` FTS5 trigram table with its sync triggers on SQLite; the `pg_trgm` and `unaccent` extensions, an `zaplink_unaccent(text)` function and the `idx_messages_body_trgm` GIN trigram index on PostgreSQL (see [26 - Global Search](./26-global-search.md#269-enabling-matchcontains)).
 
 On SQLite that index can stop matching `messages` after a table rebuild, and a search then returns other messages. The `RepairSqliteMessageFts` migration checks the index against the full message content once and rebuilds it on a mismatch. With `DATABASE_SYNCHRONIZE=true` the same check runs after the schema sync on every boot; it reads all stored text, and a failure of the check is logged without stopping the boot.
 
@@ -887,7 +887,7 @@ flowchart LR
 
 ## 5.6 Migration Strategy
 
-OpenWA runs **two separate TypeORM connections**, each with its own migrations directory and CLI DataSource:
+ZapLink runs **two separate TypeORM connections**, each with its own migrations directory and CLI DataSource:
 
 | Connection | DataSource            | Migrations dir                  | Owns                                                                                                                                                                                                                                                                                                                                                      |
 | ---------- | --------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -900,7 +900,7 @@ Migrations are hand-authored and idempotent (`IF NOT EXISTS`) so they are safe t
 
   The data connection sends no session setting in the startup packet, which PgBouncer refuses for `statement_timeout`: the zone, the runtime `statement_timeout` and a custom schema's `search_path` are set by a statement on each new connection, and the boot lock connection turns `statement_timeout` off the same way, so PgBouncer in session mode needs no `ignore_startup_parameters` entry.
 
-- **main**: migration-managed by default, like data: `migrations-main/` creates and upgrades `api_keys` / `audit_logs` at boot. The chain is idempotent, so a `main.sqlite` an earlier release built with synchronize is adopted in place on the first boot (rows kept, missing columns added, the ledger written). `MAIN_DATABASE_SYNCHRONIZE=true` additionally synchronizes after the chain, for development; it cannot add an entity column that has no migration yet, because the missing-column check below refuses the boot first, so write the migration in `migrations-main/`. Boot logs a warning when it is set under `NODE_ENV=production`. Before any provider reads the file, boot refuses to start (in both modes) when the ledger records a migration this release does not ship (a newer release upgraded the file) or when an entity column is still missing after the chain ran (an older release rebuilt the table, so its values are gone, or the column has no migration yet); the error names the migration or column. For a newer ledger or a rebuilt table, the remedy is restoring `main.sqlite` from the backup taken before the downgrade or upgrade; for a column with no migration yet, it is adding one in `migrations-main/`. For a table rebuilt without `api_keys.allowedChats` and no backup, stop the instance, delete that migration's ledger row from the file the error names (the `MAIN_DATABASE_NAME` path, `data/main.sqlite` by default) and start it. On a source install that is `sqlite3 data/main.sqlite "DELETE FROM migrations WHERE name = 'AddApiKeyAllowedChats1786600000000'"`. On the compose deployment the file lives in the `openwa-data` volume, not on the host, and a stopped container cannot be exec'd into, so run the CLI in a one-off container of the service: `docker compose stop openwa-api && docker compose run --rm --no-deps openwa-api sqlite3 /app/data/main.sqlite "DELETE FROM migrations WHERE name = 'AddApiKeyAllowedChats1786600000000'"` (with `MAIN_DATABASE_NAME` set, use that path under `/app`). On the Helm chart, scale the StatefulSet to 0 and start the `openwa-restore` helper pod on the release's data PVC as [11 - Runbook: Restore from Backup](./11-operational-runbooks.md#runbook-restore-from-backup) does, run `kubectl exec openwa-restore -- sqlite3 /app/data/main.sqlite "DELETE FROM migrations WHERE name = 'AddApiKeyAllowedChats1786600000000'"`, then delete the pod and scale back to 1. Then the chain re-creates `api_keys.allowedChats` empty, which means every chat, so re-apply each key's `allowedChats` before exposing the API. A file whose ledger does not record the lost column's migration (0.23.6 and 0.23.7 wrote the ledger only with `MAIN_DATABASE_SYNCHRONIZE=false`) is not detected: the column comes back empty, which means every chat, so each key's `allowedChats` must be re-applied. Never delete or rename a `migrations-main/` file: its ledger row would read as a newer release's.
+- **main**: migration-managed by default, like data: `migrations-main/` creates and upgrades `api_keys` / `audit_logs` at boot. The chain is idempotent, so a `main.sqlite` an earlier release built with synchronize is adopted in place on the first boot (rows kept, missing columns added, the ledger written). `MAIN_DATABASE_SYNCHRONIZE=true` additionally synchronizes after the chain, for development; it cannot add an entity column that has no migration yet, because the missing-column check below refuses the boot first, so write the migration in `migrations-main/`. Boot logs a warning when it is set under `NODE_ENV=production`. Before any provider reads the file, boot refuses to start (in both modes) when the ledger records a migration this release does not ship (a newer release upgraded the file) or when an entity column is still missing after the chain ran (an older release rebuilt the table, so its values are gone, or the column has no migration yet); the error names the migration or column. For a newer ledger or a rebuilt table, the remedy is restoring `main.sqlite` from the backup taken before the downgrade or upgrade; for a column with no migration yet, it is adding one in `migrations-main/`. For a table rebuilt without `api_keys.allowedChats` and no backup, stop the instance, delete that migration's ledger row from the file the error names (the `MAIN_DATABASE_NAME` path, `data/main.sqlite` by default) and start it. On a source install that is `sqlite3 data/main.sqlite "DELETE FROM migrations WHERE name = 'AddApiKeyAllowedChats1786600000000'"`. On the compose deployment the file lives in the `zaplink-data` volume, not on the host, and a stopped container cannot be exec'd into, so run the CLI in a one-off container of the service: `docker compose stop zaplink-api && docker compose run --rm --no-deps zaplink-api sqlite3 /app/data/main.sqlite "DELETE FROM migrations WHERE name = 'AddApiKeyAllowedChats1786600000000'"` (with `MAIN_DATABASE_NAME` set, use that path under `/app`). On the Helm chart, scale the StatefulSet to 0 and start the `zaplink-restore` helper pod on the release's data PVC as [11 - Runbook: Restore from Backup](./11-operational-runbooks.md#runbook-restore-from-backup) does, run `kubectl exec zaplink-restore -- sqlite3 /app/data/main.sqlite "DELETE FROM migrations WHERE name = 'AddApiKeyAllowedChats1786600000000'"`, then delete the pod and scale back to 1. Then the chain re-creates `api_keys.allowedChats` empty, which means every chat, so re-apply each key's `allowedChats` before exposing the API. A file whose ledger does not record the lost column's migration (0.23.6 and 0.23.7 wrote the ledger only with `MAIN_DATABASE_SYNCHRONIZE=false`) is not detected: the column comes back empty, which means every chat, so each key's `allowedChats` must be re-applied. Never delete or rename a `migrations-main/` file: its ledger row would read as a newer release's.
 
 ### Migration Files
 
@@ -1056,7 +1056,7 @@ The 24-hour TTL itself is a fixed constant (`STATUS_TTL_MS`) and is not configur
 ## 5.8 Backup Strategy
 
 > [!NOTE]
-> This section is **operational guidance**, not a built-in feature. OpenWA ships no scheduler, encryption step, S3 uploader or pruning for backups; wire those up externally (cron, your host's backup tooling, etc.). The JSON export/import endpoints in §5.1 are a portability path, not a backup mechanism.
+> This section is **operational guidance**, not a built-in feature. ZapLink ships no scheduler, encryption step, S3 uploader or pruning for backups; wire those up externally (cron, your host's backup tooling, etc.). The JSON export/import endpoints in §5.1 are a portability path, not a backup mechanism.
 > The authoritative full-system backup is [`scripts/backup.sh`](../scripts/backup.sh), documented in the [operational runbook](./11-operational-runbooks.md#runbook-database-backup); it also captures engine auth state, including `BAILEYS_AUTH_DIR` for Baileys.
 
 Build any scheduled or off-site pipeline around the archive `scripts/backup.sh` writes, not around a bare `pg_dump` or a copy of the `.sqlite` files. The data store alone omits `main.sqlite` (API keys and the audit log) and the engine auth state, so a restore from it comes back with no API keys and every session unpaired. The flow, and which steps stay with the operator, is in [10.7 Backup & Recovery](./10-devops-infrastructure.md#107-backup--recovery).

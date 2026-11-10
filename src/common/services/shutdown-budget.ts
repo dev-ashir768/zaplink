@@ -68,7 +68,7 @@ export const DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS = 5_000;
 
 /**
  * Must equal docker-compose.yml and docker-compose.dev.yml stop_grace_period and
- * charts/openwa/values.yaml terminationGracePeriodSeconds. It holds for the default delay and drain.
+ * charts/zaplink/values.yaml terminationGracePeriodSeconds. It holds for the default delay and drain.
  */
 export const SHUTDOWN_KILL_DEADLINE_MS = 75_000;
 

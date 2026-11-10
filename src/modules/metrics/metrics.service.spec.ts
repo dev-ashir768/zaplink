@@ -84,27 +84,27 @@ describe('MetricsService', () => {
       const svc = makeService('s3cret');
       const out = await svc.render();
 
-      expect(out).toContain('openwa_up 1');
-      expect(out).toContain('openwa_sessions_active 2');
-      expect(out).toContain('openwa_sessions_total 3');
-      expect(out).toContain('openwa_sessions{status="ready"} 2');
-      expect(out).toContain('openwa_sessions{status="failed"} 1');
-      expect(out).toContain('openwa_messages_total{direction="outgoing"} 100');
-      expect(out).toContain('openwa_messages_total{direction="incoming"} 50');
-      expect(out).toContain('openwa_messages_failed_total 3');
+      expect(out).toContain('zaplink_up 1');
+      expect(out).toContain('zaplink_sessions_active 2');
+      expect(out).toContain('zaplink_sessions_total 3');
+      expect(out).toContain('zaplink_sessions{status="ready"} 2');
+      expect(out).toContain('zaplink_sessions{status="failed"} 1');
+      expect(out).toContain('zaplink_messages_total{direction="outgoing"} 100');
+      expect(out).toContain('zaplink_messages_total{direction="incoming"} 50');
+      expect(out).toContain('zaplink_messages_failed_total 3');
       // Every metric must declare HELP/TYPE before its sample.
-      expect(out).toContain('# TYPE openwa_messages_total gauge');
-      expect(out).toContain('# TYPE openwa_messages_failed_total gauge');
+      expect(out).toContain('# TYPE zaplink_messages_total gauge');
+      expect(out).toContain('# TYPE zaplink_messages_failed_total gauge');
       // Webhook terminal-failure counter is emitted with correct counter typing + current total.
-      expect(out).toContain('# TYPE openwa_webhook_delivery_failures_total counter');
-      expect(out).toContain(`openwa_webhook_delivery_failures_total ${getWebhookDeliveryFailuresTotal()}`);
-      expect(out).toContain('# TYPE openwa_ingress_dedup_body_mismatches_total counter');
-      expect(out).toMatch(/^openwa_ingress_dedup_body_mismatches_total \d+$/m);
+      expect(out).toContain('# TYPE zaplink_webhook_delivery_failures_total counter');
+      expect(out).toContain(`zaplink_webhook_delivery_failures_total ${getWebhookDeliveryFailuresTotal()}`);
+      expect(out).toContain('# TYPE zaplink_ingress_dedup_body_mismatches_total counter');
+      expect(out).toMatch(/^zaplink_ingress_dedup_body_mismatches_total \d+$/m);
       // Reconnect observability counters are emitted with correct counter typing + current totals.
-      expect(out).toContain('# TYPE openwa_session_reconnect_attempts_total counter');
-      expect(out).toContain(`openwa_session_reconnect_attempts_total ${getSessionReconnectAttemptsTotal()}`);
-      expect(out).toContain('# TYPE openwa_session_reconnect_loop_alerts_total counter');
-      expect(out).toContain(`openwa_session_reconnect_loop_alerts_total ${getSessionReconnectLoopAlertsTotal()}`);
+      expect(out).toContain('# TYPE zaplink_session_reconnect_attempts_total counter');
+      expect(out).toContain(`zaplink_session_reconnect_attempts_total ${getSessionReconnectAttemptsTotal()}`);
+      expect(out).toContain('# TYPE zaplink_session_reconnect_loop_alerts_total counter');
+      expect(out).toContain(`zaplink_session_reconnect_loop_alerts_total ${getSessionReconnectLoopAlertsTotal()}`);
       expect(out.endsWith('\n')).toBe(true);
     });
 
@@ -114,15 +114,15 @@ describe('MetricsService', () => {
       setRestrictedSessionCount(2);
       const out = await makeService('s3cret').render();
 
-      expect(out).toContain('# TYPE openwa_sessions_restricted gauge');
-      expect(out).toContain('openwa_sessions_restricted 2');
+      expect(out).toContain('# TYPE zaplink_sessions_restricted gauge');
+      expect(out).toContain('zaplink_sessions_restricted 2');
     });
 
     it('reports zero restricted sessions rather than omitting the gauge', async () => {
       setRestrictedSessionCount(0);
       const out = await makeService('s3cret').render();
 
-      expect(out).toContain('openwa_sessions_restricted 0');
+      expect(out).toContain('zaplink_sessions_restricted 0');
     });
 
     it('memoizes the rendered output within the TTL (one getOverview per window)', async () => {
@@ -169,20 +169,20 @@ describe('MetricsService.render survives a failing stats query', () => {
   it('still serves the series that need no database', async () => {
     const text = await failing().render();
 
-    expect(text).toContain('openwa_up 1');
-    expect(text).toContain('openwa_process_uptime_seconds');
-    expect(text).toContain('openwa_process_resident_memory_bytes');
-    expect(text).toContain('openwa_webhook_delivery_failures_total');
+    expect(text).toContain('zaplink_up 1');
+    expect(text).toContain('zaplink_process_uptime_seconds');
+    expect(text).toContain('zaplink_process_resident_memory_bytes');
+    expect(text).toContain('zaplink_webhook_delivery_failures_total');
   });
 
   it('signals that the database-derived series are missing rather than reporting them as zero', async () => {
     const text = await failing().render();
 
-    expect(text).toContain('openwa_stats_available 0');
+    expect(text).toContain('zaplink_stats_available 0');
     // A stale or invented 0 would be worse than an absent series: an alert on
-    // openwa_sessions_active would fire as if every session had dropped.
-    expect(text).not.toContain('openwa_sessions_active');
-    expect(text).not.toContain('openwa_messages_total');
+    // zaplink_sessions_active would fire as if every session had dropped.
+    expect(text).not.toContain('zaplink_sessions_active');
+    expect(text).not.toContain('zaplink_messages_total');
   });
 
   // Negative twin: a healthy scrape must still carry the database-derived series and say so.
@@ -191,8 +191,8 @@ describe('MetricsService.render survives a failing stats query', () => {
     const stats = { getOverview: jest.fn().mockResolvedValue(healthyOverview) } as unknown as StatsService;
     const text = await new MetricsService(config, stats).render();
 
-    expect(text).toContain('openwa_stats_available 1');
-    expect(text).toContain('openwa_sessions_active 2');
+    expect(text).toContain('zaplink_stats_available 1');
+    expect(text).toContain('zaplink_sessions_active 2');
   });
 });
 
@@ -230,9 +230,9 @@ describe('MetricsService runtime series', () => {
 
     const text = await svc.render();
 
-    expect(text).toContain('# TYPE openwa_event_loop_delay_p99_seconds gauge');
-    expect(text).toContain('# TYPE openwa_event_loop_delay_max_seconds gauge');
-    for (const series of ['openwa_event_loop_delay_p99_seconds', 'openwa_event_loop_delay_max_seconds']) {
+    expect(text).toContain('# TYPE zaplink_event_loop_delay_p99_seconds gauge');
+    expect(text).toContain('# TYPE zaplink_event_loop_delay_max_seconds gauge');
+    for (const series of ['zaplink_event_loop_delay_p99_seconds', 'zaplink_event_loop_delay_max_seconds']) {
       const value = sample(text, series);
       expect(Number.isFinite(value)).toBe(true);
       expect(value).toBeGreaterThanOrEqual(0);
@@ -250,8 +250,8 @@ describe('MetricsService runtime series', () => {
 
     const text = await svc.render();
 
-    expect(sample(text, 'openwa_event_loop_delay_p99_seconds')).toBe(0);
-    expect(sample(text, 'openwa_event_loop_delay_max_seconds')).toBeCloseTo(0.2, 9);
+    expect(sample(text, 'zaplink_event_loop_delay_p99_seconds')).toBe(0);
+    expect(sample(text, 'zaplink_event_loop_delay_max_seconds')).toBeCloseTo(0.2, 9);
   });
 
   // Resetting Node's interval histogram also dropped its previous-tick timestamp, so the first gap
@@ -270,7 +270,7 @@ describe('MetricsService runtime series', () => {
 
     const text = await svc.render();
 
-    expect(sample(text, 'openwa_event_loop_delay_max_seconds')).toBeGreaterThanOrEqual(0.25);
+    expect(sample(text, 'zaplink_event_loop_delay_max_seconds')).toBeGreaterThanOrEqual(0.25);
   });
 
   it('counts unhandled rejections by kind', async () => {
@@ -278,9 +278,9 @@ describe('MetricsService runtime series', () => {
     incrementUnhandledRejections('other');
     const text = await make().render();
 
-    expect(text).toContain('# TYPE openwa_unhandled_rejections_total counter');
-    expect(sample(text, 'openwa_unhandled_rejections_total{kind="other"}')).toBe(before.other + 1);
-    expect(sample(text, 'openwa_unhandled_rejections_total{kind="page_context_lost"}')).toBe(before.page_context_lost);
+    expect(text).toContain('# TYPE zaplink_unhandled_rejections_total counter');
+    expect(sample(text, 'zaplink_unhandled_rejections_total{kind="other"}')).toBe(before.other + 1);
+    expect(sample(text, 'zaplink_unhandled_rejections_total{kind="page_context_lost"}')).toBe(before.page_context_lost);
   });
 
   it('reports job counts per queue and state', async () => {
@@ -289,10 +289,10 @@ describe('MetricsService runtime series', () => {
       queue(() => Promise.resolve({ wait: 0, active: 0, delayed: 0, failed: 7 })),
     ).render();
 
-    expect(text).toContain('# TYPE openwa_queue_jobs gauge');
-    expect(text).toContain('openwa_queue_jobs{queue="webhook-queue",state="wait"} 4');
-    expect(text).toContain('openwa_queue_jobs{queue="webhook-queue",state="failed"} 3');
-    expect(text).toContain('openwa_queue_jobs{queue="ingress-queue",state="failed"} 7');
+    expect(text).toContain('# TYPE zaplink_queue_jobs gauge');
+    expect(text).toContain('zaplink_queue_jobs{queue="webhook-queue",state="wait"} 4');
+    expect(text).toContain('zaplink_queue_jobs{queue="webhook-queue",state="failed"} 3');
+    expect(text).toContain('zaplink_queue_jobs{queue="ingress-queue",state="failed"} 7');
   });
 
   it('omits a queue whose read fails or hangs instead of reporting zero', async () => {
@@ -304,8 +304,8 @@ describe('MetricsService runtime series', () => {
     await jest.advanceTimersByTimeAsync(QUEUE_READ_TIMEOUT_MS);
     const text = await rendering;
 
-    expect(text).toContain('openwa_up 1');
-    expect(text).not.toContain('openwa_queue_jobs');
+    expect(text).toContain('zaplink_up 1');
+    expect(text).not.toContain('zaplink_queue_jobs');
   });
 
   it('leaves no job-count read pending on a queue whose Redis has never connected', async () => {
@@ -315,12 +315,12 @@ describe('MetricsService runtime series', () => {
 
     const rendering = svc.render();
     await jest.advanceTimersByTimeAsync(QUEUE_READ_TIMEOUT_MS);
-    expect(await rendering).not.toContain('openwa_queue_jobs');
+    expect(await rendering).not.toContain('zaplink_queue_jobs');
 
     // Once the first-connect wait has passed, a scrape skips the queue without waiting.
     await jest.advanceTimersByTimeAsync(producerConnectWaitMs());
     (svc as unknown as { cachedRender: unknown }).cachedRender = null;
-    expect(await svc.render()).not.toContain('openwa_queue_jobs');
+    expect(await svc.render()).not.toContain('zaplink_queue_jobs');
     expect(getJobCounts).not.toHaveBeenCalled();
   });
 
@@ -330,11 +330,11 @@ describe('MetricsService runtime series', () => {
       queue(() => Promise.reject(new Error('Connection is closed.'))),
     ).render();
 
-    expect(text).toContain('openwa_queue_jobs{queue="webhook-queue",state="wait"} 1');
+    expect(text).toContain('zaplink_queue_jobs{queue="webhook-queue",state="wait"} 1');
     expect(text).not.toContain('queue="ingress-queue"');
   });
 
   it('emits no queue series when the queue is disabled', async () => {
-    expect(await make().render()).not.toContain('openwa_queue_jobs');
+    expect(await make().render()).not.toContain('zaplink_queue_jobs');
   });
 });

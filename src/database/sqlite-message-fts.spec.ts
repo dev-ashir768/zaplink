@@ -184,7 +184,7 @@ describe('SQLite message full-text repair failures', () => {
 
 describe('SQLite boot with synchronize', () => {
   it('still boots when the repair itself fails', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'openwa-fts-sync-'));
+    const directory = await mkdtemp(join(tmpdir(), 'zaplink-fts-sync-'));
     const options = {
       type: 'better-sqlite3' as const,
       database: join(directory, 'data.sqlite'),
@@ -221,7 +221,7 @@ describe('SQLite boot with synchronize', () => {
   });
 
   it.each([false, true])('repairs the kept index after synchronize (table rebuild=%s)', async rebuilt => {
-    const directory = await mkdtemp(join(tmpdir(), 'openwa-fts-sync-'));
+    const directory = await mkdtemp(join(tmpdir(), 'zaplink-fts-sync-'));
     const options = {
       type: 'better-sqlite3' as const,
       database: join(directory, 'data.sqlite'),

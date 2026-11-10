@@ -247,7 +247,7 @@ updates:
       - docker
     ignore:
       # A PostgreSQL major cannot open the previous major's data directory: a 16 -> 17 bump merged
-      # as-is stops every existing openwa-postgres volume from starting. It moves by hand, with a
+      # as-is stops every existing zaplink-postgres volume from starting. It moves by hand, with a
       # dump/restore or pg_upgrade note.
       - dependency-name: "postgres"
         update-types: ["version-update:semver-major"]

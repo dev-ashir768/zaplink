@@ -1,25 +1,25 @@
 # 18 - SDK Design
 
-> This document describes SDK 0.10.0. `messages.receipts` (`Messages.Receipts` in Go) requires OpenWA 0.28.0 or later. `contacts.lid` (`Contacts.Lid` in Go) requires OpenWA 0.27.1 or later. `setMemberLabel` (`set_member_label` in Python, `SetMemberLabel` in Go), the search `match` option, and the `thumbnailUrl` and `thumbnailBase64` fields of `customLinkPreview` require OpenWA 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require OpenWA 0.25.0 or later.
+> This document describes SDK 0.10.0. `messages.receipts` (`Messages.Receipts` in Go) requires ZapLink 0.28.0 or later. `contacts.lid` (`Contacts.Lid` in Go) requires ZapLink 0.27.1 or later. `setMemberLabel` (`set_member_label` in Python, `SetMemberLabel` in Go), the search `match` option, and the `thumbnailUrl` and `thumbnailBase64` fields of `customLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later.
 
 ## 18.1 Overview
 
-OpenWA ships five official, hand-written client libraries for the REST API. They are not generated from an OpenAPI spec — each is written directly against the real API surface (paths, request DTOs, response shapes) and **unit-tested with a mocked HTTP transport that asserts on the exact request path, method, and body**, so drift in what an SDK _sends_ is caught at test time rather than in production. That mechanism says nothing about what an SDK expects _back_; see §18.6 for how response shapes are held to the contract.
+ZapLink ships five official, hand-written client libraries for the REST API. They are not generated from an OpenAPI spec — each is written directly against the real API surface (paths, request DTOs, response shapes) and **unit-tested with a mocked HTTP transport that asserts on the exact request path, method, and body**, so drift in what an SDK _sends_ is caught at test time rather than in production. That mechanism says nothing about what an SDK expects _back_; see §18.6 for how response shapes are held to the contract.
 
-| Language                | Package                                                                                | Install                              | Notes                                                                            |
-| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| JavaScript / TypeScript | [`@rmyndharis/openwa`](https://www.npmjs.com/package/@rmyndharis/openwa)               | `npm install @rmyndharis/openwa`     | Dual ESM + CJS, bundled `.d.ts` types, Node 18+                                  |
-| Python                  | [`rmyndharis-openwa`](https://pypi.org/project/rmyndharis-openwa/)                     | `pip install rmyndharis-openwa`      | Synchronous (httpx), PEP 561 typed, Python 3.9+                                  |
-| PHP                     | [`rmyndharis/openwa`](https://packagist.org/packages/rmyndharis/openwa)                | `composer require rmyndharis/openwa` | Synchronous (Guzzle 7.9+ or 8), PSR-4, PHP 8.1+                                  |
-| Java                    | [`com.rmyndharis:openwa`](https://central.sonatype.com/artifact/com.rmyndharis/openwa) | Maven Central                        | Sync, `java.net.http`. See [`sdk/java/README.md`](../sdk/java/README.md).        |
-| Go                      | [`github.com/rmyndharis/OpenWA/sdk/go`](../sdk/go)                                     | `go get`                             | Stdlib-only, no third-party deps. See [`sdk/go/README.md`](../sdk/go/README.md). |
+| Language                | Package                                                                                  | Install                               | Notes                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
+| JavaScript / TypeScript | [`@rmyndharis/zaplink`](https://www.npmjs.com/package/@rmyndharis/zaplink)               | `npm install @rmyndharis/zaplink`     | Dual ESM + CJS, bundled `.d.ts` types, Node 18+                                  |
+| Python                  | [`rmyndharis-zaplink`](https://pypi.org/project/rmyndharis-zaplink/)                     | `pip install rmyndharis-zaplink`      | Synchronous (httpx), PEP 561 typed, Python 3.9+                                  |
+| PHP                     | [`rmyndharis/zaplink`](https://packagist.org/packages/rmyndharis/zaplink)                | `composer require rmyndharis/zaplink` | Synchronous (Guzzle 7.9+ or 8), PSR-4, PHP 8.1+                                  |
+| Java                    | [`com.rmyndharis:zaplink`](https://central.sonatype.com/artifact/com.rmyndharis/zaplink) | Maven Central                         | Sync, `java.net.http`. See [`sdk/java/README.md`](../sdk/java/README.md).        |
+| Go                      | [`github.com/dev-ashir768/zaplink/sdk/go`](../sdk/go)                                    | `go get`                              | Stdlib-only, no third-party deps. See [`sdk/go/README.md`](../sdk/go/README.md). |
 
-> The import names differ from the dist names where the ecosystem requires it. Python installs `rmyndharis-openwa` but imports `openwa`; the client class is `OpenWAClient` in JS/Python and `OpenWA\Client` in PHP.
+> The import names differ from the dist names where the ecosystem requires it. Python installs `rmyndharis-zaplink` but imports `zaplink`; the client class is `ZapLinkClient` in JS/Python and `ZapLink\Client` in PHP.
 
 ### Design Principles
 
-- **One client, fluent resources.** A single client object (`OpenWAClient` / `OpenWA\Client`) exposes every resource as a property — `client.messages.sendText(...)`, `client.sessions.start(...)`. All five SDKs expose the **same** resource surface; only the language idioms differ (camelCase methods + objects in JS/PHP/Java, snake_case methods + dicts in Python, exported fields + structs in Go).
-- **It is a request/response client, not an event SDK.** There is no WebSocket, EventEmitter, or `client.on(...)`. To receive inbound messages and acks, register a webhook (the `webhooks` resource) and host your own receiver, checking `X-OpenWA-Signature` with the SDK helper (`verifyWebhookSignature` in JavaScript, `verify_webhook_signature` in Python, `VerifyWebhookSignature` in Go, `WebhookSignature.verify` in Java, `WebhookSignature::verify` in PHP), or connect to the real-time Socket.IO API directly (see [API Specification §6.5](./06-api-specification.md)).
+- **One client, fluent resources.** A single client object (`ZapLinkClient` / `ZapLink\Client`) exposes every resource as a property — `client.messages.sendText(...)`, `client.sessions.start(...)`. All five SDKs expose the **same** resource surface; only the language idioms differ (camelCase methods + objects in JS/PHP/Java, snake_case methods + dicts in Python, exported fields + structs in Go).
+- **It is a request/response client, not an event SDK.** There is no WebSocket, EventEmitter, or `client.on(...)`. To receive inbound messages and acks, register a webhook (the `webhooks` resource) and host your own receiver, checking `X-ZapLink-Signature` with the SDK helper (`verifyWebhookSignature` in JavaScript, `verify_webhook_signature` in Python, `VerifyWebhookSignature` in Go, `WebhookSignature.verify` in Java, `WebhookSignature::verify` in PHP), or connect to the real-time Socket.IO API directly (see [API Specification §6.5](./06-api-specification.md)).
 - **Typed errors.** Non-2xx responses raise/throw a typed error mapped from the HTTP status (`401/403/404/409/429/501/503`), plus a timeout error — all `instanceof`/`catch`-checkable. See each language's Error Handling subsection. A Baileys throttle `503` on a send or a single write means nothing was sent or applied, and so does a send's `503` for a failed recipient lookup, a connection that closed before the message was written, or a media or preview image URL that could not be fetched through the session's proxy; each frees a keyed send's `Idempotency-Key`. A group settings update with several fields applies them one at a time, so a `503` on a later field leaves the earlier ones applied and lists them after `already applied:` in its message: re-read the settings before retrying, or send one field per request.
 - **Injectable transport.** The HTTP layer is replaceable (`fetch` in JS, an `httpx` transport in Python, a Guzzle client in PHP) — the extension point for retry/observability middleware and for testing without the network.
 - **Safe by default.** Redirects are never followed (so the API key is never re-sent to a redirect target), the auth/JSON headers always take precedence over caller-supplied defaults, path segments are percent-encoded, a base-URL path prefix (e.g. behind a reverse proxy at `/v1`) is preserved, and there is a default 30s per-request timeout. **No automatic retries by default** — in JS, Python, PHP, and Java wrap calls in your own backoff if you need them (especially for `429`), and replay a send answered `503` only with the same `Idempotency-Key`, since the message may already have gone out; the Go SDK additionally ships an opt-in `WithRetry(RetryPolicy)` that never replays a `POST` or `PATCH` after a network error and limits their retries to `429`, and to `503` when the request carries an `Idempotency-Key` or the `503` carries `Retry-After`.
@@ -47,24 +47,24 @@ All five SDKs expose the same fluent surface:
 | `media`     | conversionStatus, convertVoice _(OPERATOR)_, convertVideo _(OPERATOR)_                                                                                                                                                                                                                                                   |
 | `health`    | check, live, ready                                                                                                                                                                                                                                                                                                       |
 
-The twelve single-recipient send methods (text, image, video, audio, document, sticker, location, contact, template, poll, reply and forward) take an optional per-call idempotency key: a trailing argument in JavaScript, PHP and Java, `idempotency_key=` in Python and `openwa.WithIdempotencyKey(ctx, key)` in Go. A retry of the same logical send reuses its key; see each SDK's README.
+The twelve single-recipient send methods (text, image, video, audio, document, sticker, location, contact, template, poll, reply and forward) take an optional per-call idempotency key: a trailing argument in JavaScript, PHP and Java, `idempotency_key=` in Python and `zaplink.WithIdempotencyKey(ctx, key)` in Go. A retry of the same logical send reuses its key; see each SDK's README.
 
 > The SDKs cover the user-facing resources above and stop there. The administrative and operational surfaces are deliberately left out — `auth/api-keys`, `audit`, `settings`, `stats`, `automation`, `infra`, `plugins` and the `integration` management routes are predominantly `ADMIN`-gated; `metrics` is a `@Public()` Prometheus scrape gated by `METRICS_TOKEN` rather than by role; `mcp` is a Streamable-HTTP transport mounted straight onto the Express adapter; and `ingress` is the `@Public()` receiver that integration providers post into. `docker` has no HTTP surface at all — it is an internal service module. Methods that require an `OPERATOR`-level key are annotated **OPERATOR** in the per-language tables below.
 
 ## 18.2 TypeScript / JavaScript SDK
 
-The official JavaScript/TypeScript SDK is published as **`@rmyndharis/openwa`**. It is a pure promise-based HTTP client: a single `OpenWAClient` exposes every API resource as a typed property. There is no event model — the SDK does not open WebSockets, emit events, or expose `client.on(...)`. To receive inbound messages and acks, configure a webhook (see the `webhooks` resource) and host your own HTTP receiver, checking each delivery with `await verifyWebhookSignature(rawBody, signature, secret)` and typing its parsed body as `WebhookDelivery`.
+The official JavaScript/TypeScript SDK is published as **`@rmyndharis/zaplink`**. It is a pure promise-based HTTP client: a single `ZapLinkClient` exposes every API resource as a typed property. There is no event model — the SDK does not open WebSockets, emit events, or expose `client.on(...)`. To receive inbound messages and acks, configure a webhook (see the `webhooks` resource) and host your own HTTP receiver, checking each delivery with `await verifyWebhookSignature(rawBody, signature, secret)` and typing its parsed body as `WebhookDelivery`.
 
 The package ships **dual CJS + ESM** with bundled `.d.ts` types, so it is consumable from both `require()` and `import`.
 
 ### Installation
 
 ```bash
-npm install @rmyndharis/openwa
+npm install @rmyndharis/zaplink
 # or
-yarn add @rmyndharis/openwa
+yarn add @rmyndharis/zaplink
 # or
-pnpm add @rmyndharis/openwa
+pnpm add @rmyndharis/zaplink
 ```
 
 > **Node 18+ required.** The transport uses the global `fetch` (and `AbortController`), both built into Node 18 and later. To run on an older runtime, pass your own `fetch` implementation via the client constructor (see [Client Configuration](#client-configuration)).
@@ -72,9 +72,9 @@ pnpm add @rmyndharis/openwa
 ### Quick Start
 
 ```typescript
-import { OpenWAClient } from '@rmyndharis/openwa';
+import { ZapLinkClient } from '@rmyndharis/zaplink';
 
-const client = new OpenWAClient({
+const client = new ZapLinkClient({
   baseUrl: 'http://localhost:2785',
   apiKey: 'owa_k1_…',
 });
@@ -91,7 +91,7 @@ async function main() {
   // Send a text message.
   const result = await client.messages.sendText(session.id, {
     chatId: '628123456789@c.us',
-    text: 'Hello from the OpenWA SDK!',
+    text: 'Hello from the ZapLink SDK!',
   });
 
   console.log(result.messageId); // -> the WhatsApp message id
@@ -105,16 +105,16 @@ main();
 CommonJS consumers use the same API via `require`:
 
 ```javascript
-const { OpenWAClient } = require('@rmyndharis/openwa');
+const { ZapLinkClient } = require('@rmyndharis/zaplink');
 ```
 
 ### Client Configuration
 
-The constructor takes a single `OpenWAClientOptions` object. `baseUrl` and `apiKey` are required (the constructor throws synchronously if either is missing).
+The constructor takes a single `ZapLinkClientOptions` object. `baseUrl` and `apiKey` are required (the constructor throws synchronously if either is missing).
 
 | Option           | Type                     | Required | Default            | Description                                                                                                                                                                                                                     |
 | ---------------- | ------------------------ | -------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `baseUrl`        | `string`                 | yes      | —                  | Base URL of the OpenWA API, e.g. `http://localhost:2785`. A trailing slash is trimmed; a path prefix (e.g. `https://host/v1`) is preserved.                                                                                     |
+| `baseUrl`        | `string`                 | yes      | —                  | Base URL of the ZapLink API, e.g. `http://localhost:2785`. A trailing slash is trimmed; a path prefix (e.g. `https://host/v1`) is preserved.                                                                                    |
 | `apiKey`         | `string`                 | yes      | —                  | API key sent as the `X-API-Key` header on every request. Surrounding whitespace is trimmed; a control or non-Latin-1 character is refused when the client is built.                                                             |
 | `timeoutMs`      | `number`                 | no       | `30000`            | Per-request timeout in milliseconds; `0` or `Infinity` turns it off, and a value that is not a non-negative number throws a `TypeError`. Overridable per call via `RequestOptions.timeoutMs` on the raw `request()` method.     |
 | `defaultHeaders` | `Record<string, string>` | no       | `{}`               | Headers merged onto every request. The `Content-Type: application/json` and `X-API-Key` headers always take precedence. A value with a control or non-Latin-1 character is refused when the client is built, naming the header. |
@@ -122,7 +122,7 @@ The constructor takes a single `OpenWAClientOptions` object. `baseUrl` and `apiK
 
 ### Resources & Methods
 
-All resources are accessed as properties on the client (`client.<resource>.<method>`). Every method returns a `Promise`. Methods marked **OPERATOR** require an `OPERATOR`-level API key (an `ADMIN` key satisfies it); a `VIEWER` key receives a `403` (`OpenWAForbiddenError`). Some methods are supported by one engine only and answer `501` on the other (a row says so where it matters; section [29.6 of the engine capability matrix](./29-engine-capability-matrix.md#296-the-29-not-available-cells-in-detail) lists them all).
+All resources are accessed as properties on the client (`client.<resource>.<method>`). Every method returns a `Promise`. Methods marked **OPERATOR** require an `OPERATOR`-level API key (an `ADMIN` key satisfies it); a `VIEWER` key receives a `403` (`ZapLinkForbiddenError`). Some methods are supported by one engine only and answer `501` on the other (a row says so where it matters; section [29.6 of the engine capability matrix](./29-engine-capability-matrix.md#296-the-29-not-available-cells-in-detail) lists them all).
 
 The top-level client also exposes:
 
@@ -364,29 +364,29 @@ Media bodies share the `SendMediaRequest` shape: `{ chatId, url? | base64?, mime
 
 ### Error Handling
 
-On a non-2xx response the SDK throws a typed `OpenWAApiError` subclass carrying `.status` (HTTP status), `.body` (parsed JSON error envelope, or raw text), and `.errorKind` (the NestJS `error` field, `undefined` when the gateway omits it — which is the norm for a validation rejection in production, where `disableErrorMessages` is on). All error classes extend `OpenWAError` and are exported, so they are `instanceof`-checkable. A timeout throws `OpenWATimeoutError`, which extends `OpenWAError` directly (not `OpenWAApiError`). An API error also carries `.code` (the body's `code`, e.g. `SEND_PACING_LIMITED`), `.retryAfterSeconds` (the body's `retryAfterSeconds`, else the `Retry-After` header) and `.headers` (the response `Headers`).
+On a non-2xx response the SDK throws a typed `ZapLinkApiError` subclass carrying `.status` (HTTP status), `.body` (parsed JSON error envelope, or raw text), and `.errorKind` (the NestJS `error` field, `undefined` when the gateway omits it — which is the norm for a validation rejection in production, where `disableErrorMessages` is on). All error classes extend `ZapLinkError` and are exported, so they are `instanceof`-checkable. A timeout throws `ZapLinkTimeoutError`, which extends `ZapLinkError` directly (not `ZapLinkApiError`). An API error also carries `.code` (the body's `code`, e.g. `SEND_PACING_LIMITED`), `.retryAfterSeconds` (the body's `retryAfterSeconds`, else the `Retry-After` header) and `.headers` (the response `Headers`).
 
-| Error class                     | HTTP status | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenWAAuthError`               | 401         | Missing or invalid API key.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `OpenWAForbiddenError`          | 403         | The key's role or scope refuses the call (e.g. an OPERATOR-only route, or a session, IP or chat outside the key's allow-lists), or WhatsApp itself refused the operation (for example, missing group admin rights).                                                                                                                                                                                                                                                                                                                                                                                     |
-| `OpenWANotFoundError`           | 404         | Resource not found.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `OpenWAConflictError`           | 409         | Conflict: a conflicting state, typically a session that is not ready, or a keyed send pending or unconfirmed (see `code`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `OpenWARateLimitError`          | 429         | Rate limited. The global rate limiter's 429 lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `retryAfterSeconds` carries its `Retry-After` header. A 429 whose `code` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `retryAfterSeconds`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. |
-| `OpenWANotImplementedError`     | 501         | The active engine does not support this operation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `OpenWAServiceUnavailableError` | 503         | The gateway could not complete the request now (transport failure, draining, or on Baileys a WhatsApp throttle (429) or timeout (408)). Back off and retry later, though a catalog 503 can persist because WhatsApp may never answer that query; 501 is permanent. In a routed deployment a forward that fails before reaching the owner node answers 503, and a 503 from the owner itself is relayed unchanged (a bounded write it covers may still have been applied); a forward that fails after the request was sent answers 502 or 504, which the owner may already have acted on.                 |
-| `OpenWAApiError`                | any other   | Generic non-2xx (the base API error, e.g. `400`; also surfaced for unfollowed 3xx redirects).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `OpenWATimeoutError`            | —           | The request exceeded the configured timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Error class                      | HTTP status | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZapLinkAuthError`               | 401         | Missing or invalid API key.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ZapLinkForbiddenError`          | 403         | The key's role or scope refuses the call (e.g. an OPERATOR-only route, or a session, IP or chat outside the key's allow-lists), or WhatsApp itself refused the operation (for example, missing group admin rights).                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ZapLinkNotFoundError`           | 404         | Resource not found.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ZapLinkConflictError`           | 409         | Conflict: a conflicting state, typically a session that is not ready, or a keyed send pending or unconfirmed (see `code`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `ZapLinkRateLimitError`          | 429         | Rate limited. The global rate limiter's 429 lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `retryAfterSeconds` carries its `Retry-After` header. A 429 whose `code` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `retryAfterSeconds`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. |
+| `ZapLinkNotImplementedError`     | 501         | The active engine does not support this operation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ZapLinkServiceUnavailableError` | 503         | The gateway could not complete the request now (transport failure, draining, or on Baileys a WhatsApp throttle (429) or timeout (408)). Back off and retry later, though a catalog 503 can persist because WhatsApp may never answer that query; 501 is permanent. In a routed deployment a forward that fails before reaching the owner node answers 503, and a 503 from the owner itself is relayed unchanged (a bounded write it covers may still have been applied); a forward that fails after the request was sent answers 502 or 504, which the owner may already have acted on.                 |
+| `ZapLinkApiError`                | any other   | Generic non-2xx (the base API error, e.g. `400`; also surfaced for unfollowed 3xx redirects).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `ZapLinkTimeoutError`            | —           | The request exceeded the configured timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ```typescript
 import {
-  OpenWAClient,
-  OpenWAConflictError,
-  OpenWANotFoundError,
-  OpenWARateLimitError,
-  OpenWATimeoutError,
-  OpenWAApiError,
-} from '@rmyndharis/openwa';
+  ZapLinkClient,
+  ZapLinkConflictError,
+  ZapLinkNotFoundError,
+  ZapLinkRateLimitError,
+  ZapLinkTimeoutError,
+  ZapLinkApiError,
+} from '@rmyndharis/zaplink';
 
 try {
   await client.messages.sendText(sessionId, {
@@ -394,15 +394,15 @@ try {
     text: 'Hi!',
   });
 } catch (err) {
-  if (err instanceof OpenWAConflictError) {
+  if (err instanceof ZapLinkConflictError) {
     // 409: a conflicting state, typically a session that is not ready (start it first), or a keyed send pending or unconfirmed (see err.code).
-  } else if (err instanceof OpenWANotFoundError) {
+  } else if (err instanceof ZapLinkNotFoundError) {
     // 404 — session/chat does not exist.
-  } else if (err instanceof OpenWARateLimitError) {
+  } else if (err instanceof ZapLinkRateLimitError) {
     // 429 — back off and retry.
-  } else if (err instanceof OpenWATimeoutError) {
+  } else if (err instanceof ZapLinkTimeoutError) {
     // request timed out.
-  } else if (err instanceof OpenWAApiError) {
+  } else if (err instanceof ZapLinkApiError) {
     console.error(`API error ${err.status}:`, err.body);
   } else {
     throw err; // network/transport error
@@ -412,7 +412,7 @@ try {
 
 ### Notable Behaviors
 
-- **Redirects are never followed.** The transport uses `redirect: 'manual'`, so a `3xx` surfaces to the caller as an error (via `OpenWAApiError`) rather than being followed — this guarantees the `X-API-Key` header is never re-sent to a redirect target (potentially a different origin).
+- **Redirects are never followed.** The transport uses `redirect: 'manual'`, so a `3xx` surfaces to the caller as an error (via `ZapLinkApiError`) rather than being followed — this guarantees the `X-API-Key` header is never re-sent to a redirect target (potentially a different origin).
 - **Auth and JSON headers take precedence.** Request headers are merged in the order `defaultHeaders` → per-call headers → `Content-Type: application/json` → `X-API-Key`. Both `Content-Type` and `X-API-Key` are applied last, so neither can be overridden by a caller-supplied header.
 - **Path segments are percent-encoded.** Ids (session, chat, message, etc.) are encoded so a value cannot break out of its path position, while keeping the WhatsApp-safe characters `@`, `:`, and `+` readable (e.g. `628123456789@c.us`).
 - **Empty and dot segments are refused.** An empty, `.` or `..` id rejects with a `TypeError` and nothing is sent, because `fetch` would otherwise resolve it to the parent resource. So does an id with a `.` or `..` part between slashes, such as `../x`: sent as `..%2Fx`, it would reach another route behind a proxy that decodes `%2F` before it resolves dot segments. A raw `request()`/`requestBytes()` path with a `.` or `..` segment rejects with a `TypeError`, and so does one that does not begin with `/`; a trailing or double slash in a raw path is sent as written.
@@ -430,26 +430,26 @@ The Python SDK is a **synchronous** client built on [`httpx`](https://www.python
 The PyPI distribution name and the import package differ:
 
 ```bash
-pip install rmyndharis-openwa
+pip install rmyndharis-zaplink
 ```
 
 ```python
-from openwa import OpenWAClient
+from zaplink import ZapLinkClient
 ```
 
-- **Distribution (PyPI):** `rmyndharis-openwa`
-- **Import package:** `openwa`
-- **Client class:** `OpenWAClient`
+- **Distribution (PyPI):** `rmyndharis-zaplink`
+- **Import package:** `zaplink`
+- **Client class:** `ZapLinkClient`
 - **Python:** `>=3.9` (per `pyproject.toml`)
 - **Runtime dependencies:** `httpx>=0.27.1,<1.0`, plus `typing_extensions>=4.0` on Python < 3.11
-- **Typed:** ships `py.typed` markers for `openwa` and `openwa.resources` (PEP 561)
+- **Typed:** ships `py.typed` markers for `zaplink` and `zaplink.resources` (PEP 561)
 
 ### Quick Start
 
 ```python
-from openwa import OpenWAClient
+from zaplink import ZapLinkClient
 
-client = OpenWAClient(
+client = ZapLinkClient(
     base_url="http://localhost:2785",
     api_key="owa_k1_…",
 )
@@ -465,17 +465,17 @@ client.sessions.start(session["id"])
 # Send a text message
 result = client.messages.send_text(session["id"], {
     "chatId": "628123456789@c.us",
-    "text": "Hello from the OpenWA Python SDK!",
+    "text": "Hello from the ZapLink Python SDK!",
 })
 print(result["messageId"])
 
 client.close()
 ```
 
-`OpenWAClient` is also a context manager, so the connection pool is closed for you:
+`ZapLinkClient` is also a context manager, so the connection pool is closed for you:
 
 ```python
-with OpenWAClient(base_url="http://localhost:2785", api_key="owa_k1_…") as client:
+with ZapLinkClient(base_url="http://localhost:2785", api_key="owa_k1_…") as client:
     print(client.health.check())
 ```
 
@@ -484,7 +484,7 @@ with OpenWAClient(base_url="http://localhost:2785", api_key="owa_k1_…") as cli
 Constructor signature (from `client.py`):
 
 ```python
-OpenWAClient(
+ZapLinkClient(
     base_url: str,
     api_key: str,
     *,
@@ -498,7 +498,7 @@ OpenWAClient(
 | ----------------- | ----------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `base_url`        | `str`                                     | _(required)_ | Gateway base URL, e.g. `http://localhost:2785`. Raises `ValueError` if empty. A trailing `/` is stripped; any path prefix is preserved.                                                                                                                                                                       |
 | `api_key`         | `str`                                     | _(required)_ | API key sent as the `X-API-Key` header. Surrounding whitespace is trimmed; raises `ValueError` if empty or if it holds a control or non-ASCII character.                                                                                                                                                      |
-| `timeout`         | `float \| httpx.Timeout \| tuple \| None` | `30.0`       | Seconds per network operation, not per call; `0`, `inf` or `None` turns it off. An `httpx.Timeout` or a `(connect, read, write, pool)` tuple sets the operations apart. A breach raises `OpenWATimeoutError`.                                                                                                 |
+| `timeout`         | `float \| httpx.Timeout \| tuple \| None` | `30.0`       | Seconds per network operation, not per call; `0`, `inf` or `None` turns it off. An `httpx.Timeout` or a `(connect, read, write, pool)` tuple sets the operations apart. A breach raises `ZapLinkTimeoutError`.                                                                                                |
 | `default_headers` | `Mapping[str, str] \| None`               | `None`       | Extra headers applied to every request. Applied **first**, so the SDK's `X-API-Key` and `Content-Type: application/json` always win. A name must be an HTTP token and a value text without a control or non-ASCII character (surrounding spaces are trimmed); `ValueError` names the header, never the value. |
 | `transport`       | `httpx.BaseTransport \| None`             | `None`       | Optional `httpx` transport override (e.g. `httpx.MockTransport`) sharing the one connection pool. Useful for testing.                                                                                                                                                                                         |
 
@@ -743,52 +743,52 @@ Resources are accessed as properties on the client (e.g. `client.messages`). All
 
 ### Error Handling
 
-Every error the SDK raises itself inherits from `OpenWAError`. A non-2xx response raises an `OpenWAApiError` (or a more specific subclass picked by status); a timeout raises `OpenWATimeoutError`. A connection failure (refused, reset, DNS, TLS) surfaces as `httpx.TransportError` and an invalid argument as `ValueError`, so a catch-all names those as well. The API-error classes carry `.status` (HTTP code), `.body` (parsed JSON or raw text), and `.error_kind` (the NestJS `error` field), plus `.code` (the body's `code`), `.retry_after_seconds` (the body's `retryAfterSeconds`, else the `Retry-After` header) and `.headers` (the response headers).
+Every error the SDK raises itself inherits from `ZapLinkError`. A non-2xx response raises an `ZapLinkApiError` (or a more specific subclass picked by status); a timeout raises `ZapLinkTimeoutError`. A connection failure (refused, reset, DNS, TLS) surfaces as `httpx.TransportError` and an invalid argument as `ValueError`, so a catch-all names those as well. The API-error classes carry `.status` (HTTP code), `.body` (parsed JSON or raw text), and `.error_kind` (the NestJS `error` field), plus `.code` (the body's `code`), `.retry_after_seconds` (the body's `retryAfterSeconds`, else the `Retry-After` header) and `.headers` (the response headers).
 
-| Exception                       | Trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenWAAuthError`               | HTTP `401` — missing or invalid API key                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `OpenWAForbiddenError`          | HTTP `403` — the key's role or scope (session, IP or chat allow-list) refuses the call, or WhatsApp itself refused the operation (for example, missing group admin rights)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `OpenWANotFoundError`           | HTTP `404` — resource not found                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `OpenWAConflictError`           | HTTP `409`: a conflicting state, typically a session that is not ready, or a keyed send pending or unconfirmed (see `code`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `OpenWARateLimitError`          | HTTP `429` — too many requests. The global rate limiter's 429 lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `retry_after_seconds` carries its `Retry-After` header. A 429 whose `code` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `retry_after_seconds`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. |
-| `OpenWANotImplementedError`     | HTTP `501` — active engine doesn't support the operation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `OpenWAServiceUnavailableError` | HTTP `503` — the gateway could not complete the request now (transport failure, draining, or on Baileys a WhatsApp throttle (429) or timeout (408)); back off and retry later, though a catalog 503 can persist because WhatsApp may never answer that query. In a routed deployment a forward that fails before reaching the owner node answers 503, and a 503 from the owner itself is relayed unchanged (a bounded write it covers may still have been applied); a forward that fails after the request was sent answers 502 or 504, which the owner may already have acted on                                             |
-| `OpenWAApiError`                | any other non-2xx status (incl. unfollowed `3xx`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `OpenWATimeoutError`            | request exceeded `timeout` (has a `.timeout` attribute)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Exception                        | Trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZapLinkAuthError`               | HTTP `401` — missing or invalid API key                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ZapLinkForbiddenError`          | HTTP `403` — the key's role or scope (session, IP or chat allow-list) refuses the call, or WhatsApp itself refused the operation (for example, missing group admin rights)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `ZapLinkNotFoundError`           | HTTP `404` — resource not found                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `ZapLinkConflictError`           | HTTP `409`: a conflicting state, typically a session that is not ready, or a keyed send pending or unconfirmed (see `code`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `ZapLinkRateLimitError`          | HTTP `429` — too many requests. The global rate limiter's 429 lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `retry_after_seconds` carries its `Retry-After` header. A 429 whose `code` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `retry_after_seconds`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. |
+| `ZapLinkNotImplementedError`     | HTTP `501` — active engine doesn't support the operation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ZapLinkServiceUnavailableError` | HTTP `503` — the gateway could not complete the request now (transport failure, draining, or on Baileys a WhatsApp throttle (429) or timeout (408)); back off and retry later, though a catalog 503 can persist because WhatsApp may never answer that query. In a routed deployment a forward that fails before reaching the owner node answers 503, and a 503 from the owner itself is relayed unchanged (a bounded write it covers may still have been applied); a forward that fails after the request was sent answers 502 or 504, which the owner may already have acted on                                             |
+| `ZapLinkApiError`                | any other non-2xx status (incl. unfollowed `3xx`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ZapLinkTimeoutError`            | request exceeded `timeout` (has a `.timeout` attribute)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ```python
-from openwa import (
-    OpenWAClient,
-    OpenWAConflictError,
-    OpenWANotFoundError,
-    OpenWARateLimitError,
-    OpenWATimeoutError,
-    OpenWAApiError,
+from zaplink import (
+    ZapLinkClient,
+    ZapLinkConflictError,
+    ZapLinkNotFoundError,
+    ZapLinkRateLimitError,
+    ZapLinkTimeoutError,
+    ZapLinkApiError,
 )
 
-client = OpenWAClient(base_url="http://localhost:2785", api_key="owa_k1_…")
+client = ZapLinkClient(base_url="http://localhost:2785", api_key="owa_k1_…")
 
 try:
     client.messages.send_text(session_id, {
         "chatId": "628123456789@c.us",
         "text": "Hi!",
     })
-except OpenWAConflictError as e:
+except ZapLinkConflictError as e:
     print(f"Conflict: typically the session is not ready yet (start it first); see e.code ({e.code}).")
-except OpenWANotFoundError:
+except ZapLinkNotFoundError:
     print("Session does not exist.")
-except OpenWARateLimitError:
+except ZapLinkRateLimitError:
     print("Rate limited — back off and retry.")
-except OpenWATimeoutError as e:
+except ZapLinkTimeoutError as e:
     print(f"Timed out after {e.timeout}s")
-except OpenWAApiError as e:
+except ZapLinkApiError as e:
     print(f"API error {e.status} ({e.error_kind}): {e.body}")
 ```
 
 ### Notable Behaviors
 
-- **Redirects are never followed.** `follow_redirects` is forced off so the `X-API-Key` header is never re-sent to a redirect target. An unfollowed `3xx` therefore surfaces as an `OpenWAApiError` rather than a success.
+- **Redirects are never followed.** `follow_redirects` is forced off so the `X-API-Key` header is never re-sent to a redirect target. An unfollowed `3xx` therefore surfaces as an `ZapLinkApiError` rather than a success.
 - **Auth/JSON headers always win.** `default_headers` are applied first; the SDK then sets `Content-Type: application/json` and `X-API-Key`, so caller headers can never clobber them.
 - **Path segments are percent-encoded.** Each path value (session/chat/message id, etc.) is encoded so a `/`, `#`, or `?` can't break out of its position; already-safe id characters `@`, `:`, `+` are left readable. Boolean query params are serialized lowercase (`true`/`false`); `None` query values are dropped.
 - **Empty and dot segments are refused.** An empty, `.` or `..` id raises `ValueError` before anything is sent, because httpx would otherwise resolve it to the parent resource. So does an id with a `.` or `..` part between slashes, such as `../x`: sent as `..%2Fx`, it would reach another route behind a proxy that decodes `%2F` before it resolves dot segments. A raw `request()` path with a `.` or `..` segment, also written percent-encoded (`%2e`), raises `ValueError`, and so does one that does not begin with `/`; the check sits in the shared send path, so it covers every call, and a trailing or double slash in a raw path is sent as written.
@@ -800,19 +800,19 @@ except OpenWAApiError as e:
 
 ## 18.4 PHP SDK
 
-The PHP SDK is a hand-written, synchronous client built on Guzzle 7.9+ or 8. It mirrors the full user-facing API surface: every resource method maps to one REST endpoint, request/response payloads are plain associative arrays, and non-2xx responses are translated into a typed `OpenWA*Exception` hierarchy.
+The PHP SDK is a hand-written, synchronous client built on Guzzle 7.9+ or 8. It mirrors the full user-facing API surface: every resource method maps to one REST endpoint, request/response payloads are plain associative arrays, and non-2xx responses are translated into a typed `ZapLink*Exception` hierarchy.
 
 ### Installation
 
 ```bash
-composer require rmyndharis/openwa
+composer require rmyndharis/zaplink
 ```
 
 Requirements:
 
 - **PHP 8.1+** (`declare(strict_types=1)` throughout; typed properties, `match`).
 - **Guzzle 7.9+ or 8** (`guzzlehttp/guzzle: ^7.9 || ^8.0`).
-- PSR-4 autoloaded under the `OpenWA\` namespace (`"OpenWA\\": "src/"`).
+- PSR-4 autoloaded under the `ZapLink\` namespace (`"ZapLink\\": "src/"`).
 
 ### Quick Start
 
@@ -820,7 +820,7 @@ Requirements:
 <?php
 require 'vendor/autoload.php';
 
-use OpenWA\Client;
+use ZapLink\Client;
 
 $client = new Client([
     'baseUrl' => 'http://localhost:2785',
@@ -836,13 +836,13 @@ $client->sessions->start($session['id']);
 // then wait for status 'ready'. An unlinked session answers the send with 409.
 $result = $client->messages->sendText($session['id'], [
     'chatId' => '628123456789@c.us',
-    'text'   => 'Hello from the OpenWA PHP SDK!',
+    'text'   => 'Hello from the ZapLink PHP SDK!',
 ]);
 
 echo $result['messageId'];
 ```
 
-The entry class is `OpenWA\Client`. It validates that `baseUrl` and `apiKey` are present (throwing `OpenWAException` otherwise), constructs the shared HTTP transport, and exposes each resource as a public property: `$client->sessions`, `$client->messages`, `$client->search`, `$client->contacts`, `$client->groups`, `$client->webhooks`, `$client->chats`, `$client->status`, `$client->health`, `$client->labels`, `$client->channels`, `$client->catalog`, `$client->templates`, `$client->profile`, `$client->calls`, `$client->media`.
+The entry class is `ZapLink\Client`. It validates that `baseUrl` and `apiKey` are present (throwing `ZapLinkException` otherwise), constructs the shared HTTP transport, and exposes each resource as a public property: `$client->sessions`, `$client->messages`, `$client->search`, `$client->contacts`, `$client->groups`, `$client->webhooks`, `$client->chats`, `$client->status`, `$client->health`, `$client->labels`, `$client->channels`, `$client->catalog`, `$client->templates`, `$client->profile`, `$client->calls`, `$client->media`.
 
 Two escape hatches sit on the client itself:
 
@@ -864,7 +864,7 @@ The constructor takes a single associative `$config` array:
 | `defaultHeaders`    | `array<string,scalar\|list>`   | `[]`             | Extra headers applied on every request, **under** the SDK's auth/JSON headers (which always win). A name must be an HTTP token; a value is text, a scalar or `null` (sent as text) or a non-empty list of those, without a control or non-ASCII character. |
 | `allowInsecureHttp` | `bool`                         | `false`          | Skip the `error_log()` warning written for an `http://` `baseUrl` whose host is not localhost (e.g. a private Docker network or a TLS-terminating proxy).                                                                                                  |
 
-Missing `baseUrl` or `apiKey`, a key or default header value with a control or non-ASCII character, or a default header name that is not an HTTP token throws `OpenWA\Exceptions\OpenWAException` from the constructor. So does an empty list as a header value, by header name, because Guzzle 8 cannot represent a header with zero values; use `''` for an empty value.
+Missing `baseUrl` or `apiKey`, a key or default header value with a control or non-ASCII character, or a default header name that is not an HTTP token throws `ZapLink\Exceptions\ZapLinkException` from the constructor. So does an empty list as a header value, by header name, because Guzzle 8 cannot represent a header with zero values; use `''` for an empty value.
 
 ### Resources & Methods
 
@@ -1099,41 +1099,41 @@ All payloads are associative arrays; all listed methods are synchronous and retu
 
 ### Error Handling
 
-All exceptions the SDK raises itself live in `OpenWA\Exceptions` and descend from `OpenWAException` (which extends PHP's `\Exception`). A transport failure that is not a timeout (a refused connection, a reset, a TLS verification failure) surfaces as one of Guzzle's own `GuzzleHttp\Exception\TransferException` subclasses and an invalid argument as `InvalidArgumentException`, so a catch-all names those as well. The subclass depends on the Guzzle major (a reset is a `RequestException` on Guzzle 7 and a `NetworkException`, which is not a `RequestException`, on Guzzle 8), so catch `TransferException` rather than a subclass. A body that ends before the `Content-Length` it declares is such a failure too: cURL and Guzzle 8 raise their own, and the SDK raises a `RequestException` on Guzzle 7's stream handler, which returns the short body as if it were whole. That handler still returns two cut bodies without an error, because neither carries a length to compare with: a chunked body (the gateway sends a `Content-Length` with media whenever the store reports a size) and a compressed body the application asked for with its own `Accept-Encoding` header. On Guzzle 7's stream handler (a host without `ext-curl`) a `timeout` of `0` still leaves PHP's `default_socket_timeout` before the response headers, and that wait ends with such a failure too, not an `OpenWATimeoutException` (see the [PHP README](../sdk/php/README.md)). That handler also bounds each wait rather than the whole call: a silence in the body can last up to about twice the `timeout` before it is cut off, and a body that keeps trickling bytes is not cut off at all, while cURL and Guzzle 8's stream handler bound the whole call. Any non-2xx response is raised as an `OpenWAApiException`; the static `classify()` factory picks the most specific subclass by status code. An `OpenWAApiException` carries the HTTP status (`getStatus(): int`), the parsed error body (`getBody(): mixed`), and the NestJS `error` kind when present (`getErrorKind(): ?string`), plus the body's `code` (`getErrorCode(): ?string`), the retry delay in seconds from the body's `retryAfterSeconds` or the `Retry-After` header (`getRetryAfterSeconds(): ?int`) and the response headers (`getHeaders(): array`).
+All exceptions the SDK raises itself live in `ZapLink\Exceptions` and descend from `ZapLinkException` (which extends PHP's `\Exception`). A transport failure that is not a timeout (a refused connection, a reset, a TLS verification failure) surfaces as one of Guzzle's own `GuzzleHttp\Exception\TransferException` subclasses and an invalid argument as `InvalidArgumentException`, so a catch-all names those as well. The subclass depends on the Guzzle major (a reset is a `RequestException` on Guzzle 7 and a `NetworkException`, which is not a `RequestException`, on Guzzle 8), so catch `TransferException` rather than a subclass. A body that ends before the `Content-Length` it declares is such a failure too: cURL and Guzzle 8 raise their own, and the SDK raises a `RequestException` on Guzzle 7's stream handler, which returns the short body as if it were whole. That handler still returns two cut bodies without an error, because neither carries a length to compare with: a chunked body (the gateway sends a `Content-Length` with media whenever the store reports a size) and a compressed body the application asked for with its own `Accept-Encoding` header. On Guzzle 7's stream handler (a host without `ext-curl`) a `timeout` of `0` still leaves PHP's `default_socket_timeout` before the response headers, and that wait ends with such a failure too, not an `ZapLinkTimeoutException` (see the [PHP README](../sdk/php/README.md)). That handler also bounds each wait rather than the whole call: a silence in the body can last up to about twice the `timeout` before it is cut off, and a body that keeps trickling bytes is not cut off at all, while cURL and Guzzle 8's stream handler bound the whole call. Any non-2xx response is raised as an `ZapLinkApiException`; the static `classify()` factory picks the most specific subclass by status code. An `ZapLinkApiException` carries the HTTP status (`getStatus(): int`), the parsed error body (`getBody(): mixed`), and the NestJS `error` kind when present (`getErrorKind(): ?string`), plus the body's `code` (`getErrorCode(): ?string`), the retry delay in seconds from the body's `retryAfterSeconds` or the `Retry-After` header (`getRetryAfterSeconds(): ?int`) and the response headers (`getHeaders(): array`).
 
-| Exception                           | Extends              | Trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenWAException`                   | `\Exception`         | Base for the SDK's own errors (also thrown for missing `baseUrl`/`apiKey` and for a key or default header the HTTP layer would refuse); a transport failure other than a timeout is Guzzle's own (`TransferException`).                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `OpenWAApiException`                | `OpenWAException`    | Any non-2xx (including unfollowed 3xx and other 4xx/5xx).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `OpenWAAuthException`               | `OpenWAApiException` | `401` — missing/invalid API key.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `OpenWAForbiddenException`          | `OpenWAApiException` | `403` — the key's role or scope refuses the call (e.g. operator-only endpoint, or a session, IP or chat outside its allow-lists), or WhatsApp itself refused the operation (for example, missing group admin rights).                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `OpenWANotFoundException`           | `OpenWAApiException` | `404` — resource not found.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `OpenWAConflictException`           | `OpenWAApiException` | `409`: a conflicting state, typically a session that is not ready, or a keyed send pending or unconfirmed (see `code`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `OpenWARateLimitException`          | `OpenWAApiException` | `429` — rate limited. The global rate limiter's 429 lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `getRetryAfterSeconds()` carries its `Retry-After` header. A 429 whose `getErrorCode()` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `getRetryAfterSeconds()`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. |
-| `OpenWANotImplementedException`     | `OpenWAApiException` | `501` — active engine does not support the operation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `OpenWAServiceUnavailableException` | `OpenWAApiException` | `503` — the gateway could not complete the request now (transport failure, draining, or on Baileys a WhatsApp throttle (429) or timeout (408)); back off and retry later, though a catalog 503 can persist because WhatsApp may never answer that query. In a routed deployment a forward that fails before reaching the owner node answers 503, and a 503 from the owner itself is relayed unchanged (a bounded write it covers may still have been applied); a forward that fails after the request was sent answers 502 or 504, which the owner may already have acted on.                                                       |
-| `OpenWATimeoutException`            | `OpenWAException`    | Request exceeded the timeout (`getTimeout(): float`). Not an API error — has no status/body.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Exception                            | Extends               | Trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZapLinkException`                   | `\Exception`          | Base for the SDK's own errors (also thrown for missing `baseUrl`/`apiKey` and for a key or default header the HTTP layer would refuse); a transport failure other than a timeout is Guzzle's own (`TransferException`).                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ZapLinkApiException`                | `ZapLinkException`    | Any non-2xx (including unfollowed 3xx and other 4xx/5xx).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `ZapLinkAuthException`               | `ZapLinkApiException` | `401` — missing/invalid API key.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `ZapLinkForbiddenException`          | `ZapLinkApiException` | `403` — the key's role or scope refuses the call (e.g. operator-only endpoint, or a session, IP or chat outside its allow-lists), or WhatsApp itself refused the operation (for example, missing group admin rights).                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `ZapLinkNotFoundException`           | `ZapLinkApiException` | `404` — resource not found.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `ZapLinkConflictException`           | `ZapLinkApiException` | `409`: a conflicting state, typically a session that is not ready, or a keyed send pending or unconfirmed (see `code`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ZapLinkRateLimitException`          | `ZapLinkApiException` | `429` — rate limited. The global rate limiter's 429 lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `getRetryAfterSeconds()` carries its `Retry-After` header. A 429 whose `getErrorCode()` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `getRetryAfterSeconds()`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. |
+| `ZapLinkNotImplementedException`     | `ZapLinkApiException` | `501` — active engine does not support the operation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `ZapLinkServiceUnavailableException` | `ZapLinkApiException` | `503` — the gateway could not complete the request now (transport failure, draining, or on Baileys a WhatsApp throttle (429) or timeout (408)); back off and retry later, though a catalog 503 can persist because WhatsApp may never answer that query. In a routed deployment a forward that fails before reaching the owner node answers 503, and a 503 from the owner itself is relayed unchanged (a bounded write it covers may still have been applied); a forward that fails after the request was sent answers 502 or 504, which the owner may already have acted on.                                                       |
+| `ZapLinkTimeoutException`            | `ZapLinkException`    | Request exceeded the timeout (`getTimeout(): float`). Not an API error — has no status/body.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ```php
 <?php
-use OpenWA\Client;
-use OpenWA\Exceptions\OpenWAConflictException;
-use OpenWA\Exceptions\OpenWARateLimitException;
-use OpenWA\Exceptions\OpenWATimeoutException;
-use OpenWA\Exceptions\OpenWAApiException;
+use ZapLink\Client;
+use ZapLink\Exceptions\ZapLinkConflictException;
+use ZapLink\Exceptions\ZapLinkRateLimitException;
+use ZapLink\Exceptions\ZapLinkTimeoutException;
+use ZapLink\Exceptions\ZapLinkApiException;
 
 try {
     $result = $client->messages->sendText($sessionId, [
         'chatId' => '628123456789@c.us',
         'text'   => 'Hello!',
     ]);
-} catch (OpenWAConflictException $e) {
+} catch (ZapLinkConflictException $e) {
     // 409: a conflicting state, typically a session that is not ready yet, or a keyed send pending or unconfirmed (see getErrorCode())
-} catch (OpenWARateLimitException $e) {
+} catch (ZapLinkRateLimitException $e) {
     // 429 — back off and retry yourself (no auto-retry)
-} catch (OpenWATimeoutException $e) {
+} catch (ZapLinkTimeoutException $e) {
     fwrite(STDERR, "timed out after {$e->getTimeout()}s\n");
-} catch (OpenWAApiException $e) {
+} catch (ZapLinkApiException $e) {
     // any other non-2xx
     fwrite(STDERR, "API {$e->getStatus()}: {$e->getMessage()}\n");
     var_dump($e->getBody());
@@ -1142,7 +1142,7 @@ try {
 
 ### Notable Behaviors
 
-- **Redirects are never followed.** Guzzle is configured with `allow_redirects => false`, so a `3xx` surfaces as an `OpenWAApiException` rather than being followed — the `X-API-Key` header is never re-sent to a redirect target.
+- **Redirects are never followed.** Guzzle is configured with `allow_redirects => false`, so a `3xx` surfaces as an `ZapLinkApiException` rather than being followed — the `X-API-Key` header is never re-sent to a redirect target.
 - **Auth/JSON headers take precedence.** `defaultHeaders` are merged in first, then `X-API-Key`, `Content-Type: application/json`, and `Accept: application/json` are applied on top, so they can't be clobbered.
 - **Path segments are percent-encoded.** Ids (session/chat/message/group ids) pass through `encodeSegment()`, which `rawurlencode`s the value but keeps the WhatsApp-id-safe characters `@`, `:`, and `+` readable — so a value containing `/`, `#`, or `?` cannot break out of its path position.
 - **Empty and dot segments are refused.** An empty, `.` or `..` id throws `InvalidArgumentException` before anything is sent, because the HTTP stack would otherwise resolve it to the parent resource. So does an id with a `.` or `..` part between slashes, such as `../x`: sent as `..%2Fx`, it would reach another route behind a proxy that decodes `%2F` before it resolves dot segments. A raw `request()` path with a `.` or `..` segment, also written percent-encoded (`%2e`), throws `InvalidArgumentException`, and so does one that does not begin with `/`; the check sits in the shared send path, so it covers every call, and a trailing or double slash in a raw path is sent as written.
@@ -1151,14 +1151,14 @@ try {
 - **No automatic retries.** A failed request throws immediately; wrap calls in your own backoff if you need retries (notably for `429`). The injectable `httpClient` is the extension point for retry/observability middleware.
 - **Empty/204 response handling depends on the method.** The HTTP executor and raw `request()` return `null` for a `204` or empty body. Methods with `?? []`, such as `contacts->list` and `messages->pin`, coalesce this to `[]`; `messages->list` returns `{ messages: [], total: 0 }` and `catalog->products` returns `{ products: [], pagination: [] }`. The nullable `catalog->info`, `catalog->product` and `chats->getPresence` methods return `null`, and `void` methods return nothing. Other JSON methods with a non-nullable `array` return type, including single-item gets and sends, require a response body: an empty response raises `TypeError`. The gateway supplies a body for those routes.
 - **Testing without the network.** Inject a Guzzle client built on a `GuzzleHttp\Handler\MockHandler` via the `httpClient` config key — no global state, no live calls. The shipped test suite asserts on the exact path, method, and body.
-- **PSR-4 autoloading.** Everything lives under the `OpenWA\` namespace mapped to `src/`; `composer require rmyndharis/openwa` wires up the autoloader.
+- **PSR-4 autoloading.** Everything lives under the `ZapLink\` namespace mapped to `src/`; `composer require rmyndharis/zaplink` wires up the autoloader.
 
 ## 18.5 n8n Community Node
 
-OpenWA's n8n integration is **not** part of these SDK packages. It is a separate community node maintained in its own repository, which speaks the same REST + webhook contract documented in [API Specification](./06-api-specification.md):
+ZapLink's n8n integration is **not** part of these SDK packages. It is a separate community node maintained in its own repository, which speaks the same REST + webhook contract documented in [API Specification](./06-api-specification.md):
 
 - An **action/HTTP** path that calls the REST endpoints (e.g. `POST /api/sessions/:id/messages/send-text`) with the `X-API-Key` header.
-- A **trigger** path that registers a webhook (the `webhooks` resource) and receives inbound events, verifying the `X-OpenWA-Signature` HMAC.
+- A **trigger** path that registers a webhook (the `webhooks` resource) and receives inbound events, verifying the `X-ZapLink-Signature` HMAC.
 
 For installation and node-by-node configuration, see the dedicated [n8n Integration guide](./22-n8n-integration.md). Because the node consumes the public API contract, the verified route/event reference in docs 06 and §6.6 (Webhook Events) is the authority for what it can call and receive.
 
@@ -1168,13 +1168,13 @@ For installation and node-by-node configuration, see the dedicated [n8n Integrat
 
 The five SDKs are versioned **independently of the gateway** and of each other, each following SemVer. An SDK version does **not** track the gateway version — check the registry for the current one rather than inferring it from the gateway's. Pin the SDK version your code is tested against and treat a major SDK bump as potentially breaking.
 
-| SDK                   | Registry             | Package                               |
-| --------------------- | -------------------- | ------------------------------------- |
-| JavaScript/TypeScript | npm                  | `@rmyndharis/openwa`                  |
-| Python                | PyPI                 | `rmyndharis-openwa`                   |
-| PHP                   | Packagist            | `rmyndharis/openwa`                   |
-| Java                  | Maven Central        | `com.rmyndharis:openwa`               |
-| Go                    | (none — module path) | `github.com/rmyndharis/OpenWA/sdk/go` |
+| SDK                   | Registry             | Package                                  |
+| --------------------- | -------------------- | ---------------------------------------- |
+| JavaScript/TypeScript | npm                  | `@rmyndharis/zaplink`                    |
+| Python                | PyPI                 | `rmyndharis-zaplink`                     |
+| PHP                   | Packagist            | `rmyndharis/zaplink`                     |
+| Java                  | Maven Central        | `com.rmyndharis:zaplink`                 |
+| Go                    | (none — module path) | `github.com/dev-ashir768/zaplink/sdk/go` |
 
 ### Contract-drift protection
 

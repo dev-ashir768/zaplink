@@ -32,7 +32,7 @@ const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
  * Checks: plain-object shape; required fields present as non-empty strings; id format + reserved
  * ids; installable (extension) type; that `permissions`, `sessions`, `hooks` and `net.allow` /
  * `net.allowConfigHosts` are string arrays when present; that `main` is a relative path that
- * cannot escape the plugin directory; and that an optional `minOpenWAVersion` is a MAJOR.MINOR.PATCH version no newer
+ * cannot escape the plugin directory; and that an optional `minZapLinkVersion` is a MAJOR.MINOR.PATCH version no newer
  * than `hostVersion` (pre-release suffixes are ignored, so 0.24.0-rc.1 satisfies 0.24.0). The
  * `main` check here is lexical (forward-slash semantics); the loader additionally anchors it
  * against the real on-disk directory, which also catches platform-separator tricks, and requires
@@ -82,13 +82,13 @@ export function validatePluginManifest(
     assertStringArray(m.net?.allow, 'net.allow');
     assertStringArray(m.net?.allowConfigHosts, 'net.allowConfigHosts');
   }
-  const min: unknown = m.minOpenWAVersion;
+  const min: unknown = m.minZapLinkVersion;
   if (min !== undefined && min !== null) {
     if (typeof min !== 'string' || !SEMVER.test(min)) {
-      throw new Error('manifest.json minOpenWAVersion must be a MAJOR.MINOR.PATCH version');
+      throw new Error('manifest.json minZapLinkVersion must be a MAJOR.MINOR.PATCH version');
     }
     if (compareSemver(hostVersion, min) < 0) {
-      throw new Error(`Plugin ${m.id} requires OpenWA >= ${min} (running ${hostVersion})`);
+      throw new Error(`Plugin ${m.id} requires ZapLink >= ${min} (running ${hostVersion})`);
     }
   }
 }

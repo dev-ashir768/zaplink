@@ -6,11 +6,11 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type { ConvertMediaInput, ConvertedMedia, MediaConversionAvailability } from '../types.js';
 
 export class MediaResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /**
    * Whether conversion is switched on for this deployment AND the ffmpeg binary can

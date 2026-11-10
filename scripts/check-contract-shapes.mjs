@@ -235,7 +235,7 @@ const MAPPINGS = {
 const MINIMUM_MAPPED = {
   'sdk/javascript/src/types.ts': 123,
   'dashboard/src/services/api.ts': 22,
-  'sdk/python/openwa/types.py': 134,
+  'sdk/python/zaplink/types.py': 134,
   'sdk/go': 135,
   'sdk/java': 140,
 };
@@ -339,7 +339,7 @@ const INLINE_BODIES = {
 // rather than an interface, which the hand parser does not read; mapping it there would fail as a
 // missing hand type rather than gate anything.
 
-/** Python client pairs (TypedDict classes in openwa/types.py). */
+/** Python client pairs (TypedDict classes in zaplink/types.py). */
 const PYTHON_MAPPING = {
   AccountRestriction: 'AccountRestrictionDto',
   ArchiveChatRequest: 'ArchiveChatDto',
@@ -1116,7 +1116,7 @@ export function comparePair(
 // ── per-language hand parsers (same member-map contract as parseHandTypes) ──
 
 /**
- * Python (sdk/python/openwa/types.py): TypedDict classes with `total=False` optionality,
+ * Python (sdk/python/zaplink/types.py): TypedDict classes with `total=False` optionality,
  * `Optional[X]`/`X | None` null unions, `List[X]`, inline and aliased `Literal[...]` enums, and
  * TypedDict inheritance (the parent's own total flag governs its members).
  */
@@ -1650,9 +1650,9 @@ if (isDirectRun) {
       .filter(f => f.endsWith('.go') && !f.endsWith('_test.go'))
       .map(f => readFileSync(`${REPO_ROOT}sdk/go/${f}`, 'utf8'));
   const javaSources = () =>
-    readdirSync(`${REPO_ROOT}sdk/java/src/main/java/com/rmyndharis/openwa/model`)
+    readdirSync(`${REPO_ROOT}sdk/java/src/main/java/com/rmyndharis/zaplink/model`)
       .filter(f => f.endsWith('.java'))
-      .map(f => readFileSync(`${REPO_ROOT}sdk/java/src/main/java/com/rmyndharis/openwa/model/${f}`, 'utf8'));
+      .map(f => readFileSync(`${REPO_ROOT}sdk/java/src/main/java/com/rmyndharis/zaplink/model/${f}`, 'utf8'));
 
   const CLIENTS = [
     ...Object.entries(MAPPINGS).map(([file, mapping]) => ({
@@ -1666,12 +1666,12 @@ if (isDirectRun) {
       sdk: file.startsWith('sdk/'),
     })),
     {
-      label: 'sdk/python/openwa/types.py',
-      load: () => parsePythonTypes(readFileSync(`${REPO_ROOT}sdk/python/openwa/types.py`, 'utf8')),
+      label: 'sdk/python/zaplink/types.py',
+      load: () => parsePythonTypes(readFileSync(`${REPO_ROOT}sdk/python/zaplink/types.py`, 'utf8')),
       mapping: PYTHON_MAPPING,
-      excluded: EXCLUDED['sdk/python/openwa/types.py'] ?? {},
-      namesOnly: NAMES_ONLY['sdk/python/openwa/types.py'] ?? [],
-      floor: MINIMUM_MAPPED['sdk/python/openwa/types.py'],
+      excluded: EXCLUDED['sdk/python/zaplink/types.py'] ?? {},
+      namesOnly: NAMES_ONLY['sdk/python/zaplink/types.py'] ?? [],
+      floor: MINIMUM_MAPPED['sdk/python/zaplink/types.py'],
       compareOptionality: true,
       sdk: true,
     },

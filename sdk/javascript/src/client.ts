@@ -1,14 +1,14 @@
 /**
- * OpenWA JavaScript/TypeScript SDK — client core.
+ * ZapLink JavaScript/TypeScript SDK — client core.
  *
- * The {@link OpenWAClient} is the single entry point. It holds configuration
+ * The {@link ZapLinkClient} is the single entry point. It holds configuration
  * (base URL, API key, timeout, injectable transport) and exposes domain
  * resources as properties:
  *
  * ```typescript
- * import { OpenWAClient } from '@rmyndharis/openwa';
+ * import { ZapLinkClient } from '@rmyndharis/zaplink';
  *
- * const client = new OpenWAClient({
+ * const client = new ZapLinkClient({
  *   baseUrl: 'http://localhost:2785',
  *   apiKey: 'owa_k1_…',
  * });
@@ -20,7 +20,7 @@
  * // then wait for status 'ready'. An unlinked session answers the send with 409.
  * await client.messages.sendText(session.id, {
  *   chatId: '628123456789@c.us',
- *   text: 'Hello from the OpenWA SDK!',
+ *   text: 'Hello from the ZapLink SDK!',
  * });
  * ```
  *
@@ -46,8 +46,8 @@ import { TemplatesResource } from './resources/templates.js';
 import { WebhooksResource } from './resources/webhooks.js';
 import type { AuthValidateResponse, MessageResponse, SendMediaRequest } from './types.js';
 
-export interface OpenWAClientOptions {
-  /** Base URL of the OpenWA API, e.g. `http://localhost:2785`. */
+export interface ZapLinkClientOptions {
+  /** Base URL of the ZapLink API, e.g. `http://localhost:2785`. */
   baseUrl: string;
   /** API key sent as `X-API-Key`. */
   apiKey: string;
@@ -59,25 +59,25 @@ export interface OpenWAClientOptions {
   fetch?: FetchLike;
 }
 
-export class OpenWAClient {
+export class ZapLinkClient {
   // Defined non-enumerable in the constructor, so the API key does not appear when a client is logged,
   // inspected or serialized (`declare` keeps the class field from creating an enumerable one).
   private declare readonly config: Required<Omit<ClientConfig, 'fetch'>> & { fetch: FetchLike };
 
-  constructor(options: OpenWAClientOptions) {
-    if (!options.baseUrl) throw new Error('OpenWAClient: baseUrl is required');
+  constructor(options: ZapLinkClientOptions) {
+    if (!options.baseUrl) throw new Error('ZapLinkClient: baseUrl is required');
     // A key read from a secret file usually ends in a newline: trimmed, as the other clients do. A control or
     // non-Latin-1 character left inside is refused here, because fetch's own error quotes the whole value.
     const apiKey = typeof options.apiKey === 'string' ? options.apiKey.trim() : options.apiKey;
-    if (!apiKey) throw new Error('OpenWAClient: apiKey is required');
+    if (!apiKey) throw new Error('ZapLinkClient: apiKey is required');
     if (typeof apiKey !== 'string' || hasUnsendableChar(apiKey)) {
-      throw new Error('OpenWAClient: apiKey contains a control or non-Latin-1 character; check for a stray newline');
+      throw new Error('ZapLinkClient: apiKey contains a control or non-Latin-1 character; check for a stray newline');
     }
     for (const [name, value] of Object.entries(options.defaultHeaders ?? {})) {
       // fetch trims spaces, tabs and line breaks at both ends of a value, so only what is left can be refused.
       if (hasUnsendableChar(String(value).replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, ''))) {
         throw new Error(
-          `OpenWAClient: defaultHeaders value for "${name}" contains a control or non-Latin-1 character; check for a stray newline`,
+          `ZapLinkClient: defaultHeaders value for "${name}" contains a control or non-Latin-1 character; check for a stray newline`,
         );
       }
     }
@@ -135,7 +135,7 @@ export class OpenWAClient {
         idempotencyKey.length > 255 ||
         /[^\x21-\x7E]/.test(idempotencyKey)
       ) {
-        return Promise.reject(new TypeError('OpenWA: idempotencyKey must be 1-255 visible ASCII characters'));
+        return Promise.reject(new TypeError('ZapLink: idempotencyKey must be 1-255 visible ASCII characters'));
       }
       const headers = { ...options.headers };
       for (const name of Object.keys(headers)) {
@@ -165,4 +165,4 @@ export class OpenWAClient {
   }
 }
 
-export default OpenWAClient;
+export default ZapLinkClient;

@@ -17,7 +17,7 @@ describe('writeSecretFile chmod failure report', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-secretfile-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-secretfile-'));
     process.env.NODE_ENV = 'production';
     delete process.env.LOG_FORMAT;
   });

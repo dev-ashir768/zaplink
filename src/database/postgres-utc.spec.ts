@@ -97,8 +97,8 @@ const acquireThrough = async (
   const pool = new Pool({
     host: '127.0.0.1',
     port: fake.port,
-    user: 'openwa',
-    database: 'openwa',
+    user: 'zaplink',
+    database: 'zaplink',
     connectionTimeoutMillis,
     ...postgresUtcExtra(connectionTimeoutMillis),
   });
@@ -261,12 +261,12 @@ describe('postgres UTC pin', () => {
     // the pin's own statement, under its bound.
     it('sets the pool statement_timeout and search_path in the same statement as the zone', async () => {
       const query = jest.fn().mockResolvedValue({});
-      await postgresUtcExtra(2500, { statementTimeoutMs: 30000, searchPath: 'openwa,public' }).onConnect({
+      await postgresUtcExtra(2500, { statementTimeoutMs: 30000, searchPath: 'zaplink,public' }).onConnect({
         query,
       } as unknown as ClientBase);
       expect(query).toHaveBeenCalledTimes(1);
       expect(query).toHaveBeenCalledWith({
-        text: "SET TIME ZONE 'UTC'; SET statement_timeout = 30000; SELECT set_config('search_path', 'openwa,public', false)",
+        text: "SET TIME ZONE 'UTC'; SET statement_timeout = 30000; SELECT set_config('search_path', 'zaplink,public', false)",
         query_timeout: 2500,
       });
     });

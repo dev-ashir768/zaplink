@@ -22,7 +22,7 @@ describe('Release note extraction', () => {
     ['literal text', '-n\n\\n stays literal\n${HOME} and $(false) are text'],
     ['empty', ''],
   ])('preserves %s notes without interpreting their content', (_name, notes) => {
-    const directory = mkdtempSync(join(tmpdir(), 'openwa-release-notes-'));
+    const directory = mkdtempSync(join(tmpdir(), 'zaplink-release-notes-'));
     try {
       const output = join(directory, 'outputs');
       writeFileSync(output, '');

@@ -12,7 +12,7 @@ flowchart TB
         C3[n8n/Automation]
     end
 
-    subgraph OpenWA["OpenWA Platform"]
+    subgraph ZapLink["ZapLink Platform"]
         subgraph API["API Layer"]
             REST[REST API<br/>NestJS]
             WS[WebSocket<br/>Real-time]
@@ -79,10 +79,10 @@ sequenceDiagram
 
 ## 3.2 Pluggable Architecture Philosophy
 
-OpenWA is designed with a **Pluggable Architecture** that allows infrastructure components to be swapped without changing application code. This enables flexible deployments ranging from minimal single-session bots to larger single-node, multi-session installs.
+ZapLink is designed with a **Pluggable Architecture** that allows infrastructure components to be swapped without changing application code. This enables flexible deployments ranging from minimal single-session bots to larger single-node, multi-session installs.
 
 > **Note — single-instance:** the live WhatsApp engine layer is stateful and held in-process
-> (an in-memory `Map` in `EngineRegistry`). OpenWA currently runs as **one API instance per
+> (an in-memory `Map` in `EngineRegistry`). ZapLink currently runs as **one API instance per
 > session-data volume**; horizontal scaling across multiple API replicas is a future design
 > (not implemented). See [13 - Horizontal Scaling](13-horizontal-scaling.md).
 
@@ -238,7 +238,7 @@ they follow the standard NestJS provider lifecycle (`OnModuleInit` / `OnModuleDe
 
 ### Dependency Injection & Module Wiring
 
-OpenWA does **not** use a dynamic `AdaptersModule` or string DI tokens. `AppModule`
+ZapLink does **not** use a dynamic `AdaptersModule` or string DI tokens. `AppModule`
 (`src/app.module.ts`) imports concrete feature modules directly and configures two **named TypeORM
 connections**:
 
@@ -572,7 +572,7 @@ classDiagram
 ```
 
 `timestamp` is an ISO 8601 string. The body carries no signature: when the webhook has a secret, the
-HMAC travels in the `X-OpenWA-Signature: sha256=<hex>` header. `EventType` shows a few of the dotted
+HMAC travels in the `X-ZapLink-Signature: sha256=<hex>` header. `EventType` shows a few of the dotted
 event names; `WEBHOOK_EVENTS` in `src/modules/webhook/dto/webhook.dto.ts` is the full list.
 
 ## 3.6 Data Flow Diagrams
@@ -662,7 +662,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph Production["Production Environment"]
-        API[OpenWA API<br/>single instance]
+        API[ZapLink API<br/>single instance]
         VOL[(Session-data volume<br/>auth dirs)]
 
         API --- VOL
@@ -806,7 +806,7 @@ DTO validation with detail disabled (the production default) returns `{ statusCo
 > in `EngineRegistry`. Each session carries an owner lease (`nodeId`, `nodeUrl`, `leaseExpiresAt`)
 > claimed by `SessionOwnershipService`, a takeover sweep adopts sessions whose lease lapsed, and when
 > `NODE_URL` is set `SessionProxyInterceptor` forwards session-scoped requests to the owner node.
-> OpenWA still runs as one API instance per session-data volume; the two sketches below are retained
+> ZapLink still runs as one API instance per session-data volume; the two sketches below are retained
 > for planning. See the single-instance note in §3.2 and [13 - Horizontal Scaling](13-horizontal-scaling.md).
 
 ### Horizontal Scaling Strategy (sketch)
@@ -857,7 +857,7 @@ flowchart LR
 ## 3.12 Engine Abstraction Layer
 
 > [!IMPORTANT]
-> Engine abstraction is critical to mitigate **R001: WhatsApp Protocol Changes** in Risk Management. OpenWA ships two production-ready engines selectable via `ENGINE_TYPE`: `whatsapp-web.js` (default, Chromium/Puppeteer-based) and `baileys` (browser-free, WebSocket/Noise protocol). With the abstraction layer, adding further engines requires no changes to application code.
+> Engine abstraction is critical to mitigate **R001: WhatsApp Protocol Changes** in Risk Management. ZapLink ships two production-ready engines selectable via `ENGINE_TYPE`: `whatsapp-web.js` (default, Chromium/Puppeteer-based) and `baileys` (browser-free, WebSocket/Noise protocol). With the abstraction layer, adding further engines requires no changes to application code.
 
 ### Strategy Pattern for Engine
 
@@ -1278,13 +1278,13 @@ flowchart TB
 
 ## 3.13 Pluggable Adapters
 
-OpenWA uses the adapter pattern for infrastructure components that can be swapped per deployment needs. This allows users with limited resources to run OpenWA without heavyweight external dependencies.
+ZapLink uses the adapter pattern for infrastructure components that can be swapped per deployment needs. This allows users with limited resources to run ZapLink without heavyweight external dependencies.
 
 ### Adapter Overview
 
 ```mermaid
 flowchart TB
-    subgraph Core["OpenWA Core"]
+    subgraph Core["ZapLink Core"]
         APP[Application Logic]
     end
 
@@ -1402,7 +1402,7 @@ export class StorageService {
 
 ### 3.13.2 Database Adapter
 
-OpenWA supports SQLite for lightweight deployments and PostgreSQL for high-volume production.
+ZapLink supports SQLite for lightweight deployments and PostgreSQL for high-volume production.
 
 #### Database Comparison
 
@@ -1441,7 +1441,7 @@ if (dbType === 'postgres') {
     port: configService.get('dataDatabase.port'),
     username: configService.get('dataDatabase.username'),
     password: configService.get('dataDatabase.password'),
-    database: configService.get('dataDatabase.name', 'openwa'),
+    database: configService.get('dataDatabase.name', 'zaplink'),
     synchronize: configService.get('dataDatabase.synchronize', false), // migrations in prod
     migrationsRun: true,
     extra: { max: configService.get('dataDatabase.poolSize', 10) },
@@ -1454,7 +1454,7 @@ return {
   ...baseConfig,
   name: 'data',
   type: 'better-sqlite3' as const, // DATABASE_TYPE=sqlite -> this driver
-  database: configService.get('dataDatabase.database', './data/openwa.sqlite'),
+  database: configService.get('dataDatabase.database', './data/zaplink.sqlite'),
   synchronize,
   migrationsRun: !synchronize,
 };
@@ -1462,7 +1462,7 @@ return {
 
 #### SQLite Considerations
 
-> **Note:** OpenWA does not currently apply SQLite-specific concurrency hardening. There is **no**
+> **Note:** ZapLink does not currently apply SQLite-specific concurrency hardening. There is **no**
 > `journal_mode = WAL` PRAGMA, no `SqliteWriteQueueService`, and no application-level write
 > serialization in the source. SQLite is used with TypeORM's defaults apart from a fixed 30 s busy
 > timeout (`SQLITE_BUSY_TIMEOUT_MS`), so its standard single-writer behavior applies. For high
@@ -1530,7 +1530,7 @@ export class CacheService implements OnModuleDestroy {
 
 ### 3.13.4 Deployment Profiles
 
-OpenWA provides several deployment profiles for different needs:
+ZapLink provides several deployment profiles for different needs:
 
 ```mermaid
 flowchart LR
@@ -1577,7 +1577,7 @@ uncommented key in `.env` pins its value over the one the dashboard saves (see t
 ```bash
 # Database
 # DATABASE_TYPE=sqlite
-# DATABASE_NAME=./data/openwa.sqlite
+# DATABASE_NAME=./data/zaplink.sqlite
 
 # Storage
 # STORAGE_TYPE=local
@@ -1594,8 +1594,8 @@ uncommented key in `.env` pins its value over the one the dashboard saves (see t
 # DATABASE_TYPE=postgres
 # DATABASE_HOST=localhost
 # DATABASE_PORT=5432
-# DATABASE_NAME=openwa
-# DATABASE_USERNAME=openwa
+# DATABASE_NAME=zaplink
+# DATABASE_USERNAME=zaplink
 # DATABASE_PASSWORD=<set-a-strong-password>
 
 # Storage
@@ -1615,14 +1615,14 @@ uncommented key in `.env` pins its value over the one the dashboard saves (see t
 # DATABASE_TYPE=postgres
 # DATABASE_HOST=db-cluster
 # DATABASE_PORT=5432
-# DATABASE_NAME=openwa
-# DATABASE_USERNAME=openwa
+# DATABASE_NAME=zaplink
+# DATABASE_USERNAME=zaplink
 # DATABASE_PASSWORD=<set-a-strong-password>
 # DATABASE_POOL_SIZE=50
 
 # Storage (S3 or any S3-compatible endpoint; MinIO uses the same vars)
 # STORAGE_TYPE=s3
-# S3_BUCKET=openwa-media
+# S3_BUCKET=zaplink-media
 # S3_REGION=ap-southeast-1
 # S3_ACCESS_KEY_ID=<access-key-id>
 # S3_SECRET_ACCESS_KEY=<secret-access-key>
@@ -1636,13 +1636,13 @@ uncommented key in `.env` pins its value over the one the dashboard saves (see t
 # REDIS_PORT=6379
 ```
 
-> OpenWA runs as a single API instance per session-data volume; there is no cluster-mode flag.
+> ZapLink runs as a single API instance per session-data volume; there is no cluster-mode flag.
 > "Enterprise" here describes vertical headroom (RAM, Postgres, S3, Redis), not multi-replica
 > horizontal scaling — see the single-instance note in §3.2.
 
 ### Choosing a Profile
 
-OpenWA does not auto-detect a profile at runtime; pick one by available resources and expected load:
+ZapLink does not auto-detect a profile at runtime; pick one by available resources and expected load:
 
 | Available RAM | Suggested profile | Backends                                          |
 | ------------- | ----------------- | ------------------------------------------------- |

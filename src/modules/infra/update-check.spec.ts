@@ -27,7 +27,7 @@ describe('checkForUpdate', () => {
       current: RUNNING,
       latest: bump(RUNNING),
       updateAvailable: true,
-      releaseUrl: `https://github.com/rmyndharis/OpenWA/releases/tag/v${bump(RUNNING)}`,
+      releaseUrl: `https://github.com/dev-ashir768/zaplink/releases/tag/v${bump(RUNNING)}`,
     });
   });
 

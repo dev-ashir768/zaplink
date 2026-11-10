@@ -138,7 +138,7 @@ describe('webhook recovery across live ownership and configuration changes', () 
         expect(url).toBe('https://new.example');
         expect(init.headers).toMatchObject({
           Authorization: 'new-token',
-          'X-OpenWA-Signature': `sha256=${createHmac('sha256', 'new-secret')
+          'X-ZapLink-Signature': `sha256=${createHmac('sha256', 'new-secret')
             .update(init.body as string)
             .digest('hex')}`,
         });

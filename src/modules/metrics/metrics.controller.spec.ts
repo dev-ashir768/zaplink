@@ -22,7 +22,7 @@ describe('MetricsController', () => {
   beforeEach(() => {
     warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     metricsService.assertScrapeAuthorized.mockReset();
-    metricsService.render.mockReset().mockResolvedValue('openwa_up 1\n');
+    metricsService.render.mockReset().mockResolvedValue('zaplink_up 1\n');
   });
 
   afterEach(() => warn.mockRestore());
@@ -37,7 +37,7 @@ describe('MetricsController', () => {
     expect(res.headers['content-type']).toMatch(/^text\/plain/);
     expect(res.headers['content-type']).toContain('version=0.0.4');
     expect(res.headers['cache-control']).toBe('no-store');
-    expect(res.text).toBe('openwa_up 1\n');
+    expect(res.text).toBe('zaplink_up 1\n');
   });
 
   it('answers a refused scrape as JSON without logging a content-type warning', async () => {

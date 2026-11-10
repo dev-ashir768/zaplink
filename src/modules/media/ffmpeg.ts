@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 /** The temp directory one conversion works in: mkdtemp appends six random characters to this prefix. */
-const CONVERSION_DIR_PREFIX = 'openwa-convert-';
-const CONVERSION_DIR = /^openwa-convert-[A-Za-z0-9]{6}$/;
+const CONVERSION_DIR_PREFIX = 'zaplink-convert-';
+const CONVERSION_DIR = /^zaplink-convert-[A-Za-z0-9]{6}$/;
 
 /** A conversion that ffmpeg refused, timed out on, or produced too much output for. */
 export class FfmpegConversionError extends Error {

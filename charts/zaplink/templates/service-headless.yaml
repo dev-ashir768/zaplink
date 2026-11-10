@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zaplink.fullname" . }}-headless
+  labels:
+    {{- include "zaplink.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "zaplink.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 2785
+      targetPort: http

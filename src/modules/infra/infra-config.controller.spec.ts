@@ -310,7 +310,7 @@ describe('InfraConfigController.saveConfig local storage path', () => {
   const actual = jest.requireActual<typeof import('../../config/storage-root')>('../../config/storage-root');
   const useRealProbe = () => (resolveStorageRoot as jest.Mock).mockImplementationOnce(actual.resolveStorageRoot);
   // A parent that is a file, so the directory cannot be created whoever runs the test.
-  const unwritable = '/dev/null/openwa-media';
+  const unwritable = '/dev/null/zaplink-media';
   const localAt = (localPath: string) => ({ storage: { type: 'local', localPath } }) as never;
 
   beforeEach(() => {
@@ -342,7 +342,7 @@ describe('InfraConfigController.saveConfig local storage path', () => {
   });
 
   it('saves a path the app can write', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-storage-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-storage-'));
     try {
       useRealProbe();
 
@@ -357,7 +357,7 @@ describe('InfraConfigController.saveConfig local storage path', () => {
 
   it('does not judge a path that a value pinned by the host outranks', () => {
     // With no boot snapshot recorded, every key in the environment counts as host-supplied.
-    process.env.STORAGE_LOCAL_PATH = '/srv/openwa/media';
+    process.env.STORAGE_LOCAL_PATH = '/srv/zaplink/media';
     try {
       newController().saveConfig(localAt(unwritable));
 
@@ -392,9 +392,9 @@ describe('InfraConfigController PostgreSQL schema (POSTGRES_SCHEMA)', () => {
 
   it('writes POSTGRES_SCHEMA for external Postgres', () => {
     const env = written({
-      database: { type: 'postgres', builtIn: false, host: 'db', schema: 'openwa', password: 'unit-test-pw' },
+      database: { type: 'postgres', builtIn: false, host: 'db', schema: 'zaplink', password: 'unit-test-pw' },
     });
-    expect(env).toContain('POSTGRES_SCHEMA=openwa');
+    expect(env).toContain('POSTGRES_SCHEMA=zaplink');
   });
 
   it('leaves POSTGRES_SCHEMA untouched when the payload omits it (the runtime default is public)', () => {
@@ -404,14 +404,14 @@ describe('InfraConfigController PostgreSQL schema (POSTGRES_SCHEMA)', () => {
     expect(fresh).not.toContain('POSTGRES_SCHEMA=');
     const preserved = written(
       { database: { type: 'postgres', builtIn: false, host: 'db', password: 'unit-test-pw' } },
-      'DATABASE_TYPE=postgres\nPOSTGRES_SCHEMA=openwa\n',
+      'DATABASE_TYPE=postgres\nPOSTGRES_SCHEMA=zaplink\n',
     );
-    expect(preserved).toContain('POSTGRES_SCHEMA=openwa');
+    expect(preserved).toContain('POSTGRES_SCHEMA=zaplink');
   });
 
   it('refuses a schema the next boot would reject instead of writing it', () => {
     (fs.writeFileSync as jest.Mock).mockClear();
-    for (const schema of ['OpenWA', 'pg_data', 'bad-name']) {
+    for (const schema of ['ZapLink', 'pg_data', 'bad-name']) {
       expect(() =>
         newController().saveConfig({
           database: { type: 'postgres', builtIn: false, host: 'db', schema, password: 'unit-test-pw' },
@@ -440,8 +440,8 @@ describe('InfraConfigController PostgreSQL schema (POSTGRES_SCHEMA)', () => {
 
   it('getConfig surfaces the saved POSTGRES_SCHEMA, defaulting to public', () => {
     (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.readFileSync as jest.Mock).mockReturnValue('DATABASE_TYPE=postgres\nPOSTGRES_SCHEMA=openwa\n');
-    expect(newController().getConfig().database.schema).toBe('openwa');
+    (fs.readFileSync as jest.Mock).mockReturnValue('DATABASE_TYPE=postgres\nPOSTGRES_SCHEMA=zaplink\n');
+    expect(newController().getConfig().database.schema).toBe('zaplink');
     (fs.readFileSync as jest.Mock).mockReturnValue('DATABASE_TYPE=postgres\n');
     expect(newController().getConfig().database.schema).toBe('public');
     (fs.existsSync as jest.Mock).mockReturnValue(false);
@@ -531,7 +531,7 @@ describe('InfraConfigController.saveConfig env-name correctness and merge (#226)
 
   it('drops stale postgres keys (including POSTGRES_SCHEMA) when switching to sqlite', () => {
     const existing =
-      'DATABASE_TYPE=postgres\nDATABASE_HOST=oldhost\nDATABASE_PASSWORD=secret\nDATABASE_PORT=5432\nPOSTGRES_SCHEMA=openwa\n';
+      'DATABASE_TYPE=postgres\nDATABASE_HOST=oldhost\nDATABASE_PASSWORD=secret\nDATABASE_PORT=5432\nPOSTGRES_SCHEMA=zaplink\n';
     const env = written({ database: { type: 'sqlite' } }, existing);
     expect(env).toContain('DATABASE_TYPE=sqlite');
     expect(env).not.toContain('DATABASE_HOST=');
@@ -717,7 +717,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
       .sort()
       .map(k => `${k}=${keys[k]}`);
     return [
-      '# OpenWA Configuration',
+      '# ZapLink Configuration',
       `# Generated at ${NOW}`,
       '# Managed via Dashboard > Infrastructure. Values in process env or project .env take precedence.',
       '',
@@ -741,9 +741,9 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
       'POSTGRES_BUILTIN=true',
       'DATABASE_HOST=postgres',
       'DATABASE_PORT=5432',
-      'DATABASE_USERNAME=openwa',
-      'DATABASE_PASSWORD=openwa',
-      'DATABASE_NAME=openwa',
+      'DATABASE_USERNAME=zaplink',
+      'DATABASE_PASSWORD=zaplink',
+      'DATABASE_NAME=zaplink',
       'POSTGRES_SCHEMA=public',
       'DATABASE_POOL_SIZE=10',
       'DATABASE_SSL=false',
@@ -757,7 +757,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
       'S3_ENDPOINT=http://minio:9000',
       'S3_ACCESS_KEY_ID=minioadmin',
       'S3_SECRET_ACCESS_KEY=minioadmin',
-      'S3_BUCKET=openwa',
+      'S3_BUCKET=zaplink',
       'S3_REGION=us-east-1',
       'ENGINE_TYPE=whatsapp-web.js',
       'PUPPETEER_HEADLESS=true',
@@ -774,9 +774,9 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
         builtIn: true,
         host: 'postgres',
         port: '5432',
-        username: 'openwa',
+        username: 'zaplink',
         password: '',
-        database: 'openwa',
+        database: 'zaplink',
         schema: 'public',
         poolSize: 10,
         sslEnabled: false,
@@ -788,7 +788,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
         type: 's3',
         builtIn: true,
         localPath: '',
-        s3Bucket: 'openwa',
+        s3Bucket: 'zaplink',
         s3Region: 'us-east-1',
         s3AccessKey: '',
         s3SecretKey: '',
@@ -807,13 +807,13 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
     expect(content).toBe(
       expectedEnv({
         DATABASE_HOST: 'postgres',
-        DATABASE_NAME: 'openwa',
-        DATABASE_PASSWORD: 'openwa',
+        DATABASE_NAME: 'zaplink',
+        DATABASE_PASSWORD: 'zaplink',
         DATABASE_POOL_SIZE: '10',
         DATABASE_PORT: '5432',
         DATABASE_SSL: 'false',
         DATABASE_TYPE: 'postgres',
-        DATABASE_USERNAME: 'openwa',
+        DATABASE_USERNAME: 'zaplink',
         ENGINE_TYPE: 'whatsapp-web.js',
         MINIO_BUILTIN: 'true',
         POSTGRES_BUILTIN: 'true',
@@ -827,7 +827,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
         REDIS_PORT: '6379',
         REDIS_TLS: 'false',
         S3_ACCESS_KEY_ID: 'minioadmin',
-        S3_BUCKET: 'openwa',
+        S3_BUCKET: 'zaplink',
         S3_ENDPOINT: 'http://minio:9000',
         S3_REGION: 'us-east-1',
         S3_SECRET_ACCESS_KEY: 'minioadmin',
@@ -844,10 +844,10 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
       'POSTGRES_BUILTIN=false',
       'DATABASE_HOST=db.example.com',
       'DATABASE_PORT=5433',
-      'DATABASE_USERNAME=openwauser',
+      'DATABASE_USERNAME=zaplinkuser',
       'DATABASE_PASSWORD=Str0ng!Passw0rd',
-      'DATABASE_NAME=openwa',
-      'POSTGRES_SCHEMA=openwa',
+      'DATABASE_NAME=zaplink',
+      'POSTGRES_SCHEMA=zaplink',
       'DATABASE_POOL_SIZE=20',
       'DATABASE_SSL=true',
       'DATABASE_SSL_REJECT_UNAUTHORIZED=false',
@@ -866,7 +866,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
       'S3_REGION=eu-west-1',
       'ENGINE_TYPE=baileys',
       'PUPPETEER_HEADLESS=false',
-      'SESSION_DATA_PATH=/var/lib/openwa/sessions',
+      'SESSION_DATA_PATH=/var/lib/zaplink/sessions',
       'PUPPETEER_ARGS=--no-sandbox',
       '',
     ].join('\n');
@@ -876,10 +876,10 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
         builtIn: false,
         host: 'db.example.com',
         port: '5433',
-        username: 'openwauser',
+        username: 'zaplinkuser',
         password: '',
-        database: 'openwa',
-        schema: 'openwa',
+        database: 'zaplink',
+        schema: 'zaplink',
         poolSize: 20,
         sslEnabled: true,
         sslRejectUnauthorized: false,
@@ -899,7 +899,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
       engine: {
         type: 'baileys',
         headless: false,
-        sessionDataPath: '/var/lib/openwa/sessions',
+        sessionDataPath: '/var/lib/zaplink/sessions',
         browserArgs: '--no-sandbox',
       },
     };
@@ -909,18 +909,18 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
     expect(content).toBe(
       expectedEnv({
         DATABASE_HOST: 'db.example.com',
-        DATABASE_NAME: 'openwa',
+        DATABASE_NAME: 'zaplink',
         DATABASE_PASSWORD: 'Str0ng!Passw0rd',
         DATABASE_POOL_SIZE: '20',
         DATABASE_PORT: '5433',
         DATABASE_SSL: 'true',
         DATABASE_SSL_REJECT_UNAUTHORIZED: 'false',
         DATABASE_TYPE: 'postgres',
-        DATABASE_USERNAME: 'openwauser',
+        DATABASE_USERNAME: 'zaplinkuser',
         ENGINE_TYPE: 'baileys',
         MINIO_BUILTIN: 'false',
         POSTGRES_BUILTIN: 'false',
-        POSTGRES_SCHEMA: 'openwa',
+        POSTGRES_SCHEMA: 'zaplink',
         PUPPETEER_ARGS: '--no-sandbox',
         PUPPETEER_HEADLESS: 'false',
         QUEUE_ENABLED: 'false',
@@ -934,7 +934,7 @@ describe('InfraConfigController.saveConfig byte-identical regression (full dashb
         S3_ENDPOINT: 'https://s3.eu-west-1.amazonaws.com',
         S3_REGION: 'eu-west-1',
         S3_SECRET_ACCESS_KEY: 's3-super-secret',
-        SESSION_DATA_PATH: '/var/lib/openwa/sessions',
+        SESSION_DATA_PATH: '/var/lib/zaplink/sessions',
         STORAGE_TYPE: 's3',
       }),
     );
@@ -980,11 +980,11 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
 
   it('a partial database save keeps unmentioned keys (pool size, schema, stored password)', () => {
     const existing =
-      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=old.example.com\nDATABASE_PASSWORD=keepme\nDATABASE_POOL_SIZE=25\nPOSTGRES_SCHEMA=openwa\n';
+      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=old.example.com\nDATABASE_PASSWORD=keepme\nDATABASE_POOL_SIZE=25\nPOSTGRES_SCHEMA=zaplink\n';
     const env = written({ database: { type: 'postgres', host: 'new.example.com' } }, existing);
     expect(env).toContain('DATABASE_HOST=new.example.com');
     expect(env).toContain('DATABASE_POOL_SIZE=25');
-    expect(env).toContain('POSTGRES_SCHEMA=openwa');
+    expect(env).toContain('POSTGRES_SCHEMA=zaplink');
     expect(env).toContain('DATABASE_PASSWORD=keepme');
   });
 
@@ -1017,7 +1017,7 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
         'S3_SECRET_ACCESS_KEY=ExternalSecret1234567890\n',
     );
 
-    expect(env).toContain('DATABASE_PASSWORD=openwa');
+    expect(env).toContain('DATABASE_PASSWORD=zaplink');
     expect(env).toContain('S3_ACCESS_KEY_ID=minioadmin');
     expect(env).toContain('S3_SECRET_ACCESS_KEY=minioadmin');
   });
@@ -1070,14 +1070,14 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
     });
 
     // The page sends every field of a card, seeded with defaults for keys nothing stores. Applied to the stored
-    // PostgreSQL while SQLite is pinned, that writes DATABASE_NAME=openwa, a bare name the pinned SQLite boot refuses.
+    // PostgreSQL while SQLite is pinned, that writes DATABASE_NAME=zaplink, a bare name the pinned SQLite boot refuses.
     it('writes nothing of a section whose pinned selection differs from the stored one', () => {
       pin({ DATABASE_TYPE: 'sqlite', STORAGE_TYPE: 'local' });
       const stored = STORED_EXTERNAL.replace('DATABASE_NAME=appdb\n', '');
 
       const env = written(
         {
-          database: { builtIn: false, host: 'db.example.com', port: '5432', database: 'openwa', poolSize: 10 },
+          database: { builtIn: false, host: 'db.example.com', port: '5432', database: 'zaplink', poolSize: 10 },
           storage: { builtIn: false, localPath: './data/media', s3Region: 'ap-southeast-1' },
         },
         stored,
@@ -1201,10 +1201,10 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
         {
           redis: { enabled: true, host: 'cache.ext.example', port: '6379' },
           queue: { enabled: false },
-          storage: { type: 's3', s3Bucket: 'openwa', s3Endpoint: 'https://s3.ext.example' },
+          storage: { type: 's3', s3Bucket: 'zaplink', s3Endpoint: 'https://s3.ext.example' },
         },
         'REDIS_ENABLED=true\nREDIS_BUILTIN=true\nREDIS_HOST=redis\nREDIS_PORT=6379\nSTORAGE_TYPE=s3\nMINIO_BUILTIN=true\n' +
-          'S3_ENDPOINT=http://minio:9000\nS3_BUCKET=openwa\nS3_ACCESS_KEY_ID=minioadmin\nS3_SECRET_ACCESS_KEY=minioadmin\n',
+          'S3_ENDPOINT=http://minio:9000\nS3_BUCKET=zaplink\nS3_ACCESS_KEY_ID=minioadmin\nS3_SECRET_ACCESS_KEY=minioadmin\n',
       );
 
       for (const line of [
@@ -1219,9 +1219,9 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
 
     it('keeps the details of a stored bundled host without a true flag while another host is pinned', () => {
       pin({ DATABASE_HOST: 'db.ext.example', S3_ENDPOINT: 'https://s3.ext.example' });
-      const stored = STORED_EXTERNAL.replace('db.example.com', 'openwa-postgres').replace(
+      const stored = STORED_EXTERNAL.replace('db.example.com', 'zaplink-postgres').replace(
         'https://s3.example.com',
-        'http://openwa-minio:9000',
+        'http://zaplink-minio:9000',
       );
       const dotenv = jest.requireActual<typeof import('dotenv')>('dotenv');
 
@@ -1236,21 +1236,21 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
       const env = written(
         { database: { type: 'postgres' }, storage: { type: 's3' } },
         'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=stale\n' +
-          'DATABASE_NAME=./data/openwa.sqlite\nPOSTGRES_SCHEMA=stale\nSTORAGE_TYPE=local\nMINIO_BUILTIN=true\n' +
+          'DATABASE_NAME=./data/zaplink.sqlite\nPOSTGRES_SCHEMA=stale\nSTORAGE_TYPE=local\nMINIO_BUILTIN=true\n' +
           'S3_ENDPOINT=http://minio:9000\nS3_BUCKET=stale\nS3_REGION=stale\n',
       );
 
       for (const line of [
-        'DATABASE_USERNAME=openwa',
-        'DATABASE_NAME=openwa',
+        'DATABASE_USERNAME=zaplink',
+        'DATABASE_NAME=zaplink',
         'POSTGRES_SCHEMA=public',
-        'S3_BUCKET=openwa',
+        'S3_BUCKET=zaplink',
         'S3_REGION=us-east-1',
       ]) {
         expect(env).toContain(line);
       }
       expect(env).not.toContain('stale');
-      expect(env).not.toContain('openwa.sqlite');
+      expect(env).not.toContain('zaplink.sqlite');
     });
 
     it.each(['true', 'false'])(
@@ -1297,11 +1297,11 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
           REDIS_BUILTIN: 'true',
           MINIO_BUILTIN: 'true',
           DATABASE_PORT: '5432',
-          DATABASE_USERNAME: 'openwa',
-          DATABASE_NAME: 'openwa',
+          DATABASE_USERNAME: 'zaplink',
+          DATABASE_NAME: 'zaplink',
           POSTGRES_SCHEMA: 'public',
           REDIS_PORT: '6379',
-          S3_BUCKET: 'openwa',
+          S3_BUCKET: 'zaplink',
           S3_REGION: 'us-east-1',
           S3_ACCESS_KEY_ID: 'StoredKey123456',
           S3_SECRET_ACCESS_KEY: 'StoredSecret1234567890',
@@ -1349,7 +1349,7 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
     describe('an edited external card beside a host pinned elsewhere over a stored built-in database', () => {
       const STORED_BUILTIN =
         'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PORT=5432\n' +
-        'DATABASE_USERNAME=openwa\nDATABASE_PASSWORD=openwa\nDATABASE_NAME=openwa\nPOSTGRES_SCHEMA=public\n';
+        'DATABASE_USERNAME=zaplink\nDATABASE_PASSWORD=zaplink\nDATABASE_NAME=zaplink\nPOSTGRES_SCHEMA=public\n';
       const EDITED = {
         database: {
           type: 'postgres' as const,
@@ -1431,9 +1431,9 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
   }
 
   const BUILTIN_POSTGRES_ENV =
-    'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PORT=5432\nDATABASE_USERNAME=openwa\nDATABASE_PASSWORD=openwa\nDATABASE_NAME=openwa\nPOSTGRES_SCHEMA=public\n';
+    'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PORT=5432\nDATABASE_USERNAME=zaplink\nDATABASE_PASSWORD=zaplink\nDATABASE_NAME=zaplink\nPOSTGRES_SCHEMA=public\n';
   const BUILTIN_MINIO_ENV =
-    'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_ACCESS_KEY_ID=minioadmin\nS3_SECRET_ACCESS_KEY=minioadmin\nS3_BUCKET=openwa\nS3_REGION=us-east-1\n';
+    'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_ACCESS_KEY_ID=minioadmin\nS3_SECRET_ACCESS_KEY=minioadmin\nS3_BUCKET=zaplink\nS3_REGION=us-east-1\n';
 
   it('flipping Postgres built-in -> external with a fresh password drops the bundled password', () => {
     const env = written(
@@ -1452,12 +1452,12 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     expect(env).toContain('POSTGRES_BUILTIN=false');
     expect(env).toContain('DATABASE_HOST=db.example.com');
     expect(env).toContain('DATABASE_PASSWORD=Sup3rSecret!');
-    // No trace of the bundled 'openwa' credential may survive the flip.
-    expect(env).not.toContain('openwa');
+    // No trace of the bundled 'zaplink' credential may survive the flip.
+    expect(env).not.toContain('zaplink');
   });
 
   it('rejects flipping Postgres built-in -> external without a fresh password instead of crash-looping', () => {
-    // Without the mode-flip drop + save-time guard this saved the bundled 'openwa' password into
+    // Without the mode-flip drop + save-time guard this saved the bundled 'zaplink' password into
     // the external config; the production boot guard then refused to start and the dashboard died
     // with it. The save itself must now fail with a 400 naming the variable.
     expectRejected(
@@ -1682,7 +1682,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
       database: { type: 'postgres', builtIn: true },
       storage: { type: 's3', builtIn: true },
     });
-    expect(env).toContain('DATABASE_PASSWORD=openwa');
+    expect(env).toContain('DATABASE_PASSWORD=zaplink');
     expect(env).toContain('POSTGRES_BUILTIN=true');
     expect(env).toContain('S3_ACCESS_KEY_ID=minioadmin');
     expect(env).toContain('MINIO_BUILTIN=true');
@@ -1690,11 +1690,11 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
 
   it('an absent builtIn field inherits built-in mode without clobbering a stored custom password', () => {
     // Secrets are never echoed back to the form, so an absent password field means "unchanged".
-    // Merely inheriting the built-in mode must not re-stamp the bundled 'openwa' over a custom
+    // Merely inheriting the built-in mode must not re-stamp the bundled 'zaplink' over a custom
     // password (e.g. an operator who re-keyed the bundled container via POSTGRES_PASSWORD).
     const env = written(
       { database: { type: 'postgres', poolSize: 25 } },
-      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PORT=5432\nDATABASE_USERNAME=openwa\nDATABASE_PASSWORD=CustomPw123!\nDATABASE_NAME=openwa\nPOSTGRES_SCHEMA=public\n',
+      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PORT=5432\nDATABASE_USERNAME=zaplink\nDATABASE_PASSWORD=CustomPw123!\nDATABASE_NAME=zaplink\nPOSTGRES_SCHEMA=public\n',
     );
     expect(env).toContain('POSTGRES_BUILTIN=true');
     expect(env).toContain('DATABASE_PASSWORD=CustomPw123!');
@@ -1704,10 +1704,10 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
   it('an explicit password wins while the built-in mode is only inherited', () => {
     const env = written(
       { database: { type: 'postgres', password: 'NewPw456!' } },
-      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PASSWORD=openwa\nDATABASE_NAME=openwa\n',
+      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PASSWORD=zaplink\nDATABASE_NAME=zaplink\n',
     );
     expect(env).toContain('DATABASE_PASSWORD=NewPw456!');
-    expect(env).not.toContain('DATABASE_PASSWORD=openwa');
+    expect(env).not.toContain('DATABASE_PASSWORD=zaplink');
   });
 
   it('an explicit builtIn:true keeps a re-keyed bundled password (the dashboard always sends builtIn)', () => {
@@ -1716,19 +1716,19 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     // credential on each save, breaking the next boot's DB auth.
     const env = written(
       { database: { type: 'postgres', builtIn: true } },
-      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PASSWORD=CustomPw123!\nDATABASE_NAME=openwa\n',
+      'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_PASSWORD=CustomPw123!\nDATABASE_NAME=zaplink\n',
     );
     expect(env).toContain('DATABASE_PASSWORD=CustomPw123!');
   });
 
   it('does not carry an EXTERNAL password into the bundled container when switching to built-in', () => {
-    // The stored secret belongs to the external DB; the bundled container is seeded with 'openwa'
+    // The stored secret belongs to the external DB; the bundled container is seeded with 'zaplink'
     // unless the operator re-keys it, so switching modes must reset rather than inherit.
     const env = written(
       { database: { type: 'postgres', builtIn: true } },
       'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=db.example.com\nDATABASE_PASSWORD=ExternalPw!\nDATABASE_NAME=appdb\n',
     );
-    expect(env).toContain('DATABASE_PASSWORD=openwa');
+    expect(env).toContain('DATABASE_PASSWORD=zaplink');
     expect(env).not.toContain('ExternalPw!');
   });
 
@@ -1745,7 +1745,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     it('keeps it when the file names the bundled host without the flag', () => {
       const env = written(
         { database: { type: 'postgres', builtIn: true } },
-        'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=postgres\nDATABASE_PASSWORD=CustomPw123!\nDATABASE_NAME=openwa\n',
+        'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=postgres\nDATABASE_PASSWORD=CustomPw123!\nDATABASE_NAME=zaplink\n',
       );
       expect(env).toContain('POSTGRES_BUILTIN=true');
       expect(env).toContain('DATABASE_PASSWORD=CustomPw123!');
@@ -1798,7 +1798,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     });
     it.each(HOST_SPELLINGS.database.elsewhere)('still resets it under %j in the file', host => {
       expect(written({ database: { type: 'postgres', builtIn: true } }, `${STORED}DATABASE_HOST=${host}\n`)).toContain(
-        'DATABASE_PASSWORD=openwa',
+        'DATABASE_PASSWORD=zaplink',
       );
     });
   });
@@ -1815,7 +1815,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     it('keeps them when the flag is already set', () => {
       const env = written(
         { storage: { type: 's3', builtIn: true } },
-        'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=openwa\n' + KEYS,
+        'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=zaplink\n' + KEYS,
       );
       expect(env).toContain('S3_ACCESS_KEY_ID=StoredKey12345');
       expect(env).toContain('S3_SECRET_ACCESS_KEY=StoredSecret1234567890');
@@ -1824,7 +1824,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     it('keeps them when the file names the bundled endpoint without the flag', () => {
       const env = written(
         { storage: { type: 's3', builtIn: true } },
-        'STORAGE_TYPE=s3\nMINIO_BUILTIN=false\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=openwa\n' + KEYS,
+        'STORAGE_TYPE=s3\nMINIO_BUILTIN=false\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=zaplink\n' + KEYS,
       );
       expect(env).toContain('MINIO_BUILTIN=true');
       expect(env).toContain('S3_ACCESS_KEY_ID=StoredKey12345');
@@ -1846,7 +1846,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
       recordPinnedEnvKeys({ S3_ENDPOINT: 'https://s3.example.com' });
       const env = written(
         { storage: { type: 's3', builtIn: true } },
-        'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=openwa\n' + KEYS,
+        'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=zaplink\n' + KEYS,
       );
       expect(env).toContain('S3_ACCESS_KEY_ID=StoredKey12345');
       expect(env).toContain('S3_SECRET_ACCESS_KEY=StoredSecret1234567890');
@@ -1871,7 +1871,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
       expect(env).not.toContain('StoredKey12345');
     });
 
-    const STORED = 'STORAGE_TYPE=s3\nMINIO_BUILTIN=false\nS3_BUCKET=openwa\n' + KEYS;
+    const STORED = 'STORAGE_TYPE=s3\nMINIO_BUILTIN=false\nS3_BUCKET=zaplink\n' + KEYS;
     it.each(HOST_SPELLINGS.storage.reach)('keeps them under %j in the file or pinned', host => {
       expect(written({ storage: { type: 's3', builtIn: true } }, `${STORED}S3_ENDPOINT=${host}\n`)).toContain(
         'S3_SECRET_ACCESS_KEY=StoredSecret1234567890',
@@ -1947,10 +1947,10 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
         pageSave('db.example.com', 'https://s3.example.com'),
         FILE('db.example.com', 'https://s3.example.com'),
       );
-      for (const line of ['DATABASE_USERNAME=openwa', 'DATABASE_NAME=openwa', 'POSTGRES_SCHEMA=public']) {
+      for (const line of ['DATABASE_USERNAME=zaplink', 'DATABASE_NAME=zaplink', 'POSTGRES_SCHEMA=public']) {
         expect(env).toContain(line);
       }
-      expect(env).toContain('S3_BUCKET=openwa');
+      expect(env).toContain('S3_BUCKET=zaplink');
       expect(env).toContain('S3_REGION=us-east-1');
     });
 
@@ -1960,10 +1960,10 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
       recordPinnedEnvKeys({ DATABASE_HOST: 'postgres' });
       const env = written(
         { database: { type: 'postgres', builtIn: true } },
-        'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=false\nDATABASE_NAME=./data/openwa.sqlite\n',
+        'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=false\nDATABASE_NAME=./data/zaplink.sqlite\n',
       );
-      expect(env).toContain('DATABASE_NAME=openwa');
-      expect(env).not.toContain('openwa.sqlite');
+      expect(env).toContain('DATABASE_NAME=zaplink');
+      expect(env).not.toContain('zaplink.sqlite');
     });
 
     // Likewise local storage dials no MinIO, whatever bucket an older file left behind.
@@ -1974,7 +1974,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
         { storage: { type: 's3', builtIn: true } },
         'STORAGE_TYPE=local\nMINIO_BUILTIN=false\nS3_BUCKET=media\nS3_REGION=eu-west-1\n',
       );
-      expect(env).toContain('S3_BUCKET=openwa');
+      expect(env).toContain('S3_BUCKET=zaplink');
       expect(env).toContain('S3_REGION=us-east-1');
     });
 
@@ -1984,13 +1984,13 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
     describe('switched away and back before a restart', () => {
       const RUNNING: Record<string, string> = {
         DATABASE_TYPE: 'postgres',
-        DATABASE_HOST: 'openwa-postgres',
+        DATABASE_HOST: 'zaplink-postgres',
         DATABASE_USERNAME: 'app',
         DATABASE_PASSWORD: 'RunPw12345!',
         DATABASE_NAME: 'appdb',
         POSTGRES_SCHEMA: 'tenant',
         STORAGE_TYPE: 's3',
-        S3_ENDPOINT: 'http://openwa-minio:9000',
+        S3_ENDPOINT: 'http://zaplink-minio:9000',
         S3_BUCKET: 'media',
         S3_REGION: 'eu-west-1',
         S3_ACCESS_KEY_ID: 'RunKey1234567',
@@ -2075,12 +2075,12 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
           switchBack({ ...RUNNING, DATABASE_HOST: 'db.old.example', S3_ENDPOINT: 'https://s3.old.example' }),
         ).toEqual({
           DATABASE_HOST: 'postgres',
-          DATABASE_USERNAME: 'openwa',
-          DATABASE_PASSWORD: 'openwa',
-          DATABASE_NAME: 'openwa',
+          DATABASE_USERNAME: 'zaplink',
+          DATABASE_PASSWORD: 'zaplink',
+          DATABASE_NAME: 'zaplink',
           POSTGRES_SCHEMA: 'public',
           S3_ENDPOINT: 'http://minio:9000',
-          S3_BUCKET: 'openwa',
+          S3_BUCKET: 'zaplink',
           S3_REGION: 'us-east-1',
           S3_ACCESS_KEY_ID: 'minioadmin',
           S3_SECRET_ACCESS_KEY: 'minioadmin',
@@ -2095,9 +2095,9 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
           STORAGE_TYPE: 'local',
         });
         expect([env.DATABASE_NAME, env.DATABASE_PASSWORD, env.S3_BUCKET, env.S3_ACCESS_KEY_ID]).toEqual([
-          'openwa',
-          'openwa',
-          'openwa',
+          'zaplink',
+          'zaplink',
+          'zaplink',
           'minioadmin',
         ]);
       });
@@ -2221,7 +2221,7 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
         process.env.DATABASE_TYPE = 'postgres';
         process.env.POSTGRES_BUILTIN = 'true';
         process.env.DATABASE_HOST = 'postgres';
-        process.env.DATABASE_PASSWORD = 'openwa';
+        process.env.DATABASE_PASSWORD = 'zaplink';
         expectRejected(
           {
             database: { type: 'postgres', builtIn: false, host: 'db.example.com', username: 'app', database: 'appdb' },
@@ -2928,7 +2928,7 @@ describe('InfraConfigController.requestRestart constrains teardown to managed pr
     ] as const)('%s switched off from the page', (service, payload) => {
       it('is stopped by the restart that follows the save', async () => {
         const saved = [
-          'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=openwa\nDATABASE_PASSWORD=openwa',
+          'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=zaplink\nDATABASE_PASSWORD=zaplink',
           'REDIS_ENABLED=true\nREDIS_BUILTIN=true\nREDIS_HOST=redis\nREDIS_PORT=6379\nQUEUE_ENABLED=true',
           'STORAGE_TYPE=s3\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_ACCESS_KEY_ID=minioadmin',
           'S3_SECRET_ACCESS_KEY=minioadmin\n',
@@ -3068,8 +3068,8 @@ describe('InfraConfigController.requestRestart constrains teardown to managed pr
 describe('InfraConfigController.requestRestart when the built-in database does not start', () => {
   const RUNNING = 'DATABASE_TYPE=sqlite\nENGINE_TYPE=baileys\n';
   const SAVED_BUILT_IN =
-    'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=openwa\n' +
-    'DATABASE_PASSWORD=openwa\nDATABASE_NAME=openwa\n';
+    'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=zaplink\n' +
+    'DATABASE_PASSWORD=zaplink\nDATABASE_NAME=zaplink\n';
   const startError = "Failed to create or start the 'postgres' container; see the server log for the Docker error.";
   const failedStart = {
     success: false,

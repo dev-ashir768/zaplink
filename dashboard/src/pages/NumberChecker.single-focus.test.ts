@@ -82,14 +82,14 @@ afterEach(async () => {
   rtl.cleanup();
   queryClient?.clear();
   queryClient = undefined;
-  sessionStorage.removeItem('openwa_user_role');
+  sessionStorage.removeItem('zaplink_user_role');
   checks = 0;
   refuseLookup = false;
   releaseLookup = () => {};
 });
 
 async function renderPage() {
-  sessionStorage.setItem('openwa_user_role', 'operator');
+  sessionStorage.setItem('zaplink_user_role', 'operator');
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
   rtl.render(
     createElement(

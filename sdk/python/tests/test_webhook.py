@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from openwa import verify_webhook_signature
-from openwa.types import WebhookDelivery
+from zaplink import verify_webhook_signature
+from zaplink.types import WebhookDelivery
 
 # Shared across the SDK suites; the gateway's generateSignature produces this header for this body.
 SECRET = "test-secret-0123456789"

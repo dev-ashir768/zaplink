@@ -249,7 +249,7 @@ describe('SessionProxyInterceptor', () => {
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.setHeader).toHaveBeenCalledWith('content-type', 'application/json');
-      expect(res.setHeader).toHaveBeenCalledWith('x-openwa-served-by', 'peer-node');
+      expect(res.setHeader).toHaveBeenCalledWith('x-zaplink-served-by', 'peer-node');
       expect(res.setHeader).not.toHaveBeenCalledWith('x-hop-by-hop', expect.anything());
       const sentBody = (res.send.mock.calls[0] as [Buffer])[0];
       expect(JSON.parse(String(sentBody))).toEqual({ servedBy: 'the-owner' });
@@ -547,17 +547,17 @@ describe('forwardTarget', () => {
   it('carries the owner base path when one is configured', () => {
     expect(forwardTarget('/api/sessions/s1', 'http://10.0.0.5:2785/')).toBe('http://10.0.0.5:2785/api/sessions/s1');
     // An owner behind a path-prefixed reverse proxy: the prefix is where its API lives.
-    expect(forwardTarget('/api/sessions/s1?x=1', 'https://node-a.example.com/openwa/')).toBe(
-      'https://node-a.example.com/openwa/api/sessions/s1?x=1',
+    expect(forwardTarget('/api/sessions/s1?x=1', 'https://node-a.example.com/zaplink/')).toBe(
+      'https://node-a.example.com/zaplink/api/sessions/s1?x=1',
     );
-    expect(forwardTarget('/api/sessions/s1', 'https://node-a.example.com/openwa')).toBe(
-      'https://node-a.example.com/openwa/api/sessions/s1',
+    expect(forwardTarget('/api/sessions/s1', 'https://node-a.example.com/zaplink')).toBe(
+      'https://node-a.example.com/zaplink/api/sessions/s1',
     );
   });
 
   it('keeps the owner origin and prefix for a network-path target under a prefixed base', () => {
-    const target = new URL(forwardTarget('http://attacker.tld//evil.host/x', 'https://node-a.example.com/openwa'));
+    const target = new URL(forwardTarget('http://attacker.tld//evil.host/x', 'https://node-a.example.com/zaplink'));
     expect(target.origin).toBe('https://node-a.example.com');
-    expect(target.pathname.startsWith('/openwa/')).toBe(true);
+    expect(target.pathname.startsWith('/zaplink/')).toBe(true);
   });
 });

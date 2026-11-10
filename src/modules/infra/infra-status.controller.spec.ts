@@ -216,9 +216,9 @@ describe('InfraStatusController.getStatus storage (reads the real storage.localP
     // `./uploads` fallback instead of the real path StorageService uses (`storage.localPath`).
     const status = await buildController({
       'storage.type': 'local',
-      'storage.localPath': '/srv/openwa/media',
+      'storage.localPath': '/srv/zaplink/media',
     }).getStatus();
-    expect(status.storage.path).toBe('/srv/openwa/media');
+    expect(status.storage.path).toBe('/srv/zaplink/media');
   });
 
   it('falls back to ./data/media (matching StorageService) when storage.localPath is unset', async () => {
@@ -227,9 +227,12 @@ describe('InfraStatusController.getStatus storage (reads the real storage.localP
   });
 
   it('reports the bucket in S3 mode so the active backend is visible', async () => {
-    const status = await buildController({ 'storage.type': 's3', 'storage.s3.bucket': 'my-openwa-bucket' }).getStatus();
+    const status = await buildController({
+      'storage.type': 's3',
+      'storage.s3.bucket': 'my-zaplink-bucket',
+    }).getStatus();
     expect(status.storage.type).toBe('s3');
-    expect(status.storage.bucket).toBe('my-openwa-bucket');
+    expect(status.storage.bucket).toBe('my-zaplink-bucket');
   });
 
   it('omits bucket in local mode (no fabricated field)', async () => {
@@ -499,7 +502,7 @@ describe('InfraStatusController.getStatus built-in fallback reads the flag only 
   });
 });
 
-// `running` reports a bundled container OpenWA created that is up, apart from whether the service uses it: the page
+// `running` reports a bundled container ZapLink created that is up, apart from whether the service uses it: the page
 // stops one whose host the environment pins elsewhere. One Docker Compose created belongs to the deployment, and one
 // beside a configuration that never chose the built-in service belongs to no setup of this instance (a second
 // instance on the same daemon sees the first one's containers under the same names).
@@ -516,7 +519,7 @@ describe('InfraStatusController.getStatus running bundled containers', () => {
     for (const flag of ['POSTGRES_BUILTIN', 'REDIS_BUILTIN', 'MINIO_BUILTIN']) delete process.env[flag];
   });
 
-  const build = (containers: Record<'database' | 'cache' | 'storage', false | 'compose' | 'openwa'> | null) => {
+  const build = (containers: Record<'database' | 'cache' | 'storage', false | 'compose' | 'zaplink'> | null) => {
     const values: Record<string, unknown> = {
       'engine.type': 'baileys',
       'dataDatabase.type': 'postgres',
@@ -548,8 +551,8 @@ describe('InfraStatusController.getStatus running bundled containers', () => {
     if (savedRedisHost !== undefined) process.env.REDIS_HOST = savedRedisHost;
   });
 
-  it('reports a container OpenWA created as running whether or not the service uses it', async () => {
-    const status = await build({ database: 'openwa', cache: 'compose', storage: 'openwa' }).getStatus();
+  it('reports a container ZapLink created as running whether or not the service uses it', async () => {
+    const status = await build({ database: 'zaplink', cache: 'compose', storage: 'zaplink' }).getStatus();
 
     expect([status.database.builtIn, status.database.running]).toEqual([false, true]);
     expect([status.redis.builtIn, status.redis.running]).toEqual([true, false]);
@@ -568,7 +571,7 @@ describe('InfraStatusController.getStatus running bundled containers', () => {
     ['no saved file', null],
   ])('reports none of the three running beside %s that never chose them', async (_label, contents) => {
     withFile(contents);
-    const status = await build({ database: 'openwa', cache: 'openwa', storage: 'openwa' }).getStatus();
+    const status = await build({ database: 'zaplink', cache: 'zaplink', storage: 'zaplink' }).getStatus();
 
     expect([status.database.running, status.redis.running, status.storage.running]).toEqual([false, false, false]);
   });
@@ -578,7 +581,7 @@ describe('InfraStatusController.getStatus running bundled containers', () => {
     process.env.POSTGRES_BUILTIN = 'true';
     process.env.REDIS_BUILTIN = 'false';
     recordPinnedEnvKeys({ POSTGRES_BUILTIN: 'true', REDIS_BUILTIN: 'false' });
-    const status = await build({ database: 'openwa', cache: 'openwa', storage: 'openwa' }).getStatus();
+    const status = await build({ database: 'zaplink', cache: 'zaplink', storage: 'zaplink' }).getStatus();
 
     expect([status.database.running, status.redis.running, status.storage.running]).toEqual([true, false, false]);
   });
@@ -653,7 +656,7 @@ describe('InfraStatusController unavailable Docker inventory', () => {
   });
 
   it('distinguishes an unavailable inventory from an observed empty list and later recovery', async () => {
-    const running = { database: false, cache: 'openwa', storage: false };
+    const running = { database: false, cache: 'zaplink', storage: false };
     const inventory = jest
       .fn()
       .mockResolvedValueOnce(null)

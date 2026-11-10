@@ -1,4 +1,4 @@
-# OpenWA - Docker Compose Configuration
+# ZapLink - Docker Compose Configuration
 # Smart Orchestration with Profiles
 
 services:
@@ -7,9 +7,9 @@ services:
     # Pinned by release tag and digest: this container holds the Docker socket, so a re-pushed tag
     # must not change what runs here.
     image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
-    container_name: openwa-docker-proxy
+    container_name: zaplink-docker-proxy
     restart: unless-stopped
-    # Only on the isolated internal network, reachable solely by openwa-api (including any
+    # Only on the isolated internal network, reachable solely by zaplink-api (including any
     # plugin loaded into it), NOT the dashboard or any other peer. `internal: true` also denies the proxy
     # outbound access; it only needs the locally-mounted docker socket.
     networks:
@@ -23,7 +23,7 @@ services:
       # method gate for non-GET requests (haproxy.cfg: `deny unless METH_GET || env(POST)`).
       # Two consequences of the pinned proxy config, accepted and documented in SECURITY.md:
       #  - its `DELETE` env flag is dead config (never read), so it is not set here; DELETE is
-      #    admitted to enabled paths as a side effect of POST — OpenWA itself never issues
+      #    admitted to enabled paths as a side effect of POST — ZapLink itself never issues
       #    deletes (profile teardown is stop-only, see DockerService.stopManagedService).
       #  - the proxy cannot scope container-create payloads, so a compromised API container
       #    could create containers with host bind-mounts. If you don't use the built-in
@@ -40,15 +40,15 @@ services:
       POST: 1
       # Everything else is denied by default (AUTH, SECRETS, NETWORKS, PLUGINS, SWARM, TASKS, SERVICES, CONFIGS, NODES, DISTRIBUTIONS)
     labels:
-      - 'com.openwa.service=docker-proxy'
-      - 'com.openwa.core=true'
+      - 'com.zaplink.service=docker-proxy'
+      - 'com.zaplink.core=true'
 
-  # ===== CORE: OpenWA Backend API =====
-  openwa-api:
+  # ===== CORE: ZapLink Backend API =====
+  zaplink-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: openwa-api
+    container_name: zaplink-api
     restart: unless-stopped
     # Give the ordered teardown room to finish before Docker SIGKILLs the container, which would cut
     # Chromium, the usage flush and the database close short. Bounded stages in order: drain 3s
@@ -62,14 +62,14 @@ services:
     stop_grace_period: 75s
     # App network for datastores + the isolated network to reach
     # docker-proxy (DOCKER_HOST). createService() in docker.service.ts attaches
-    # orchestrated containers to the literal `openwa-network`, so its name is fixed.
+    # orchestrated containers to the literal `zaplink-network`, so its name is fixed.
     networks:
-      - openwa-network
+      - zaplink-network
       - internal-docker
     # Container hardening: Chromium runs with --no-sandbox, so the
     # container itself is the confinement boundary. cap_drop ALL + a minimal re-add
     # for root entrypoint ownership, the gosu drop and init signal forwarding. Once gosu setuids to
-    # the openwa user the node/Chromium process keeps NO effective capabilities.
+    # the zaplink user the node/Chromium process keeps NO effective capabilities.
     # read_only rootfs (Chromium's profile lives on the writable /app/data volume;
     # HOME=/tmp + tmpfs absorb stray writes). no-new-privileges blocks setuid escalation.
     security_opt:
@@ -77,12 +77,12 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - CHOWN # entrypoint: chown openwa /app/data on the named volume
+      - CHOWN # entrypoint: chown zaplink /app/data on the named volume
       - DAC_OVERRIDE # entrypoint: chown across pre-existing files
       - FOWNER
-      - KILL # dumb-init: forward signals to the openwa process after gosu drops uid
-      - SETGID # gosu: drop to the openwa group
-      - SETUID # gosu: drop to the openwa user
+      - KILL # dumb-init: forward signals to the zaplink process after gosu drops uid
+      - SETGID # gosu: drop to the zaplink group
+      - SETUID # gosu: drop to the zaplink user
     read_only: true
     tmpfs:
       - /tmp
@@ -94,10 +94,10 @@ services:
     # (service workers/iframes), so ~4 concurrent sessions already approach 512 and a new session's
     # Chromium gets killed mid-spawn — surfacing in the API as `Code: null`. 2048 fits ~8-10 wwjs
     # sessions with startup-spike headroom; Baileys is single-process (no Chromium) and uses far
-    # less, so the higher ceiling is a no-op there. Raise via OPENWA_PIDS_LIMIT for larger fleets;
+    # less, so the higher ceiling is a no-op there. Raise via ZAPLINK_PIDS_LIMIT for larger fleets;
     # do NOT set -1 (unlimited) — that drops the fork-bomb guard. See #636.
-    pids_limit: ${OPENWA_PIDS_LIMIT:-2048}
-    mem_limit: ${OPENWA_MEM_LIMIT:-2g} # tune up for many concurrent sessions
+    pids_limit: ${ZAPLINK_PIDS_LIMIT:-2048}
+    mem_limit: ${ZAPLINK_MEM_LIMIT:-2g} # tune up for many concurrent sessions
     ports:
       - '127.0.0.1:${API_PORT:-2785}:2785'
     expose:
@@ -111,9 +111,9 @@ services:
       - TZ=${TZ:-UTC}
       # Writable HOME on tmpfs so Chromium's HOME-relative writes don't hit the read_only rootfs
       - HOME=/tmp
-      # Chromium resolves its home from the passwd entry (no /home/openwa), ignoring $HOME, so without
+      # Chromium resolves its home from the passwd entry (no /home/zaplink), ignoring $HOME, so without
       # writable, existing config/cache dirs it hard-crashes at launch on the read_only rootfs. Pin XDG
-      # to the tmpfs; the entrypoint pre-creates these owned by openwa. (#254)
+      # to the tmpfs; the entrypoint pre-creates these owned by zaplink. (#254)
       - XDG_CONFIG_HOME=/tmp/.config
       - XDG_CACHE_HOME=/tmp/.cache
       - PORT=2785
@@ -125,7 +125,7 @@ services:
       # written to data/.env.generated by the app, so a blank stack still boots SQLite.
       # NOTE: if you run the built-in Postgres MANUALLY (`docker compose --profile postgres up`) instead
       # of via the dashboard, set DATABASE_TYPE=postgres, DATABASE_HOST=postgres, DATABASE_PORT=5432,
-      # DATABASE_USERNAME=openwa and DATABASE_PASSWORD in your .env/host — these are no longer defaulted here.
+      # DATABASE_USERNAME=zaplink and DATABASE_PASSWORD in your .env/host — these are no longer defaulted here.
       - DATABASE_TYPE=${DATABASE_TYPE:-}
       - DATABASE_NAME=${DATABASE_NAME:-}
       - DATABASE_HOST=${DATABASE_HOST:-}
@@ -155,7 +155,7 @@ services:
       - PUPPETEER_HEADLESS=${PUPPETEER_HEADLESS:-}
       - PUPPETEER_ARGS=${PUPPETEER_ARGS:-}
       - PUPPETEER_PROTOCOL_TIMEOUT_MS=${PUPPETEER_PROTOCOL_TIMEOUT_MS:-}
-      # Optional WhatsApp Web version override. DEFAULT (empty, "latest", or "auto"): OpenWA auto-resolves a
+      # Optional WhatsApp Web version override. DEFAULT (empty, "latest", or "auto"): ZapLink auto-resolves a
       # settled build from the third-party wppconnect-team/wa-version registry and pins its remote HTML
       # (fetched into the web.whatsapp.com origin without an integrity check). Set "off" to disable pinning
       # and use the first-party build served by WhatsApp, or an exact version to pin a specific build.
@@ -403,10 +403,10 @@ services:
       - LOG_FORMAT=${LOG_FORMAT:-}
       - BASE_URL=${BASE_URL:-}
       - DASHBOARD_URL=${DASHBOARD_URL:-}
-      # Docker socket proxy (openwa-api never touches /var/run/docker.sock directly)
+      # Docker socket proxy (zaplink-api never touches /var/run/docker.sock directly)
       - DOCKER_HOST=tcp://docker-proxy:2375
     volumes:
-      - openwa-data:/app/data
+      - zaplink-data:/app/data
     depends_on:
       docker-proxy:
         condition: service_started
@@ -426,31 +426,31 @@ services:
       retries: 3
       start_period: 30s
     labels:
-      - 'com.openwa.service=api'
-      - 'com.openwa.core=true'
+      - 'com.zaplink.service=api'
+      - 'com.zaplink.core=true'
 
-  # The dashboard SPA is now bundled into the openwa-api image and served by NestJS on the
-  # same port (2785) — there is no separate dashboard container. Reach it at the openwa-api
+  # The dashboard SPA is now bundled into the zaplink-api image and served by NestJS on the
+  # same port (2785) — there is no separate dashboard container. Reach it at the zaplink-api
   # port directly; put your own TLS reverse proxy (nginx/Caddy/cloud LB) in front if needed.
 
   # ===== OPTIONAL: Built-in PostgreSQL =====
   postgres:
     image: postgres:16-alpine
-    container_name: openwa-postgres
+    container_name: zaplink-postgres
     profiles: ['postgres', 'full']
     restart: unless-stopped
     networks:
-      - openwa-network
+      - zaplink-network
     security_opt:
       - 'no-new-privileges:true'
     environment:
-      POSTGRES_USER: ${DATABASE_USERNAME:-openwa}
+      POSTGRES_USER: ${DATABASE_USERNAME:-zaplink}
       # No committed default secret. Empty unless the operator sets it; the postgres
       # image refuses to initialize with an empty password (clear fail-fast), and the app's
       # production boot guard rejects empty/placeholder secrets before startup.
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-}
-      POSTGRES_DB: ${DATABASE_NAME:-openwa}
-      # PostgreSQL schema for OpenWA's tables + migration ledger. Default 'public'. The init
+      POSTGRES_DB: ${DATABASE_NAME:-zaplink}
+      # PostgreSQL schema for ZapLink's tables + migration ledger. Default 'public'. The init
       # script below creates the schema (if non-public) and sets the database default search_path,
       # so the built-in container works zero-config with a custom schema. Ignored when 'public'.
       POSTGRES_SCHEMA: ${POSTGRES_SCHEMA:-public}
@@ -461,22 +461,22 @@ services:
       # on an already-initialized volume (see the note in scripts/postgres-init-schema.sh).
       - ./scripts/postgres-init-schema.sh:/docker-entrypoint-initdb.d/01-create-schema.sh:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DATABASE_USERNAME:-openwa}']
+      test: ['CMD-SHELL', 'pg_isready -U ${DATABASE_USERNAME:-zaplink}']
       interval: 5s
       timeout: 3s
       retries: 5
     labels:
-      - 'com.openwa.service=database'
-      - 'com.openwa.builtin=true'
+      - 'com.zaplink.service=database'
+      - 'com.zaplink.builtin=true'
 
   # ===== OPTIONAL: Built-in Redis =====
   redis:
     image: redis:7-alpine
-    container_name: openwa-redis
+    container_name: zaplink-redis
     profiles: ['redis', 'full']
     restart: unless-stopped
     networks:
-      - openwa-network
+      - zaplink-network
     security_opt:
       - 'no-new-privileges:true'
     # noeviction is required by BullMQ: under any other policy Redis may evict queue keys once
@@ -490,20 +490,20 @@ services:
       timeout: 3s
       retries: 5
     labels:
-      - 'com.openwa.service=cache'
-      - 'com.openwa.builtin=true'
+      - 'com.zaplink.service=cache'
+      - 'com.zaplink.builtin=true'
 
   # ===== OPTIONAL: Built-in S3-compatible storage (pgsty/silo, a maintained MinIO fork) =====
   # Pinned by release tag and digest. Same server command, MINIO_ROOT_* variables, /data layout and
-  # health route as MinIO, so an existing openwa_minio-data volume is used as-is. The service,
+  # health route as MinIO, so an existing zaplink_minio-data volume is used as-is. The service,
   # container and host name stay `minio`.
   minio:
     image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
-    container_name: openwa-minio
+    container_name: zaplink-minio
     profiles: ['minio', 'full']
     restart: unless-stopped
     networks:
-      - openwa-network
+      - zaplink-network
     security_opt:
       - 'no-new-privileges:true'
     command: server /data --console-address ":9001"
@@ -528,34 +528,34 @@ services:
       timeout: 5s
       retries: 3
     labels:
-      - 'com.openwa.service=storage'
-      - 'com.openwa.builtin=true'
+      - 'com.zaplink.service=storage'
+      - 'com.zaplink.builtin=true'
 
 volumes:
   # Pin explicit volume names so the compose path and the Docker-API orchestration path (which uses
-  # the literal `openwa_<svc>-data` names in docker.service.ts) bind the SAME volume regardless of the
+  # the literal `zaplink_<svc>-data` names in docker.service.ts) bind the SAME volume regardless of the
   # compose project name — otherwise re-enabling a built-in service could mount a fresh empty volume.
-  openwa-data:
-    name: openwa_openwa-data
+  zaplink-data:
+    name: zaplink_zaplink-data
     driver: local
   postgres-data:
-    name: openwa_postgres-data
+    name: zaplink_postgres-data
     driver: local
   redis-data:
-    name: openwa_redis-data
+    name: zaplink_redis-data
     driver: local
   minio-data:
-    name: openwa_minio-data
+    name: zaplink_minio-data
     driver: local
 
 networks:
-  # Application network — datastores and openwa-api. Keep the name `openwa-network`:
+  # Application network — datastores and zaplink-api. Keep the name `zaplink-network`:
   # docker.service.ts attaches orchestrated containers to it by literal name.
-  openwa-network:
-    name: openwa-network
+  zaplink-network:
+    name: zaplink-network
   # Isolated network for the Docker socket proxy. `internal: true` means no external
-  # connectivity; only openwa-api joins it, so nothing else can reach docker-proxy:2375.
-  # Plugins run inside openwa-api, so a loaded plugin can reach it too (see SECURITY.md).
+  # connectivity; only zaplink-api joins it, so nothing else can reach docker-proxy:2375.
+  # Plugins run inside zaplink-api, so a loaded plugin can reach it too (see SECURITY.md).
   internal-docker:
-    name: openwa-internal-docker
+    name: zaplink-internal-docker
     internal: true

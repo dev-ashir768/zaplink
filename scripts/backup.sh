@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# OpenWA backup.
+# ZapLink backup.
 #
 # Captures the load-bearing state needed to restore a working install:
 #   - main.sqlite   — auth (API keys) + audit log, ALWAYS SQLite (see app.module.ts)
-#   - data store    — openwa.sqlite (SQLite) OR a pg_dump (when DATABASE_TYPE=postgres)
+#   - data store    — zaplink.sqlite (SQLite) OR a pg_dump (when DATABASE_TYPE=postgres)
 #   - sessions/     — whatsapp-web.js LocalAuth session data
 #   - baileys/      — Baileys engine authentication state
 #   - media/        — the local media dir (STORAGE_LOCAL_PATH), archived whenever it exists. Under
@@ -17,18 +17,18 @@
 #                        (default: <data dir>/plugins)
 #   - .env.generated and .api-key — dashboard config and plaintext bootstrap admin key
 #
-# The previous runbook backed up the wrong file (openwa.db) and omitted main.sqlite,
+# The previous runbook backed up the wrong file (zaplink.db) and omitted main.sqlite,
 # so a "successful" backup silently lost every API key and all audit history.
 #
 # Usage:
 #   ./scripts/backup.sh
 # Environment:
 #   MAIN_DATABASE_NAME  auth/audit SQLite file (default: <data dir>/main.sqlite)
-#   DATABASE_NAME       data-store SQLite file (default: <data dir>/openwa.sqlite; sqlite only)
+#   DATABASE_NAME       data-store SQLite file (default: <data dir>/zaplink.sqlite; sqlite only)
 #                       Both resolve EXACTLY like the app: the environment first, then ./.env, then
 #                       <data dir>/.env.generated, otherwise the app's ./data default (see
 #                       lib-env.sh).
-#   OPENWA_DATA_DIR   the app's ./data directory, such as a volume's mountpoint on the host
+#   ZAPLINK_DATA_DIR   the app's ./data directory, such as a volume's mountpoint on the host
 #                     (default: ./data); the ./data defaults, and a ./data/... path read from ./.env
 #                     or .env.generated, are taken under it
 #   BACKUP_DIR        where archives are written (default: ./backups)
@@ -62,7 +62,7 @@
 # Failure policy: a missing source database is FATAL (no silent empty backup), and the finished
 # archive must contain every configured database or it is deleted and the run fails. The archive
 # takes its final name only once complete, so a failed tar leaves no truncated
-# openwa-backup-*.tar.gz. When the sqlite3 CLI is unavailable the databases are plain-copied (possibly
+# zaplink-backup-*.tar.gz. When the sqlite3 CLI is unavailable the databases are plain-copied (possibly
 # torn if the app is live) and the archive carries a CONSISTENCY-WARNING marker that restore.sh
 # surfaces.
 #
@@ -77,44 +77,44 @@ set -euo pipefail
 # permissive operator umask for newly-created backup artifacts.
 umask 077
 
-# OPENWA_DATA_DIR and BACKUP_DIR steer the script itself and are never written to an env file, so
+# ZAPLINK_DATA_DIR and BACKUP_DIR steer the script itself and are never written to an env file, so
 # they stay environment-only. Everything below them is application configuration and must be read
 # through the same layers the app reads (see lib-env.sh).
-DATA_DIR="${OPENWA_DATA_DIR:-./data}"
+DATA_DIR="${ZAPLINK_DATA_DIR:-./data}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 # shellcheck source=scripts/lib-env.sh
 . "$(dirname "$0")/lib-env.sh"
-DATABASE_TYPE="$(openwa_resolve DATABASE_TYPE sqlite)"
+DATABASE_TYPE="$(zaplink_resolve DATABASE_TYPE sqlite)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Database paths resolve exactly like the app: an explicit environment value wins, then ./.env, then
 # the dashboard's <data dir>/.env.generated, otherwise the app's ./data default. That default, like
 # the state directories below, is relative to the app's working directory, so it is taken under
-# OPENWA_DATA_DIR: on the host, the cwd's ./data is not the one the app writes.
-MAIN_DB="$(openwa_resolve MAIN_DATABASE_NAME "${DATA_DIR%/}/main.sqlite" path)"
+# ZAPLINK_DATA_DIR: on the host, the cwd's ./data is not the one the app writes.
+MAIN_DB="$(zaplink_resolve MAIN_DATABASE_NAME "${DATA_DIR%/}/main.sqlite" path)"
 # With DATABASE_TYPE=postgres, DATABASE_NAME names the database instead, read below only when pg_dump
 # needs it, so a line for it the scripts cannot parse stops only a backup that uses it.
 if [ "$DATABASE_TYPE" != "postgres" ]; then
-  DATA_DB="$(openwa_resolve DATABASE_NAME "${DATA_DIR%/}/openwa.sqlite" path)"
+  DATA_DB="$(zaplink_resolve DATABASE_NAME "${DATA_DIR%/}/zaplink.sqlite" path)"
 fi
-SESSIONS_DIR="$(openwa_resolve SESSION_DATA_PATH "$DATA_DIR/sessions" path)"
-BAILEYS_DIR="$(openwa_resolve BAILEYS_AUTH_DIR "$DATA_DIR/baileys" path)"
-MEDIA_DIR="$(openwa_media_dir)"
+SESSIONS_DIR="$(zaplink_resolve SESSION_DATA_PATH "$DATA_DIR/sessions" path)"
+BAILEYS_DIR="$(zaplink_resolve BAILEYS_AUTH_DIR "$DATA_DIR/baileys" path)"
+MEDIA_DIR="$(zaplink_media_dir)"
 # Installed plugin code. The app defaults this to <dataDir>/plugins — the same tree as the
 # registry and each plugin's ctx.storage below — so an unset PLUGINS_DIR must resolve there
 # too, or the archive silently omits the plugin packages.
-PLUGIN_PACKAGES_DIR="$(openwa_resolve PLUGINS_DIR "$DATA_DIR/plugins" path)"
+PLUGIN_PACKAGES_DIR="$(zaplink_resolve PLUGINS_DIR "$DATA_DIR/plugins" path)"
 # Plugin registry + every plugin's persisted ctx.storage. The app puts them at <dataDir>/plugins,
 # where dataDir is PLUGIN_STATE_DIR when that is set and ./data otherwise, so the knob has to be
 # resolved here exactly like PLUGINS_DIR above. Hardcoding $DATA_DIR/plugins meant an operator who
 # moved plugin state got an archive with neither the registry nor any plugin's storage in it, and
 # a restore that put nothing back. Resolved under its own name because the knob names the ROOT,
 # not the plugins directory inside it.
-PLUGIN_STATE_ROOT="$(openwa_resolve PLUGIN_STATE_DIR "$DATA_DIR" path)"
+PLUGIN_STATE_ROOT="$(zaplink_resolve PLUGIN_STATE_DIR "$DATA_DIR" path)"
 PLUGIN_STATE_DIR="$PLUGIN_STATE_ROOT/plugins"
 GENERATED_ENV="$DATA_DIR/.env.generated"
 # The app writes the generated admin key to BOOTSTRAP_KEY_FILE when that is set.
-ADMIN_KEY_FILE="$(openwa_resolve BOOTSTRAP_KEY_FILE "$DATA_DIR/.api-key" path)"
+ADMIN_KEY_FILE="$(zaplink_resolve BOOTSTRAP_KEY_FILE "$DATA_DIR/.api-key" path)"
 
 log() { echo "[backup] $*"; }
 
@@ -133,7 +133,7 @@ STAGE="$(mktemp -d)"
 # The archive is written under a name no restore, listing or retention glob matches and renamed once the
 # min-content check passes: a tar that fails part way (the volume fills) must not leave a truncated
 # archive that reads as the newest backup.
-ARCHIVE="$BACKUP_DIR/openwa-backup-$TIMESTAMP.tar.gz"
+ARCHIVE="$BACKUP_DIR/zaplink-backup-$TIMESTAMP.tar.gz"
 ARCHIVE_PARTIAL="$ARCHIVE.partial"
 trap 'rm -rf "$STAGE" "$ARCHIVE_PARTIAL"' EXIT
 
@@ -227,7 +227,7 @@ backup_sqlite() {
 # that call pgcrypto's gen_random_uuid() (PostgreSQL 12 and older). The dump can then create them in the
 # schema again, where its own defaults call them by name. Not CASCADE: extensions are per database, so an
 # object in another schema may use these, and it then fails the load, which changes nothing, rather than
-# going with them. In an empty database it does nothing. The name was checked with openwa_pg_schema_valid,
+# going with them. In an empty database it does nothing. The name was checked with zaplink_pg_schema_valid,
 # so it needs no quoting here.
 pg_schema_prelude() {
   local extensions="'pg_trgm', 'unaccent'"
@@ -236,7 +236,7 @@ pg_schema_prelude() {
   fi
   cat <<EOF
 -- Added by backup.sh: this dump holds schema $1 only. An existing $1 is moved aside before it loads.
-DO \$openwa\$
+DO \$zaplink\$
 DECLARE
   aside text := left('$1', 36) || '_pre_restore_' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISS');
   ext text;
@@ -264,7 +264,7 @@ BEGIN
     END LOOP;
   END IF;
 END
-\$openwa\$;
+\$zaplink\$;
 EOF
 }
 
@@ -329,10 +329,10 @@ if [ "$DATABASE_TYPE" = "postgres" ]; then
   # The app keeps its tables, ledger and search_path in POSTGRES_SCHEMA. A schema other than public may
   # share its database with other applications, whose schemas this role need not be able to read, so it
   # is dumped alone, and database.schema names it for restore.sh. public keeps the whole-database dump.
-  PG_SCHEMA="$(openwa_resolve POSTGRES_SCHEMA public)"
+  PG_SCHEMA="$(zaplink_resolve POSTGRES_SCHEMA public)"
   PG_DUMP_SCHEMA=""
   if [ "$PG_SCHEMA" != public ]; then
-    if ! openwa_pg_schema_valid "$PG_SCHEMA"; then
+    if ! zaplink_pg_schema_valid "$PG_SCHEMA"; then
       log "ERROR: POSTGRES_SCHEMA=$PG_SCHEMA is not a schema name the app accepts: a lower-case letter or underscore,"
       log "       then lower-case letters, digits or underscores, at most 63 characters, not starting with pg_"
       exit 1
@@ -348,10 +348,10 @@ if [ "$DATABASE_TYPE" = "postgres" ]; then
   # were absent.
   PG_SSL=false
   if [ -z "${PGSSLMODE:-}" ]; then
-    PG_SSL="$(openwa_resolve DATABASE_SSL false)"
+    PG_SSL="$(zaplink_resolve DATABASE_SSL false)"
   fi
   if [ "$PG_SSL" = true ]; then
-    PG_SSL_REJECT="$(openwa_resolve DATABASE_SSL_REJECT_UNAUTHORIZED true)"
+    PG_SSL_REJECT="$(zaplink_resolve DATABASE_SSL_REJECT_UNAUTHORIZED true)"
     if [ "$PG_SSL_REJECT" = false ]; then
       export PGSSLMODE=require
     else
@@ -375,7 +375,7 @@ if [ "$DATABASE_TYPE" = "postgres" ]; then
       export PGSSLMODE=verify-full PGSSLROOTCERT="${PGSSLROOTCERT:-${PG_ROOT_CERTS:-system}}"
     fi
   fi
-  DATABASE_URL_RESOLVED="$(openwa_resolve DATABASE_URL '')"
+  DATABASE_URL_RESOLVED="$(zaplink_resolve DATABASE_URL '')"
   if [ -n "$DATABASE_URL_RESOLVED" ]; then
     pg_dump_data "$DATABASE_URL_RESOLVED" >"$STAGE/database.sql"
   else
@@ -383,11 +383,11 @@ if [ "$DATABASE_TYPE" = "postgres" ]; then
     # connection details in <data dir>/.env.generated, never in the operator's shell. Each is
     # resolved on its own line, where set -e stops the run on a value the scripts cannot read; inside
     # the pg_dump arguments that failure would be ignored and the default dumped instead.
-    PG_PASSWORD="$(openwa_resolve DATABASE_PASSWORD '')"
-    PG_HOST="$(openwa_resolve DATABASE_HOST localhost)"
-    PG_PORT="$(openwa_resolve DATABASE_PORT 5432)"
-    PG_USER="$(openwa_resolve DATABASE_USERNAME openwa)"
-    PG_NAME="$(openwa_resolve DATABASE_NAME openwa)"
+    PG_PASSWORD="$(zaplink_resolve DATABASE_PASSWORD '')"
+    PG_HOST="$(zaplink_resolve DATABASE_HOST localhost)"
+    PG_PORT="$(zaplink_resolve DATABASE_PORT 5432)"
+    PG_USER="$(zaplink_resolve DATABASE_USERNAME zaplink)"
+    PG_NAME="$(zaplink_resolve DATABASE_NAME zaplink)"
     PGPASSWORD="$PG_PASSWORD" pg_dump_data -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" "$PG_NAME" >"$STAGE/database.sql"
   fi
   REQUIRED_MEMBERS+=("./database.sql")
@@ -397,8 +397,8 @@ if [ "$DATABASE_TYPE" = "postgres" ]; then
   fi
 else
   log "Backing up data store ($DATA_DB)"
-  backup_sqlite "$DATA_DB" "$STAGE/openwa.sqlite"
-  REQUIRED_MEMBERS+=("./openwa.sqlite")
+  backup_sqlite "$DATA_DB" "$STAGE/zaplink.sqlite"
+  REQUIRED_MEMBERS+=("./zaplink.sqlite")
 fi
 
 # The state directories below are copied with -H: a directory an operator moved to another disk and
@@ -430,7 +430,7 @@ if [ -d "$BAILEYS_DIR" ]; then
 # The warning is advisory, so an ENGINE_TYPE line the scripts cannot parse skips it instead of the backup,
 # and its error is reported as a warning. A failed lookup prints nothing on stdout and a successful one
 # nothing on stderr, so both share the substitution.
-elif ! ENGINE_TYPE_RESOLVED="$(openwa_resolve ENGINE_TYPE '' 2>&1)"; then
+elif ! ENGINE_TYPE_RESOLVED="$(zaplink_resolve ENGINE_TYPE '' 2>&1)"; then
   sed -e 's/^\[config\] ERROR: /[config] WARN: /' -e 's/^\[config\]        /[config]       /' <<<"$ENGINE_TYPE_RESOLVED" >&2
   log "WARN: ENGINE_TYPE could not be read (see above); skipping only the check for missing Baileys state"
 elif [ "$ENGINE_TYPE_RESOLVED" = "baileys" ]; then
@@ -451,7 +451,7 @@ fi
 
 # With PLUGINS_DIR unset the app also loads packages from ./plugins, its default up to 0.12.1 (see
 # plugin-package-scanner.ts). The archive does not carry that directory, so say so.
-if [ -z "$(openwa_resolve PLUGINS_DIR '')" ] &&
+if [ -z "$(zaplink_resolve PLUGINS_DIR '')" ] &&
   [ -n "$(find -H ./plugins -mindepth 2 -maxdepth 2 -name manifest.json ! -path './plugins/.*' 2>/dev/null)" ]; then
   log "WARN: ./plugins holds plugin packages the app still loads, and this archive does not carry them;"
   log "      move them into $PLUGIN_PACKAGES_DIR, or set PLUGINS_DIR=./plugins, and back up again"

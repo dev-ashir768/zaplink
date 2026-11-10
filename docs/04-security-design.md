@@ -123,8 +123,8 @@ found where it was saved, or replaced. Try these in order. If every key stopped 
    key is no longer active (revoked, expired or deleted). The seeding boot prints a generated key once
    in the startup banner and no part of an `API_MASTER_KEY`, for which the banner names the file when it could be written.
    While the file holds a live key, the startup banner ends with `(full key in <path>)`. Read it with
-   `cat data/.api-key`, with `docker compose exec openwa-api cat /app/data/.api-key` on the compose
-   deployment, or with `kubectl exec openwa-0 -- cat /app/data/.api-key` on the Helm chart (release `openwa`). The file has no
+   `cat data/.api-key`, with `docker compose exec zaplink-api cat /app/data/.api-key` on the compose
+   deployment, or with `kubectl exec zaplink-0 -- cat /app/data/.api-key` on the Helm chart (release `zaplink`). The file has no
    trailing newline, so the shell prompt follows the key on the same line: copy only the key. The key
    manages keys only while it still meets step 2's conditions. Once it is demoted from `admin`,
    given any `allowedSessions` or `allowedChats`, or given `allowedIps` that exclude your address,
@@ -147,25 +147,25 @@ found where it was saved, or replaced. Try these in order. If every key stopped 
    ```bash
    GEN="require('./dist/config/load-env'); const key = 'owa_k1_' + require('crypto').randomBytes(32).toString('hex'); console.log('key:', key); console.log('prefix:', key.slice(0, 12)); console.log('hash:', require('./dist/modules/auth/api-key-hash').hashApiKey(key, process.env.API_KEY_PEPPER))"
    node -e "$GEN"                                               # source install, after npm run build
-   docker compose run --rm --no-deps openwa-api node -e "$GEN"  # compose deployment
+   docker compose run --rm --no-deps zaplink-api node -e "$GEN"  # compose deployment
    ```
 
    Find the row and write the new hash and prefix into it. The main database is
    `MAIN_DATABASE_NAME`, `data/main.sqlite` by default; on the compose deployment run `sqlite3` as
-   `docker compose run --rm --no-deps openwa-api sqlite3 /app/data/main.sqlite "..."`:
+   `docker compose run --rm --no-deps zaplink-api sqlite3 /app/data/main.sqlite "..."`:
 
    ```bash
    sqlite3 data/main.sqlite "SELECT id, name, keyPrefix, isActive, expiresAt FROM api_keys WHERE role = 'admin'"
    sqlite3 data/main.sqlite "UPDATE api_keys SET keyHash = '<hash>', keyPrefix = '<prefix>', isActive = 1, expiresAt = NULL, allowedIps = NULL, allowedSessions = NULL, allowedChats = NULL WHERE id = '<id>'"
    ```
 
-   On the Helm chart (release `openwa`), run the generator in the running pod before stopping it,
+   On the Helm chart (release `zaplink`), run the generator in the running pod before stopping it,
    since only that pod has the release's Secret and so its `API_KEY_PEPPER`:
-   `kubectl exec openwa-0 -- node -e "$GEN"`. Then scale the StatefulSet to 0, start the
-   `openwa-restore` helper pod on the release's data PVC as
+   `kubectl exec zaplink-0 -- node -e "$GEN"`. Then scale the StatefulSet to 0, start the
+   `zaplink-restore` helper pod on the release's data PVC as
    [11 - Runbook: Restore from Backup](./11-operational-runbooks.md#runbook-restore-from-backup)
    does, copy the database aside and run both `sqlite3` commands there with
-   `kubectl exec openwa-restore --` against `/app/data/main.sqlite`, then delete the pod and scale
+   `kubectl exec zaplink-restore --` against `/app/data/main.sqlite`, then delete the pod and scale
    back to 1.
 
    Start the instance and use the new key. The update also clears the row's revoked state, expiry,
@@ -257,7 +257,7 @@ an `X-Forwarded-For` hop (`203.0.113.7:51000`, `[2001:db8::1]:443`) resolves to 
 
 ### In Transit
 
-OpenWA serves plain HTTP on its port; terminate **TLS at your reverse proxy / load balancer** (nginx, Traefik, Caddy) and expose the gateway only over HTTPS in production. The API key is bearer-equivalent and is sent on every request, so it must never traverse plaintext `http://` outside local development.
+ZapLink serves plain HTTP on its port; terminate **TLS at your reverse proxy / load balancer** (nginx, Traefik, Caddy) and expose the gateway only over HTTPS in production. The API key is bearer-equivalent and is sent on every request, so it must never traverse plaintext `http://` outside local development.
 
 ### At Rest
 
@@ -276,7 +276,7 @@ OpenWA serves plain HTTP on its port; terminate **TLS at your reverse proxy / lo
 
 **Hardening you can apply today:** set `API_KEY_PEPPER`; restrict the data volume and database to the app's user; and encrypt at the infrastructure layer (LUKS / cloud-provider encrypted volumes / an encrypted managed Postgres) rather than relying on application-level field encryption, which is not implemented.
 
-**Setting or changing `API_KEY_PEPPER` on an existing install invalidates every key, the admin key included.** No stored hash matches any more, minting a key needs a valid ADMIN key, and a key is seeded only into an empty `api_keys` table, so nothing can be re-issued through the API. Set the pepper before first boot. On a running install: stop the instance, set the pepper, empty the table in the main database (the `MAIN_DATABASE_NAME` path, `data/main.sqlite` by default; on a source install `sqlite3 data/main.sqlite "DELETE FROM api_keys"`, on the compose deployment `docker compose run --rm --no-deps openwa-api sqlite3 /app/data/main.sqlite "DELETE FROM api_keys"`), start the instance, take the new ADMIN key from `data/.api-key`, or from the startup banner when the gateway generated it (or set `API_MASTER_KEY` beforehand to choose it; it is never printed), then re-issue the other keys. On the Helm chart, empty the table while the StatefulSet is at 0 from the `openwa-restore` helper pod of [11 - Runbook: Restore from Backup](./11-operational-runbooks.md#runbook-restore-from-backup) (`kubectl exec openwa-restore -- sqlite3 /app/data/main.sqlite "DELETE FROM api_keys"`), delete the pod, and only then set the pepper in the release's Secret (`secretEnv.API_KEY_PEPPER`, or the `existingSecret`) and scale back to 1; a `helm upgrade` that sets the pepper also scales back to `replicaCount`. Read the new key with `kubectl exec openwa-0 -- cat /app/data/.api-key`.
+**Setting or changing `API_KEY_PEPPER` on an existing install invalidates every key, the admin key included.** No stored hash matches any more, minting a key needs a valid ADMIN key, and a key is seeded only into an empty `api_keys` table, so nothing can be re-issued through the API. Set the pepper before first boot. On a running install: stop the instance, set the pepper, empty the table in the main database (the `MAIN_DATABASE_NAME` path, `data/main.sqlite` by default; on a source install `sqlite3 data/main.sqlite "DELETE FROM api_keys"`, on the compose deployment `docker compose run --rm --no-deps zaplink-api sqlite3 /app/data/main.sqlite "DELETE FROM api_keys"`), start the instance, take the new ADMIN key from `data/.api-key`, or from the startup banner when the gateway generated it (or set `API_MASTER_KEY` beforehand to choose it; it is never printed), then re-issue the other keys. On the Helm chart, empty the table while the StatefulSet is at 0 from the `zaplink-restore` helper pod of [11 - Runbook: Restore from Backup](./11-operational-runbooks.md#runbook-restore-from-backup) (`kubectl exec zaplink-restore -- sqlite3 /app/data/main.sqlite "DELETE FROM api_keys"`), delete the pod, and only then set the pepper in the release's Secret (`secretEnv.API_KEY_PEPPER`, or the `existingSecret`) and scale back to 1; a `helm upgrade` that sets the pepper also scales back to `replicaCount`. Read the new key with `kubectl exec zaplink-0 -- cat /app/data/.api-key`.
 
 ## 4.5 Input Validation
 
@@ -463,12 +463,12 @@ app.enableCors({
 
 ```mermaid
 sequenceDiagram
-    participant OW as OpenWA
+    participant OW as ZapLink
     participant WH as Webhook Endpoint
 
     OW->>OW: Create payload
     OW->>OW: Sign with HMAC-SHA256
-    OW->>WH: POST + X-OpenWA-Signature
+    OW->>WH: POST + X-ZapLink-Signature
     WH->>WH: Verify signature
     WH->>WH: Process if valid
     WH-->>OW: 200 OK
@@ -477,7 +477,7 @@ sequenceDiagram
 ### Signature Verification
 
 ```typescript
-// OpenWA: Generate signature
+// ZapLink: Generate signature
 function signPayload(payload: object, secret: string): string {
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(JSON.stringify(payload));
@@ -655,7 +655,7 @@ flowchart TB
 - [ ] CORS properly configured
 - [ ] Firewall rules set
 - [ ] Regular security updates
-- [ ] Release image (releases after 0.23.7; earlier images carry no attestation) verified as built by the release workflow at its tag: `gh attestation verify oci://ghcr.io/rmyndharis/openwa:<version> --repo rmyndharis/OpenWA --signer-workflow rmyndharis/OpenWA/.github/workflows/release.yml --source-ref refs/tags/v<version>` (the same digest, and so the same check, applies to `docker.io/rmyndharis/openwa`)
+- [ ] Release image (releases after 0.23.7; earlier images carry no attestation) verified as built by the release workflow at its tag: `gh attestation verify oci://ghcr.io/dev-ashir768/zaplink:<version> --repo dev-ashir768/zaplink --signer-workflow dev-ashir768/zaplink/.github/workflows/release.yml --source-ref refs/tags/v<version>` (the same digest, and so the same check, applies to `docker.io/dev-ashir768/zaplink`)
 
 ### Operations
 
@@ -684,7 +684,7 @@ flowchart TB
 
 > `API_MASTER_KEY` only seeds the first ADMIN key, and is read only while the key table is empty. Changing it later has no effect: the new value never authenticates and the seeded key stays valid. A value that is set must still be at least 32 characters and not a known default on every production boot, or the boot refuses to start; unset it after rotating. Rotate by minting a new ADMIN key with `POST /api/auth/api-keys` and revoking the seeded `Default Admin Key`.
 
-> There is no application `ENCRYPTION_KEY` — OpenWA does not encrypt data at rest (see §4.4). The rotation cadences above are operational recommendations, not enforced by the app.
+> There is no application `ENCRYPTION_KEY` — ZapLink does not encrypt data at rest (see §4.4). The rotation cadences above are operational recommendations, not enforced by the app.
 
 ### Environment Variables Security
 
@@ -701,13 +701,13 @@ docker secret create db_password ./secret.txt
 
 ### Docker Secrets
 
-> **Caveat:** the `*_FILE` convention shown below requires a secret-file reader in the app (see "Reading Secrets" below), which is **not currently implemented** — OpenWA reads secrets straight from environment variables. Until that helper exists, pass secrets as plain env vars (e.g. an `.env` file with restricted permissions) rather than `_FILE` paths.
+> **Caveat:** the `*_FILE` convention shown below requires a secret-file reader in the app (see "Reading Secrets" below), which is **not currently implemented** — ZapLink reads secrets straight from environment variables. Until that helper exists, pass secrets as plain env vars (e.g. an `.env` file with restricted permissions) rather than `_FILE` paths.
 
 ```yaml
 # Illustrative overlay — not the docker-compose.yml shipped in this repo
 services:
   app:
-    image: openwa:latest
+    image: zaplink:latest
     secrets:
       - db_password
       - api_master_key
@@ -723,7 +723,7 @@ secrets:
 
 ### Reading Secrets in Application
 
-> **Not implemented as shown.** OpenWA does **not** read `<NAME>_FILE` Docker-secret files — there is no `getSecret()` helper today. Secrets come straight from `process.env`, layered at boot as `process.env` → `.env` → `data/.env.generated` (`override:false`, so a real environment value wins). The function below is a suggested pattern to add if you want Docker-secret `_FILE` support; as-is, `DATABASE_PASSWORD_FILE` is not consulted.
+> **Not implemented as shown.** ZapLink does **not** read `<NAME>_FILE` Docker-secret files — there is no `getSecret()` helper today. Secrets come straight from `process.env`, layered at boot as `process.env` → `.env` → `data/.env.generated` (`override:false`, so a real environment value wins). The function below is a suggested pattern to add if you want Docker-secret `_FILE` support; as-is, `DATABASE_PASSWORD_FILE` is not consulted.
 
 ```typescript
 // config/secrets.ts
@@ -752,7 +752,7 @@ const masterKey = getSecret('API_MASTER_KEY');
 
 ### Key Rotation Procedure
 
-> **Not applicable today.** OpenWA stores no encrypted-at-rest data (see §4.4), so there is no data-encryption key to rotate and no `rotateEncryptionKey()` in the codebase. The flow below is illustrative for if/when field-level encryption is added. To rotate the key seeded from `API_MASTER_KEY`, mint a new ADMIN key through the API-key endpoints (§4.2) and revoke the seeded one; editing the env var has no effect after first boot. Rotating `API_KEY_PEPPER` invalidates every existing key hash; see §4.4 for the recovery.
+> **Not applicable today.** ZapLink stores no encrypted-at-rest data (see §4.4), so there is no data-encryption key to rotate and no `rotateEncryptionKey()` in the codebase. The flow below is illustrative for if/when field-level encryption is added. To rotate the key seeded from `API_MASTER_KEY`, mint a new ADMIN key through the API-key endpoints (§4.2) and revoke the seeded one; editing the env var has no effect after first boot. Rotating `API_KEY_PEPPER` invalidates every existing key hash; see §4.4 for the recovery.
 
 ```mermaid
 flowchart TB
@@ -969,7 +969,7 @@ flowchart TB
 
 ### Emergency Contacts
 
-A template for an operator to fill in and keep outside the repository — OpenWA ships no
+A template for an operator to fill in and keep outside the repository — ZapLink ships no
 `config/incident-response.yml` and reads no such file. The only contact the project itself
 publishes is the vulnerability-reporting channel in [SECURITY.md](../SECURITY.md); the on-call,
 channel and status-page entries below are placeholders with no upstream default.
@@ -1020,7 +1020,7 @@ communication:
 
 ### Evidence Collection
 
-- Capture the audit log (the `audit_logs` table / audit query API) and the application logs (`docker compose logs openwa-api`) — there is no `logs:export` script
+- Capture the audit log (the `audit_logs` table / audit query API) and the application logs (`docker compose logs zaplink-api`) — there is no `logs:export` script
 - Database query logs
 - Network traffic captures
 - System metrics at incident time

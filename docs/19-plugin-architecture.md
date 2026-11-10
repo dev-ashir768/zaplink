@@ -25,13 +25,13 @@
 | **Per-session config**       | ✅ Implemented | Per-session config overrides deep-merged over the base config at hook time (nested objects merge key by key; arrays and scalars replace) |
 | **Built-in plugins**         | ✅ Implemented | The two engine adapters (`whatsapp-web.js`, `baileys`) register as in-process built-ins                                                  |
 | **Plugin install / catalog** | ✅ Implemented | Install a `.zip` by upload or URL, or from the remote catalog                                                                            |
-| **@openwa/plugin-sdk**       | 🔜 Planned     | NPM package not yet published; plugins implement `IPlugin` directly today                                                                |
+| **@zaplink/plugin-sdk**      | 🔜 Planned     | NPM package not yet published; plugins implement `IPlugin` directly today                                                                |
 
 ---
 
 ## 19.1 Overview
 
-The plugin architecture enables OpenWA extensibility without modifying the core codebase. Plugins can add new features, integrate with external services, or customize behavior.
+The plugin architecture enables ZapLink extensibility without modifying the core codebase. Plugins can add new features, integrate with external services, or customize behavior.
 
 ### Design Goals
 
@@ -109,7 +109,7 @@ plugins/
 ### Manifest File
 
 `id`, `name`, `version`, `type`, and `main` are required; the rest are optional. There is **no**
-`types` field and **no** `maxVersion`. The host version is gated by `minOpenWAVersion` only (see its
+`types` field and **no** `maxVersion`. The host version is gated by `minZapLinkVersion` only (see its
 row), and the SDK major by the check applied to a manifest that declares `ingress` (see the
 `sdkVersion` row). The config schema is the top-level `configSchema` (note: not nested under `config`).
 
@@ -119,7 +119,7 @@ row), and the SDK major by the check applied to a manifest that declares `ingres
   "name": "My Awesome Plugin",
   "version": "1.0.0",
   "type": "extension",
-  "description": "An awesome plugin for OpenWA",
+  "description": "An awesome plugin for ZapLink",
   "author": "Your Name",
   "license": "MIT",
 
@@ -166,7 +166,7 @@ row), and the SDK major by the check applied to a manifest that declares `ingres
 | `net.allow`             | —        | Outbound-HTTP host allowlist for `ctx.net.fetch` (`host`, `host:port`, or `'*'`). Absent = deny all, unless `net.allowConfigHosts` admits a host                                                                                                                                                     |
 | `net.allowConfigHosts`  | —        | Config keys holding an https URL; each URL's https origin (scheme, host and port) is admitted at fetch time on top of `net.allow`, so an adapter can reach an operator-configured host without `net.allow: ['*']`. Credentialed or non-https values are ignored, and the SSRF guard still applies    |
 | `sdkVersion`            | —        | Integration SDK `major` (or `major.minor`) the plugin was authored against. Absent = `'1'`. Only enforced for a manifest declaring `ingress`: a major other than `1` is refused at load                                                                                                              |
-| `minOpenWAVersion`      | -        | Oldest OpenWA release the plugin runs on (`MAJOR.MINOR.PATCH`). Install answers 400 and boot load fails when the running host is older; a malformed value is rejected. Absent or `null` = no floor                                                                                                   |
+| `minZapLinkVersion`     | -        | Oldest ZapLink release the plugin runs on (`MAJOR.MINOR.PATCH`). Install answers 400 and boot load fails when the running host is older; a malformed value is rejected. Absent or `null` = no floor                                                                                                  |
 | `ingress`               | —        | Inbound webhook routes this plugin claims (requires the `webhook:ingress` permission). Validated at load — route uniqueness, signature scheme, ack contract; see [25 — Integration Fabric](./25-integration-fabric.md)                                                                               |
 | `configSchema`          | —        | Declarative config schema the dashboard renders as a form when there is no `configUi`. Still required with one: it defines the fields, their types and which are `secret`                                                                                                                            |
 | `configUi`              | —        | Optional self-contained HTML config editor served into a sandboxed iframe. When present it **replaces** the generated form and owns saving — the dashboard renders neither the form nor its Save button                                                                                              |
@@ -224,7 +224,7 @@ is read from `ctx.config`.
 ```typescript
 // plugins/my-plugin/index.ts
 
-import type { IPlugin, PluginContext } from '@openwa/plugin-sdk'; // shape only; implement IPlugin
+import type { IPlugin, PluginContext } from '@zaplink/plugin-sdk'; // shape only; implement IPlugin
 
 interface MyPluginConfig {
   greeting: string;
@@ -269,7 +269,7 @@ export default class MyAwesomePlugin implements IPlugin {
 
 ## 19.4 Plugin SDK
 
-> Plugins implement the `IPlugin` interface directly. An `@openwa/plugin-sdk` npm package is planned
+> Plugins implement the `IPlugin` interface directly. An `@zaplink/plugin-sdk` npm package is planned
 > but not yet published; the interfaces below are the live runtime contract from
 > `src/core/plugins/plugin.interfaces.ts`.
 
@@ -411,7 +411,7 @@ A plain text send may wait up to `SIMULATE_TYPING_MAX_MS` (5 s by default) for t
 
 ```mermaid
 sequenceDiagram
-    participant Core as OpenWA Core
+    participant Core as ZapLink Core
     participant HM as Hook Manager
     participant P1 as Plugin 1
     participant P2 as Plugin 2
@@ -579,7 +579,7 @@ sub-directory with a `manifest.json` it reads the manifest, validates the requir
 (`id`/`name`/`version`/`type`/`main`), and records an `INSTALLED` plugin plus a persisted registry
 entry — **without running any plugin code**. Persisted config and per-session activation/config are
 read back so an operator's choices survive a restart. There are two version gates. The manifest
-validator refuses a plugin whose `minOpenWAVersion` is newer than the running OpenWA (at boot the
+validator refuses a plugin whose `minZapLinkVersion` is newer than the running ZapLink (at boot the
 plugin is skipped and logged as `plugin_load_failed`, it does not appear in `GET /plugins`, and
 its config is kept so it loads again after a host upgrade), and `validateIngressManifest`
 refuses a manifest declaring `ingress` whose `sdkVersion` major is not the supported Integration SDK
@@ -593,7 +593,7 @@ major (`1`).
 decision across a restart; the decision is persisted separately as `enabledByOperator`. On
 `onApplicationBootstrap` — after the rest of the app is wired — the loader re-enables every non-built-in
 plugin carrying that flag, so an upgrade, host reboot or container restart no longer silently switches
-off every extension ([#856](https://github.com/rmyndharis/OpenWA/issues/856)). Restoring is best-effort
+off every extension ([#856](https://github.com/dev-ashir768/zaplink/issues/856)). Restoring is best-effort
 and sequential: a plugin that fails is logged (`plugin_restore_failed`) and left in `ERROR`; that failure never
 holds up startup. Built-ins are skipped — `EngineFactory` enables the engine named by `engine.type`.
 
@@ -692,7 +692,7 @@ the latter because it records a counter through `ctx.storage`:
 
 ```typescript
 // plugins/auto-reply/index.ts
-import type { IPlugin, PluginContext } from '@openwa/plugin-sdk'; // shape only; implement IPlugin
+import type { IPlugin, PluginContext } from '@zaplink/plugin-sdk'; // shape only; implement IPlugin
 
 interface AutoReplyConfig {
   enabled?: boolean;

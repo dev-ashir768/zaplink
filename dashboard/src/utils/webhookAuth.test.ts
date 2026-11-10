@@ -38,7 +38,7 @@ test('names the gateway drops at delivery are refused', () => {
     'Content-Type',
     'User-Agent',
     'user-agent',
-    'X-OpenWA-Signature',
+    'X-ZapLink-Signature',
     'Transfer-Encoding',
     'connection',
     'TE',

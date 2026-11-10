@@ -69,7 +69,7 @@ const NOT_DISPATCHED_CODES = new Set([
 ]);
 
 /** Marks a request as already forwarded once. Whatever happens, it is never forwarded again. */
-export const FORWARDED_HEADER = 'x-openwa-forwarded';
+export const FORWARDED_HEADER = 'x-zaplink-forwarded';
 
 /**
  * How much of the owner's answer is held whole before it is relayed. An ordinary JSON answer fits, and keeps the
@@ -307,7 +307,7 @@ export class SessionProxyInterceptor implements NestInterceptor {
         const value = upstream.headers.get(name);
         if (value) response.setHeader(name, value);
       }
-      response.setHeader('x-openwa-served-by', ownerNodeId);
+      response.setHeader('x-zaplink-served-by', ownerNodeId);
       if (ended || !reader) {
         const body = Buffer.concat(held);
         if (body.length > 0) response.send(body);

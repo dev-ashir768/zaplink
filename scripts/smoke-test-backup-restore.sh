@@ -16,9 +16,9 @@
 #   (j) a probe that fails or prints no usable count leaves the target counted as live
 #   (k) an operator's sqlite3 rc file changes neither answer of the guard (skipped without sqlite3)
 #   (l) an unwritable BACKUP_DIR fails before anything is staged (skipped as root)
-#   (m) OPENWA_RESTORE_SNAPSHOT_DIR takes the data-dir snapshot off a read-only parent (skipped as root)
+#   (m) ZAPLINK_RESTORE_SNAPSHOT_DIR takes the data-dir snapshot off a read-only parent (skipped as root)
 #   (n) a state dir outside the data dir is snapshotted before any database is written, and under
-#       OPENWA_RESTORE_SNAPSHOT_DIR when that is set (skipped as root)
+#       ZAPLINK_RESTORE_SNAPSHOT_DIR when that is set (skipped as root)
 #   (o) such a state dir under a read-only parent, a mount point in the container, is restored in
 #       place (skipped as root)
 #   (p) a symlinked database target or data dir is snapshotted as a copy of what the link points at
@@ -56,7 +56,7 @@
 #       as before when it is not, and never starts past a DATABASE_SSL or DATABASE_SSL_REJECT_UNAUTHORIZED
 #       line the scripts cannot parse; the psql command restore prints asks for the same TLS mode and
 #       says where verify-full takes its CA from
-#   (ai) the ./data defaults and ./data paths in ./.env and .env.generated follow OPENWA_DATA_DIR in a
+#   (ai) the ./data defaults and ./data paths in ./.env and .env.generated follow ZAPLINK_DATA_DIR in a
 #       run on the host, in both scripts, as does a leftover ./uploads, also into an empty volume, while a
 #       bare-metal ./data named by another spelling or a symlink keeps ./uploads, non-path settings and
 #       a ./data path or absolute media path from the environment are read as written, an
@@ -68,7 +68,7 @@
 #       staging copy is removed after a backup that succeeds and one that fails
 #   (al) a tar that fails part way exits non-zero and leaves no archive in BACKUP_DIR, so a truncated
 #       file cannot pass for the newest backup
-#   (am) restore refuses an OPENWA_DATA_DIR that is ., ./, .., ../, /, the working directory, a parent of
+#   (am) restore refuses an ZAPLINK_DATA_DIR that is ., ./, .., ../, /, the working directory, a parent of
 #       it, a link to it, the home directory or a parent of it, before it reads the archive; and, behind
 #       a cp that stops at /, //, /., /./, /.. and a link to / with or without a trailing .., or a link
 #       whose target ends in one, or a link to / whose name is not valid UTF-8 (the / cases are skipped
@@ -118,8 +118,8 @@ set -euo pipefail
 # backup.sh and restore.sh take these from the environment before anything else. An exported value
 # would aim a case at a real install, and restore replaces the state directories wholesale, so every
 # case starts from none of them and sets exactly the paths it uses.
-unset OPENWA_DATA_DIR BACKUP_DIR DATABASE_TYPE MAIN_DATABASE_NAME DATABASE_NAME SESSION_DATA_PATH \
-  BAILEYS_AUTH_DIR STORAGE_LOCAL_PATH PLUGINS_DIR PLUGIN_STATE_DIR OPENWA_RESTORE_SNAPSHOT_DIR BOOTSTRAP_KEY_FILE \
+unset ZAPLINK_DATA_DIR BACKUP_DIR DATABASE_TYPE MAIN_DATABASE_NAME DATABASE_NAME SESSION_DATA_PATH \
+  BAILEYS_AUTH_DIR STORAGE_LOCAL_PATH PLUGINS_DIR PLUGIN_STATE_DIR ZAPLINK_RESTORE_SNAPSHOT_DIR BOOTSTRAP_KEY_FILE \
   ENGINE_TYPE DATABASE_URL DATABASE_HOST DATABASE_PORT DATABASE_USERNAME DATABASE_PASSWORD \
   DATABASE_SSL DATABASE_SSL_REJECT_UNAUTHORIZED PGSSLMODE PGSSLROOTCERT \
   NODE_EXTRA_CA_CERTS
@@ -193,22 +193,22 @@ make_fixture "$A/custom/store.sqlite" "alpha-data"
   cd "$A"
   MAIN_DATABASE_NAME="$A/custom/auth.sqlite" \
     DATABASE_NAME="$A/custom/store.sqlite" \
-    OPENWA_DATA_DIR="$A/state" \
+    ZAPLINK_DATA_DIR="$A/state" \
     BACKUP_DIR="$A/out" \
     "$BACKUP" >/dev/null
 )
-ARCHIVE_A="$(ls "$A"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_A="$(ls "$A"/out/zaplink-backup-*.tar.gz)"
 if ! tar_lists -tzf "$ARCHIVE_A" -x './main.sqlite'; then
   fail "(a) archive missing ./main.sqlite"
 fi
-if ! tar_lists -tzf "$ARCHIVE_A" -x './openwa.sqlite'; then
-  fail "(a) archive missing ./openwa.sqlite"
+if ! tar_lists -tzf "$ARCHIVE_A" -x './zaplink.sqlite'; then
+  fail "(a) archive missing ./zaplink.sqlite"
 fi
 (
   cd "$A/restore"
   MAIN_DATABASE_NAME="$A/restore/custom-main.sqlite" \
     DATABASE_NAME="$A/restore/custom-data.sqlite" \
-    OPENWA_DATA_DIR="$A/restore/state" \
+    ZAPLINK_DATA_DIR="$A/restore/state" \
     "$RESTORE" "$ARCHIVE_A" >/dev/null
 )
 if [ "$(db_fingerprint "$A/restore/custom-main.sqlite")" != "alpha-main" ]; then
@@ -224,7 +224,7 @@ echo "==> (b) missing source database fails hard"
 B="$WORK/b"
 mkdir -p "$B"
 set +e
-OUT_B="$(cd "$B" && OPENWA_DATA_DIR="$B/state" BACKUP_DIR="$B/out" "$BACKUP" 2>&1)"
+OUT_B="$(cd "$B" && ZAPLINK_DATA_DIR="$B/state" BACKUP_DIR="$B/out" "$BACKUP" 2>&1)"
 RC_B=$?
 set -e
 if [ "$RC_B" -eq 0 ]; then
@@ -236,7 +236,7 @@ fi
 if [ -n "$(ls "$B/out" 2>/dev/null || true)" ]; then
   fail "(b) an archive was written despite the missing database"
 fi
-# Only the data store missing (default paths) must also fail, naming openwa.sqlite.
+# Only the data store missing (default paths) must also fail, naming zaplink.sqlite.
 B2="$WORK/b2"
 mkdir -p "$B2/data"
 make_fixture "$B2/data/main.sqlite" "b2-main"
@@ -247,7 +247,7 @@ set -e
 if [ "$RC_B2" -eq 0 ]; then
   fail "(b) backup.sh exited 0 with the data store missing"
 fi
-if ! printf '%s' "$OUT_B2" | grep -q 'openwa.sqlite'; then
+if ! printf '%s' "$OUT_B2" | grep -q 'zaplink.sqlite'; then
   fail "(b) error message does not name the missing data store"
 fi
 pass "(b) missing DB -> non-zero exit, clear message, no archive"
@@ -258,12 +258,12 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
   C="$WORK/c"
   mkdir -p "$C/src/data" "$C/dst"
   sqlite3 "$C/src/data/main.sqlite" "CREATE TABLE sentinel(payload TEXT); INSERT INTO sentinel VALUES('c-main');"
-  sqlite3 "$C/src/data/openwa.sqlite" "CREATE TABLE sentinel(payload TEXT); INSERT INTO sentinel VALUES('c-data');"
+  sqlite3 "$C/src/data/zaplink.sqlite" "CREATE TABLE sentinel(payload TEXT); INSERT INTO sentinel VALUES('c-data');"
   (
     cd "$C/src"
     BACKUP_DIR="$C/out" "$BACKUP" >/dev/null
   )
-  ARCHIVE_C="$(ls "$C"/out/openwa-backup-*.tar.gz)"
+  ARCHIVE_C="$(ls "$C"/out/zaplink-backup-*.tar.gz)"
   if tar_lists -tzf "$ARCHIVE_C" 'CONSISTENCY-WARNING'; then
     fail "(c) unexpected CONSISTENCY-WARNING marker with sqlite3 present"
   fi
@@ -274,7 +274,7 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
   if [ "$(sqlite3 "$C/dst/data/main.sqlite" 'SELECT payload FROM sentinel;')" != "c-main" ]; then
     fail "(c) main DB contents did not survive the roundtrip"
   fi
-  if [ "$(sqlite3 "$C/dst/data/openwa.sqlite" 'SELECT payload FROM sentinel;')" != "c-data" ]; then
+  if [ "$(sqlite3 "$C/dst/data/zaplink.sqlite" 'SELECT payload FROM sentinel;')" != "c-data" ]; then
     fail "(c) data store contents did not survive the roundtrip"
   fi
   pass "(c) .backup roundtrip preserves database contents"
@@ -289,13 +289,13 @@ mkdir -p "$D/src/data" "$D/shim" "$D/dst"
 # Plain files are fine here: the shim PATH hides sqlite3, so backup.sh takes the cp branch
 # regardless of what the host provides.
 printf 'd-main\n' >"$D/src/data/main.sqlite"
-printf 'd-data\n' >"$D/src/data/openwa.sqlite"
+printf 'd-data\n' >"$D/src/data/zaplink.sqlite"
 populate_shim "$D/shim"
 (
   cd "$D/src"
   PATH="$D/shim" BACKUP_DIR="$D/out" "$BACKUP" >"$D/backup.log" 2>&1
 )
-ARCHIVE_D="$(ls "$D"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_D="$(ls "$D"/out/zaplink-backup-*.tar.gz)"
 if ! tar_lists -tzf "$ARCHIVE_D" 'CONSISTENCY-WARNING'; then
   fail "(d) fallback archive does not carry the CONSISTENCY-WARNING marker"
 fi
@@ -332,13 +332,13 @@ echo "==> (e) archive min-content check rejects an incomplete archive"
 E="$WORK/e"
 mkdir -p "$E/src/data" "$E/shim"
 make_fixture "$E/src/data/main.sqlite" "e-main"
-make_fixture "$E/src/data/openwa.sqlite" "e-data"
+make_fixture "$E/src/data/zaplink.sqlite" "e-data"
 if [ "$HAS_SQLITE3" -eq 1 ]; then
   populate_shim "$E/shim" with-sqlite3
 else
   populate_shim "$E/shim"
 fi
-# Shadow tar: create the archive WITHOUT ./openwa.sqlite to simulate a truncated backup.
+# Shadow tar: create the archive WITHOUT ./zaplink.sqlite to simulate a truncated backup.
 # (remove the populate_shim symlink first — writing through it would target the real tar)
 rm -f "$E/shim/tar"
 REAL_TAR="$(command -v tar)"
@@ -347,7 +347,7 @@ cat >"$E/shim/tar" <<EOF
 if [ "\$1" = "-czf" ]; then
   out="\$2"
   shift 2
-  exec "$REAL_TAR" -czf "\$out" --exclude='./openwa.sqlite' "\$@"
+  exec "$REAL_TAR" -czf "\$out" --exclude='./zaplink.sqlite' "\$@"
 fi
 exec "$REAL_TAR" "\$@"
 EOF
@@ -357,9 +357,9 @@ OUT_E="$(cd "$E/src" && PATH="$E/shim" BACKUP_DIR="$E/out" "$BACKUP" 2>&1)"
 RC_E=$?
 set -e
 if [ "$RC_E" -eq 0 ]; then
-  fail "(e) min-content check passed an archive missing openwa.sqlite"
+  fail "(e) min-content check passed an archive missing zaplink.sqlite"
 fi
-if ! printf '%s' "$OUT_E" | grep -q 'openwa.sqlite'; then
+if ! printf '%s' "$OUT_E" | grep -q 'zaplink.sqlite'; then
   fail "(e) error message does not name the missing archive member"
 fi
 if [ -n "$(ls "$E/out" 2>/dev/null || true)" ]; then
@@ -378,19 +378,19 @@ mkdir -p "$F/state/live" "$F/data" "$F/extract" "$F/restore"
 make_fixture "$F/state/live/auth.sqlite" "foxtrot-live-main"
 make_fixture "$F/state/live/store.sqlite" "foxtrot-live-data"
 make_fixture "$F/data/main.sqlite" "STALE-main"
-make_fixture "$F/data/openwa.sqlite" "STALE-data"
+make_fixture "$F/data/zaplink.sqlite" "STALE-data"
 printf 'DATABASE_TYPE=sqlite\nMAIN_DATABASE_NAME=%s\nDATABASE_NAME=%s\n' \
   "$F/state/live/auth.sqlite" "$F/state/live/store.sqlite" >"$F/state/.env.generated"
 (
   cd "$F"
-  OPENWA_DATA_DIR="$F/state" BACKUP_DIR="$F/out" "$BACKUP" >/dev/null
+  ZAPLINK_DATA_DIR="$F/state" BACKUP_DIR="$F/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_F="$(ls "$F"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_F="$(ls "$F"/out/zaplink-backup-*.tar.gz)"
 tar -xzf "$ARCHIVE_F" -C "$F/extract"
 if [ "$(db_fingerprint "$F/extract/main.sqlite")" != "foxtrot-live-main" ]; then
   fail "(f) backup archived the stale default main DB instead of the one data/.env.generated names"
 fi
-if [ "$(db_fingerprint "$F/extract/openwa.sqlite")" != "foxtrot-live-data" ]; then
+if [ "$(db_fingerprint "$F/extract/zaplink.sqlite")" != "foxtrot-live-data" ]; then
   fail "(f) backup archived the stale default data DB instead of the one data/.env.generated names"
 fi
 # restore.sh must read the same layer, from the file in effect AFTER the restore: the archive's
@@ -403,7 +403,7 @@ printf 'DATABASE_TYPE=sqlite\nMAIN_DATABASE_NAME=%s\nDATABASE_NAME=%s\n' \
   "$F/state/other/auth.sqlite" "$F/state/other/store.sqlite" >"$F/state/.env.generated"
 (
   cd "$F/restore"
-  OPENWA_DATA_DIR="$F/state" "$RESTORE" "$ARCHIVE_F" >/dev/null
+  ZAPLINK_DATA_DIR="$F/state" "$RESTORE" "$ARCHIVE_F" >/dev/null
 )
 if [ "$(db_fingerprint "$F/state/live/auth.sqlite")" != "foxtrot-live-main" ]; then
   fail "(f) restore ignored the MAIN_DATABASE_NAME in the archive's data/.env.generated"
@@ -417,11 +417,11 @@ fi
 # An explicit environment value must still win — that is the app's precedence, not ours to change.
 (
   cd "$F"
-  MAIN_DATABASE_NAME="$F/data/main.sqlite" DATABASE_NAME="$F/data/openwa.sqlite" \
-    OPENWA_DATA_DIR="$F/state" BACKUP_DIR="$F/out2" "$BACKUP" >/dev/null
+  MAIN_DATABASE_NAME="$F/data/main.sqlite" DATABASE_NAME="$F/data/zaplink.sqlite" \
+    ZAPLINK_DATA_DIR="$F/state" BACKUP_DIR="$F/out2" "$BACKUP" >/dev/null
 )
 rm -rf "${F:?}/extract2" && mkdir -p "$F/extract2"
-tar -xzf "$(ls "$F"/out2/openwa-backup-*.tar.gz)" -C "$F/extract2"
+tar -xzf "$(ls "$F"/out2/zaplink-backup-*.tar.gz)" -C "$F/extract2"
 if [ "$(db_fingerprint "$F/extract2/main.sqlite")" != "STALE-main" ]; then
   fail "(f) an explicit environment path lost to data/.env.generated — precedence is inverted"
 fi
@@ -430,21 +430,21 @@ pass "(f) data/.env.generated resolves paths for both scripts, and the environme
 echo ""
 echo "==> (g) PLUGIN_STATE_DIR moves the registry and ctx.storage, and both scripts follow it"
 # The knob names the ROOT; the app keeps plugin state at <root>/plugins. Both scripts hardcoded
-# $OPENWA_DATA_DIR/plugins, so with the knob set the archive carried neither the registry nor any
+# $ZAPLINK_DATA_DIR/plugins, so with the knob set the archive carried neither the registry nor any
 # plugin's persisted storage, and the restore put nothing back. Silent both ways: an empty source
 # directory simply produces no plugin-state entry.
 G="$WORK/g"
 mkdir -p "$G/state" "$G/elsewhere/plugins/chatwoot" "$G/extract" "$G/restore/state"
 make_fixture "$G/state/main.sqlite" "golf-main"
-make_fixture "$G/state/openwa.sqlite" "golf-data"
+make_fixture "$G/state/zaplink.sqlite" "golf-data"
 printf '{"plugins":[{"id":"chatwoot"}]}' >"$G/elsewhere/plugins/registry.json"
 printf 'mapped-conversation' >"$G/elsewhere/plugins/chatwoot/key-Zm9v.json"
 (
   cd "$G"
-  OPENWA_DATA_DIR="$G/state" PLUGIN_STATE_DIR="$G/elsewhere" BACKUP_DIR="$G/out" \
-    MAIN_DATABASE_NAME="$G/state/main.sqlite" DATABASE_NAME="$G/state/openwa.sqlite" "$BACKUP" >/dev/null
+  ZAPLINK_DATA_DIR="$G/state" PLUGIN_STATE_DIR="$G/elsewhere" BACKUP_DIR="$G/out" \
+    MAIN_DATABASE_NAME="$G/state/main.sqlite" DATABASE_NAME="$G/state/zaplink.sqlite" "$BACKUP" >/dev/null
 )
-ARCHIVE_G="$(ls "$G"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_G="$(ls "$G"/out/zaplink-backup-*.tar.gz)"
 tar -xzf "$ARCHIVE_G" -C "$G/extract"
 if [ ! -f "$G/extract/plugin-state/registry.json" ]; then
   fail "(g) backup ignored PLUGIN_STATE_DIR: the plugin registry is missing from the archive"
@@ -455,8 +455,8 @@ fi
 # And the restore has to put them back where the knob points, not under the default data dir.
 (
   cd "$G"
-  OPENWA_DATA_DIR="$G/restore/state" PLUGIN_STATE_DIR="$G/restored-elsewhere" \
-    MAIN_DATABASE_NAME="$G/restore/state/main.sqlite" DATABASE_NAME="$G/restore/state/openwa.sqlite" \
+  ZAPLINK_DATA_DIR="$G/restore/state" PLUGIN_STATE_DIR="$G/restored-elsewhere" \
+    MAIN_DATABASE_NAME="$G/restore/state/main.sqlite" DATABASE_NAME="$G/restore/state/zaplink.sqlite" \
     "$RESTORE" "$ARCHIVE_G" --force >/dev/null
 )
 if [ ! -f "$G/restored-elsewhere/plugins/registry.json" ]; then
@@ -472,17 +472,17 @@ echo "==> (h) restore refuses a live target without --force, before touching any
 H="$WORK/h"
 mkdir -p "$H/src/data" "$H/live" "$H/out"
 make_fixture "$H/src/data/main.sqlite" "hotel-archive-main"
-make_fixture "$H/src/data/openwa.sqlite" "hotel-archive-data"
+make_fixture "$H/src/data/zaplink.sqlite" "hotel-archive-data"
 (
   cd "$H/src"
   BACKUP_DIR="$H/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_H="$(ls "$H"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_H="$(ls "$H"/out/zaplink-backup-*.tar.gz)"
 make_fixture "$H/live/main.sqlite" "hotel-live-main"
-make_fixture "$H/live/openwa.sqlite" "hotel-live-data"
+make_fixture "$H/live/zaplink.sqlite" "hotel-live-data"
 set +e
 OUT_H="$(cd "$H" && MAIN_DATABASE_NAME="$H/live/main.sqlite" \
-  DATABASE_NAME="$H/live/openwa.sqlite" OPENWA_DATA_DIR="$H/live" \
+  DATABASE_NAME="$H/live/zaplink.sqlite" ZAPLINK_DATA_DIR="$H/live" \
   "$RESTORE" "$ARCHIVE_H" 2>&1)"
 RC_H=$?
 set -e
@@ -502,7 +502,7 @@ fi
 if [ "$(db_fingerprint "$H/live/main.sqlite")" != "hotel-live-main" ]; then
   fail "(h) the refused restore modified the live main DB"
 fi
-if [ "$(db_fingerprint "$H/live/openwa.sqlite")" != "hotel-live-data" ]; then
+if [ "$(db_fingerprint "$H/live/zaplink.sqlite")" != "hotel-live-data" ]; then
   fail "(h) the refused restore modified the live data DB"
 fi
 # $H/live is non-empty, so an execution that reached the safety-snapshot step would have left a
@@ -512,13 +512,13 @@ if [ -n "$(ls -d "$H"/live.pre-restore-* 2>/dev/null || true)" ]; then
 fi
 (
   cd "$H"
-  MAIN_DATABASE_NAME="$H/live/main.sqlite" DATABASE_NAME="$H/live/openwa.sqlite" \
-    OPENWA_DATA_DIR="$H/live" "$RESTORE" "$ARCHIVE_H" --force >/dev/null
+  MAIN_DATABASE_NAME="$H/live/main.sqlite" DATABASE_NAME="$H/live/zaplink.sqlite" \
+    ZAPLINK_DATA_DIR="$H/live" "$RESTORE" "$ARCHIVE_H" --force >/dev/null
 )
 if [ "$(db_fingerprint "$H/live/main.sqlite")" != "hotel-archive-main" ]; then
   fail "(h) --force did not overwrite the live main DB after the refusal"
 fi
-if [ "$(db_fingerprint "$H/live/openwa.sqlite")" != "hotel-archive-data" ]; then
+if [ "$(db_fingerprint "$H/live/zaplink.sqlite")" != "hotel-archive-data" ]; then
   fail "(h) --force did not overwrite the live data DB after the refusal"
 fi
 pass "(h) live target refused before any state was touched; --force overwrites"
@@ -529,14 +529,14 @@ echo "==> (i) the data-store half of the guard refuses on its own"
 # data store is the only database present.
 I="$WORK/i"
 mkdir -p "$I/bin" "$I/live"
-make_fixture "$I/live/openwa.sqlite" "india-live-data"
+make_fixture "$I/live/zaplink.sqlite" "india-live-data"
 
 # guarded_restore <target dir>: restore ARCHIVE_H without --force over <dir>/main.sqlite and
-# <dir>/openwa.sqlite, with $I/bin first on PATH. Output lands in OUT, the exit code in RC.
+# <dir>/zaplink.sqlite, with $I/bin first on PATH. Output lands in OUT, the exit code in RC.
 guarded_restore() {
   set +e
   OUT="$(cd "$WORK" && PATH="$I/bin:$PATH" MAIN_DATABASE_NAME="$1/main.sqlite" \
-    DATABASE_NAME="$1/openwa.sqlite" OPENWA_DATA_DIR="$1" "$RESTORE" "$ARCHIVE_H" 2>&1)"
+    DATABASE_NAME="$1/zaplink.sqlite" ZAPLINK_DATA_DIR="$1" "$RESTORE" "$ARCHIVE_H" 2>&1)"
   RC=$?
   set -e
 }
@@ -547,10 +547,10 @@ expect_refused() {
   if [ "$RC" -eq 0 ]; then
     fail "($1) restore exited 0 over a live data store without --force"
   fi
-  if ! printf '%s' "$OUT" | grep -qF "$I/live/openwa.sqlite"; then
+  if ! printf '%s' "$OUT" | grep -qF "$I/live/zaplink.sqlite"; then
     fail "($1) refusal message does not name the live data store"
   fi
-  if [ "$(db_fingerprint "$I/live/openwa.sqlite")" != "india-live-data" ]; then
+  if [ "$(db_fingerprint "$I/live/zaplink.sqlite")" != "india-live-data" ]; then
     fail "($1) the refused restore modified the live data store"
   fi
 }
@@ -583,7 +583,7 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
   expect_refused k
   # And a database with no tables yet is still safe to restore over without --force.
   mkdir -p "$I/fresh"
-  : >"$I/fresh/openwa.sqlite"
+  : >"$I/fresh/zaplink.sqlite"
   guarded_restore "$I/fresh"
   if [ "$RC" -ne 0 ]; then
     fail "(k) the rc file made a database with no tables look live"
@@ -601,7 +601,7 @@ if [ "$(id -u)" -ne 0 ]; then
   L="$WORK/l"
   mkdir -p "$L/data" "$L/ro"
   make_fixture "$L/data/main.sqlite" "l-main"
-  make_fixture "$L/data/openwa.sqlite" "l-data"
+  make_fixture "$L/data/zaplink.sqlite" "l-data"
   chmod a-w "$L/ro"
   set +e
   OUT_L="$(cd "$L" && BACKUP_DIR="$L/ro/out" "$BACKUP" 2>&1)"
@@ -623,7 +623,7 @@ else
 fi
 
 echo ""
-echo "==> (m) OPENWA_RESTORE_SNAPSHOT_DIR takes the data-dir snapshot off a read-only parent"
+echo "==> (m) ZAPLINK_RESTORE_SNAPSHOT_DIR takes the data-dir snapshot off a read-only parent"
 # The shipped compose file and Helm chart mount the data dir as a volume under a read-only root, so
 # the snapshot's default place next to it cannot be written and the restore stopped there.
 if [ "$(id -u)" -ne 0 ]; then
@@ -632,21 +632,21 @@ if [ "$(id -u)" -ne 0 ]; then
   printf 'mike-before\n' >"$M/root/data/.api-key"
   chmod a-w "$M/root"
   set +e
-  OUT_M="$(cd "$M" && MAIN_DATABASE_NAME="$M/root/data/main.sqlite" DATABASE_NAME="$M/root/data/openwa.sqlite" \
-    OPENWA_DATA_DIR="$M/root/data" OPENWA_RESTORE_SNAPSHOT_DIR="$M/snapshots" "$RESTORE" "$ARCHIVE_H" 2>&1)"
+  OUT_M="$(cd "$M" && MAIN_DATABASE_NAME="$M/root/data/main.sqlite" DATABASE_NAME="$M/root/data/zaplink.sqlite" \
+    ZAPLINK_DATA_DIR="$M/root/data" ZAPLINK_RESTORE_SNAPSHOT_DIR="$M/snapshots" "$RESTORE" "$ARCHIVE_H" 2>&1)"
   RC_M=$?
   set -e
   chmod u+w "$M/root"
   if [ "$RC_M" -ne 0 ]; then
-    fail "(m) restore failed with a writable OPENWA_RESTORE_SNAPSHOT_DIR: $OUT_M"
+    fail "(m) restore failed with a writable ZAPLINK_RESTORE_SNAPSHOT_DIR: $OUT_M"
   fi
   if [ "$(cat "$M"/snapshots/data.pre-restore-*/.api-key 2>/dev/null || true)" != "mike-before" ]; then
-    fail "(m) the data-dir snapshot is not under OPENWA_RESTORE_SNAPSHOT_DIR"
+    fail "(m) the data-dir snapshot is not under ZAPLINK_RESTORE_SNAPSHOT_DIR"
   fi
   if [ "$(db_fingerprint "$M/root/data/main.sqlite")" != "hotel-archive-main" ]; then
     fail "(m) the restore did not put the archived main DB in place"
   fi
-  pass "(m) data-dir snapshot written under OPENWA_RESTORE_SNAPSHOT_DIR, restore completes"
+  pass "(m) data-dir snapshot written under ZAPLINK_RESTORE_SNAPSHOT_DIR, restore completes"
 else
   echo "SKIP: (m) running as root, which ignores the permission bits this case relies on"
 fi
@@ -660,15 +660,15 @@ if [ "$(id -u)" -ne 0 ]; then
   N="$WORK/n"
   mkdir -p "$N/src/data/sessions/session-s1" "$N/live" "$N/ro/sessions/session-s1" "$N/ext/sessions/session-s1"
   make_fixture "$N/src/data/main.sqlite" "november-archive-main"
-  make_fixture "$N/src/data/openwa.sqlite" "november-archive-data"
+  make_fixture "$N/src/data/zaplink.sqlite" "november-archive-data"
   printf 'november-archive\n' >"$N/src/data/sessions/session-s1/marker"
   (
     cd "$N/src"
     BACKUP_DIR="$N/out" "$BACKUP" >/dev/null
   )
-  ARCHIVE_N="$(ls "$N"/out/openwa-backup-*.tar.gz)"
+  ARCHIVE_N="$(ls "$N"/out/zaplink-backup-*.tar.gz)"
   make_fixture "$N/live/main.sqlite" "november-live-main"
-  make_fixture "$N/live/openwa.sqlite" "november-live-data"
+  make_fixture "$N/live/zaplink.sqlite" "november-live-data"
   printf 'november-live\n' >"$N/ro/sessions/session-s1/marker"
   printf 'november-live\n' >"$N/ext/sessions/session-s1/marker"
 
@@ -676,8 +676,8 @@ if [ "$(id -u)" -ne 0 ]; then
   # in OUT, the exit code in RC.
   restore_n() {
     set +e
-    OUT="$(cd "$N" && MAIN_DATABASE_NAME="$N/live/main.sqlite" DATABASE_NAME="$N/live/openwa.sqlite" \
-      OPENWA_DATA_DIR="$N/live" SESSION_DATA_PATH="$1" OPENWA_RESTORE_SNAPSHOT_DIR="${2:-}" \
+    OUT="$(cd "$N" && MAIN_DATABASE_NAME="$N/live/main.sqlite" DATABASE_NAME="$N/live/zaplink.sqlite" \
+      ZAPLINK_DATA_DIR="$N/live" SESSION_DATA_PATH="$1" ZAPLINK_RESTORE_SNAPSHOT_DIR="${2:-}" \
       "$RESTORE" "$ARCHIVE_N" --force 2>&1)"
     RC=$?
     set -e
@@ -701,15 +701,15 @@ if [ "$(id -u)" -ne 0 ]; then
     fail "(n) restore with an external SESSION_DATA_PATH failed: $OUT"
   fi
   if [ "$(cat "$N"/snapshots/sessions.pre-restore-*/session-s1/marker 2>/dev/null || true)" != "november-live" ]; then
-    fail "(n) the sessions snapshot is not under OPENWA_RESTORE_SNAPSHOT_DIR"
+    fail "(n) the sessions snapshot is not under ZAPLINK_RESTORE_SNAPSHOT_DIR"
   fi
   if [ -n "$(ls -d "$N"/ext/sessions.pre-restore-* 2>/dev/null || true)" ]; then
-    fail "(n) the sessions snapshot was written next to the target despite OPENWA_RESTORE_SNAPSHOT_DIR"
+    fail "(n) the sessions snapshot was written next to the target despite ZAPLINK_RESTORE_SNAPSHOT_DIR"
   fi
   if [ "$(cat "$N/ext/sessions/session-s1/marker")" != "november-archive" ]; then
     fail "(n) the archived sessions were not restored"
   fi
-  pass "(n) external state snapshotted before the databases are written, under OPENWA_RESTORE_SNAPSHOT_DIR"
+  pass "(n) external state snapshotted before the databases are written, under ZAPLINK_RESTORE_SNAPSHOT_DIR"
 
   echo ""
   echo "==> (o) a state dir whose parent is read-only is restored in place"
@@ -729,7 +729,7 @@ if [ "$(id -u)" -ne 0 ]; then
     fail "(o) a file the archive does not carry survived the restore"
   fi
   if [ "$(cat "$N"/snapshots-o/sessions.pre-restore-*/session-s1/marker 2>/dev/null || true)" != "november-live" ]; then
-    fail "(o) the sessions snapshot is not under OPENWA_RESTORE_SNAPSHOT_DIR"
+    fail "(o) the sessions snapshot is not under ZAPLINK_RESTORE_SNAPSHOT_DIR"
   fi
   pass "(o) a state dir under a read-only parent is emptied and refilled in place"
 else
@@ -743,19 +743,19 @@ echo "==> (p) a symlinked database target or data dir is snapshotted as a copy"
 P="$WORK/p"
 mkdir -p "$P/src/data" "$P/real/data"
 make_fixture "$P/src/data/main.sqlite" "papa-archive-main"
-make_fixture "$P/src/data/openwa.sqlite" "papa-archive-data"
+make_fixture "$P/src/data/zaplink.sqlite" "papa-archive-data"
 (
   cd "$P/src"
   BACKUP_DIR="$P/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_P="$(ls "$P"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_P="$(ls "$P"/out/zaplink-backup-*.tar.gz)"
 make_fixture "$P/real/main.sqlite" "papa-live-main"
-make_fixture "$P/real/data/openwa.sqlite" "papa-live-data"
+make_fixture "$P/real/data/zaplink.sqlite" "papa-live-data"
 ln -s "$P/real/main.sqlite" "$P/ext-main.sqlite"
 ln -s "$P/real/data" "$P/live"
 (
   cd "$P"
-  MAIN_DATABASE_NAME="$P/ext-main.sqlite" DATABASE_NAME="$P/live/openwa.sqlite" OPENWA_DATA_DIR="$P/live" \
+  MAIN_DATABASE_NAME="$P/ext-main.sqlite" DATABASE_NAME="$P/live/zaplink.sqlite" ZAPLINK_DATA_DIR="$P/live" \
     "$RESTORE" "$ARCHIVE_P" --force >/dev/null
 )
 SNAPSHOT_P="$(ls -d "$P"/ext-main.sqlite.pre-restore-*)"
@@ -769,13 +769,13 @@ SNAPSHOT_P="$(ls -d "$P"/live.pre-restore-*)"
 if [ -L "$SNAPSHOT_P" ]; then
   fail "(p) the snapshot of a symlinked data dir is a link to the directory the restore overwrote"
 fi
-if [ "$(db_fingerprint "$SNAPSHOT_P/openwa.sqlite")" != "papa-live-data" ]; then
+if [ "$(db_fingerprint "$SNAPSHOT_P/zaplink.sqlite")" != "papa-live-data" ]; then
   fail "(p) the data-dir snapshot does not hold the data store the restore replaced"
 fi
 if [ "$(db_fingerprint "$P/ext-main.sqlite")" != "papa-archive-main" ]; then
   fail "(p) the archived main DB was not restored"
 fi
-if [ "$(db_fingerprint "$P/live/openwa.sqlite")" != "papa-archive-data" ]; then
+if [ "$(db_fingerprint "$P/live/zaplink.sqlite")" != "papa-archive-data" ]; then
   fail "(p) the archived data store was not restored"
 fi
 pass "(p) a symlinked database target and data dir are snapshotted as copies"
@@ -789,12 +789,12 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
   Q="$WORK/q"
   mkdir -p "$Q/src/data" "$Q/live" "$Q/ext"
   make_fixture "$Q/src/data/main.sqlite" "quebec-archive-main"
-  make_fixture "$Q/src/data/openwa.sqlite" "quebec-archive-data"
+  make_fixture "$Q/src/data/zaplink.sqlite" "quebec-archive-data"
   (
     cd "$Q/src"
     BACKUP_DIR="$Q/out" "$BACKUP" >/dev/null
   )
-  ARCHIVE_Q="$(ls "$Q"/out/openwa-backup-*.tar.gz)"
+  ARCHIVE_Q="$(ls "$Q"/out/zaplink-backup-*.tar.gz)"
   # wal_fixture <db> <payload>: a WAL-mode database whose main file still says 'stale' and whose
   # un-checkpointed -wal, as an unclean stop leaves it, says <payload>.
   wal_fixture() {
@@ -805,20 +805,20 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
     mv "$1.wal" "$1-wal"
   }
   wal_fixture "$Q/live/main.sqlite" "quebec-live-main"
-  wal_fixture "$Q/ext/openwa.sqlite" "quebec-live-data"
+  wal_fixture "$Q/ext/zaplink.sqlite" "quebec-live-data"
   (
     cd "$Q"
-    MAIN_DATABASE_NAME="$Q/live/main.sqlite" DATABASE_NAME="$Q/ext/openwa.sqlite" OPENWA_DATA_DIR="$Q/live" \
+    MAIN_DATABASE_NAME="$Q/live/main.sqlite" DATABASE_NAME="$Q/ext/zaplink.sqlite" ZAPLINK_DATA_DIR="$Q/live" \
       "$RESTORE" "$ARCHIVE_Q" --force >/dev/null
   )
   if [ "$(db_fingerprint "$Q/live/main.sqlite")" != "quebec-archive-main" ]; then
     fail "(q) the old install's -wal was replayed over the restored main DB"
   fi
-  if [ "$(db_fingerprint "$Q/ext/openwa.sqlite")" != "quebec-archive-data" ]; then
+  if [ "$(db_fingerprint "$Q/ext/zaplink.sqlite")" != "quebec-archive-data" ]; then
     fail "(q) the old install's -wal was replayed over the restored data store"
   fi
   # The snapshot name ends in the timestamp; its sidecars end in -wal and -shm.
-  if [ "$(db_fingerprint "$(ls -d "$Q"/ext/openwa.sqlite.pre-restore-*[0-9])")" != "quebec-live-data" ]; then
+  if [ "$(db_fingerprint "$(ls -d "$Q"/ext/zaplink.sqlite.pre-restore-*[0-9])")" != "quebec-live-data" ]; then
     fail "(q) the snapshot of a database outside the data dir lost the transactions in its -wal"
   fi
   pass "(q) stale -wal files are cleared before the copy and kept in the snapshot"
@@ -834,14 +834,14 @@ echo "==> (r) a symlinked state dir is archived by content and refilled in place
 R="$WORK/r"
 mkdir -p "$R/src/data" "$R/src-disk/media" "$R/live" "$R/disk/media"
 make_fixture "$R/src/data/main.sqlite" "romeo-archive-main"
-make_fixture "$R/src/data/openwa.sqlite" "romeo-archive-data"
+make_fixture "$R/src/data/zaplink.sqlite" "romeo-archive-data"
 printf 'romeo-archive\n' >"$R/src-disk/media/a.jpg"
 ln -s "$R/src-disk/media" "$R/src/data/media"
 (
   cd "$R/src"
   BACKUP_DIR="$R/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_R="$(ls "$R"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_R="$(ls "$R"/out/zaplink-backup-*.tar.gz)"
 if ! tar_lists -tzf "$ARCHIVE_R" -x './media/a.jpg'; then
   fail "(r) backup archived the symlinked media dir as a link instead of its files"
 fi
@@ -850,8 +850,8 @@ ln -s "$R/disk/media" "$R/live/media"
 # restore_r <archive>: a forced restore over $R/live. Output lands in OUT, the exit code in RC.
 restore_r() {
   set +e
-  OUT="$(cd "$R" && MAIN_DATABASE_NAME="$R/live/main.sqlite" DATABASE_NAME="$R/live/openwa.sqlite" \
-    OPENWA_DATA_DIR="$R/live" "$RESTORE" "$1" --force 2>&1)"
+  OUT="$(cd "$R" && MAIN_DATABASE_NAME="$R/live/main.sqlite" DATABASE_NAME="$R/live/zaplink.sqlite" \
+    ZAPLINK_DATA_DIR="$R/live" "$RESTORE" "$1" --force 2>&1)"
   RC=$?
   set -e
 }
@@ -897,7 +897,7 @@ echo "==> (s) state lands where the restored data/.env.generated points"
 S="$WORK/s"
 mkdir -p "$S/src/data/custom-sessions/session-s1" "$S/src/data/custom-media" "$S/dst" "$S/dst-env"
 make_fixture "$S/src/data/main.sqlite" "sierra-main"
-make_fixture "$S/src/data/openwa.sqlite" "sierra-data"
+make_fixture "$S/src/data/zaplink.sqlite" "sierra-data"
 printf 'sierra-session\n' >"$S/src/data/custom-sessions/session-s1/marker"
 printf 'sierra-media\n' >"$S/src/data/custom-media/a.jpg"
 printf 'SESSION_DATA_PATH=./data/custom-sessions\nSTORAGE_LOCAL_PATH=./data/custom-media\n' >"$S/src/data/.env.generated"
@@ -905,7 +905,7 @@ printf 'SESSION_DATA_PATH=./data/custom-sessions\nSTORAGE_LOCAL_PATH=./data/cust
   cd "$S/src"
   BACKUP_DIR="$S/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_S="$(ls "$S"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_S="$(ls "$S"/out/zaplink-backup-*.tar.gz)"
 (
   cd "$S/dst"
   "$RESTORE" "$ARCHIVE_S" >/dev/null
@@ -941,7 +941,7 @@ mkdir -p "$T/src/data/sess/session-s1" "$T/src/live" "$T/dst/data"
 make_fixture "$T/src/live/auth.sqlite" "tango-main"
 make_fixture "$T/src/live/store.sqlite" "tango-data"
 make_fixture "$T/src/data/main.sqlite" "STALE-main"
-make_fixture "$T/src/data/openwa.sqlite" "STALE-data"
+make_fixture "$T/src/data/zaplink.sqlite" "STALE-data"
 printf 'tango-session\n' >"$T/src/data/sess/session-s1/marker"
 printf 'MAIN_DATABASE_NAME = %s\r\nDATABASE_NAME=%s\r\nSESSION_DATA_PATH=./data/sess  \r\n' \
   "$T/src/live/auth.sqlite" "$T/src/live/store.sqlite" >"$T/src/.env"
@@ -953,11 +953,11 @@ if [ "$RC_T" -ne 0 ]; then
   fail "(t) backup failed on a CRLF ./.env: $OUT_T"
 fi
 mkdir -p "$T/extract"
-tar -xzf "$(ls "$T"/out/openwa-backup-*.tar.gz)" -C "$T/extract"
+tar -xzf "$(ls "$T"/out/zaplink-backup-*.tar.gz)" -C "$T/extract"
 if [ "$(db_fingerprint "$T/extract/main.sqlite")" != "tango-main" ]; then
   fail "(t) a \`MAIN_DATABASE_NAME = path\` line in ./.env was skipped and the stale default archived"
 fi
-if [ "$(db_fingerprint "$T/extract/openwa.sqlite")" != "tango-data" ]; then
+if [ "$(db_fingerprint "$T/extract/zaplink.sqlite")" != "tango-data" ]; then
   fail "(t) a CRLF DATABASE_NAME line in ./.env did not resolve to the database it names"
 fi
 if [ "$(cat "$T/extract/sessions/session-s1/marker" 2>/dev/null || true)" != "tango-session" ]; then
@@ -966,7 +966,7 @@ fi
 printf 'DATABASE_NAME=./data/custom.sqlite\r\nMAIN_DATABASE_NAME = ./data/custom-main.sqlite  \r\n' >"$T/dst/.env"
 make_fixture "$T/dst/data/custom.sqlite" "tango-live"
 set +e
-OUT_T="$(cd "$T/dst" && "$RESTORE" "$(ls "$T"/out/openwa-backup-*.tar.gz)" 2>&1)"
+OUT_T="$(cd "$T/dst" && "$RESTORE" "$(ls "$T"/out/zaplink-backup-*.tar.gz)" 2>&1)"
 RC_T=$?
 set -e
 if [ "$RC_T" -eq 0 ]; then
@@ -974,7 +974,7 @@ if [ "$RC_T" -eq 0 ]; then
 fi
 (
   cd "$T/dst"
-  "$RESTORE" "$(ls "$T"/out/openwa-backup-*.tar.gz)" --force >/dev/null
+  "$RESTORE" "$(ls "$T"/out/zaplink-backup-*.tar.gz)" --force >/dev/null
 )
 if [ "$(db_fingerprint "$T/dst/data/custom.sqlite")" != "tango-data" ]; then
   fail "(t) restore did not write the data store to the path the CRLF line names"
@@ -996,13 +996,13 @@ if [ "$(id -u)" -ne 0 ]; then
   U="$WORK/u"
   mkdir -p "$U/src/data/sessions/session-s1" "$U/live" "$U/ro" "$U/busy/sessions/session-s1"
   make_fixture "$U/src/data/main.sqlite" "uniform-archive-main"
-  make_fixture "$U/src/data/openwa.sqlite" "uniform-archive-data"
+  make_fixture "$U/src/data/zaplink.sqlite" "uniform-archive-data"
   printf 'uniform-archive\n' >"$U/src/data/sessions/session-s1/marker"
   (
     cd "$U/src"
     BACKUP_DIR="$U/out" "$BACKUP" >/dev/null
   )
-  ARCHIVE_U="$(ls "$U"/out/openwa-backup-*.tar.gz)"
+  ARCHIVE_U="$(ls "$U"/out/zaplink-backup-*.tar.gz)"
   make_fixture "$U/live/main.sqlite" "uniform-live-main"
   printf 'uniform-live\n' >"$U/busy/sessions/session-s1/marker"
 
@@ -1010,8 +1010,8 @@ if [ "$(id -u)" -ne 0 ]; then
   # lands in OUT, the exit code in RC.
   restore_u() {
     set +e
-    OUT="$(cd "$U" && MAIN_DATABASE_NAME="$U/live/main.sqlite" DATABASE_NAME="$2" OPENWA_DATA_DIR="$U/live" \
-      SESSION_DATA_PATH="$1" OPENWA_RESTORE_SNAPSHOT_DIR="$U/snapshots" "$RESTORE" "$ARCHIVE_U" --force 2>&1)"
+    OUT="$(cd "$U" && MAIN_DATABASE_NAME="$U/live/main.sqlite" DATABASE_NAME="$2" ZAPLINK_DATA_DIR="$U/live" \
+      SESSION_DATA_PATH="$1" ZAPLINK_RESTORE_SNAPSHOT_DIR="$U/snapshots" "$RESTORE" "$ARCHIVE_U" --force 2>&1)"
     RC=$?
     set -e
   }
@@ -1029,14 +1029,14 @@ if [ "$(id -u)" -ne 0 ]; then
   }
 
   chmod a-w "$U/ro"
-  restore_u "$U/ro/sessions" "$U/live/openwa.sqlite"
+  restore_u "$U/ro/sessions" "$U/live/zaplink.sqlite"
   expect_untouched "missing sessions"
-  restore_u "$U/busy/sessions" "$U/ro/openwa.sqlite"
+  restore_u "$U/busy/sessions" "$U/ro/zaplink.sqlite"
   expect_untouched "data store"
   chmod u+w "$U/ro"
   # An existing directory is emptied before it is refilled, which needs every directory in it.
   chmod a-w "$U/busy/sessions/session-s1"
-  restore_u "$U/busy/sessions" "$U/live/openwa.sqlite"
+  restore_u "$U/busy/sessions" "$U/live/zaplink.sqlite"
   chmod u+w "$U/busy/sessions/session-s1"
   expect_untouched "non-empty sessions"
   if [ "$(cat "$U/busy/sessions/session-s1/marker")" != "uniform-live" ]; then
@@ -1053,7 +1053,7 @@ if [ "$(id -u)" -ne 0 ]; then
   for f in .env.generated database.sql; do
     printf 'uniform-live\n' >"$U/live/$f"
     chmod a-w "$U/live/$f"
-    restore_u "$U/busy/sessions" "$U/live/openwa.sqlite"
+    restore_u "$U/busy/sessions" "$U/live/zaplink.sqlite"
     chmod u+w "$U/live/$f"
     rm -f "$U/live/$f"
     expect_untouched "$f"
@@ -1073,7 +1073,7 @@ if [ "$(id -u)" -ne 0 ]; then
   V="$WORK/v"
   mkdir -p "$V/app/data/media" "$V/dst/data" "$V/bare/data"
   make_fixture "$V/app/data/main.sqlite" "victor-main"
-  make_fixture "$V/app/data/openwa.sqlite" "victor-data"
+  make_fixture "$V/app/data/zaplink.sqlite" "victor-data"
   printf 'victor-media\n' >"$V/app/data/media/a.jpg"
   printf 'STORAGE_LOCAL_PATH=./uploads\n' >"$V/app/data/.env.generated"
   chmod a-w "$V/app"
@@ -1085,7 +1085,7 @@ if [ "$(id -u)" -ne 0 ]; then
   if [ "$RC_V" -ne 0 ]; then
     fail "(v) backup failed: $OUT_V"
   fi
-  ARCHIVE_V="$(ls "$V"/out/openwa-backup-*.tar.gz)"
+  ARCHIVE_V="$(ls "$V"/out/zaplink-backup-*.tar.gz)"
   if ! tar_lists -tzf "$ARCHIVE_V" -x './media/a.jpg'; then
     fail "(v) backup left out the media the app keeps in ./data/media"
   fi
@@ -1107,7 +1107,7 @@ if [ "$(id -u)" -ne 0 ]; then
   # On a host where ./uploads can be created the app uses it, so the scripts keep it too, and a
   # media dir that is not there is reported rather than skipped in silence.
   make_fixture "$V/bare/data/main.sqlite" "victor-bare-main"
-  make_fixture "$V/bare/data/openwa.sqlite" "victor-bare-data"
+  make_fixture "$V/bare/data/zaplink.sqlite" "victor-bare-data"
   printf 'STORAGE_LOCAL_PATH=./uploads\n' >"$V/bare/data/.env.generated"
   OUT_V="$(cd "$V/bare" && BACKUP_DIR="$V/out-bare" "$BACKUP" 2>&1)"
   if ! printf '%s' "$OUT_V" | grep -q 'WARN: ./uploads not found'; then
@@ -1126,7 +1126,7 @@ echo "==> (w) the default colocated plugins dir is rebuilt from both archive mem
 W="$WORK/w"
 mkdir -p "$W/split/data" "$W/split/pkgs/pkg-a" "$W/split/state/plugins/chatwoot" "$W/dst/data/plugins/old"
 make_fixture "$W/split/data/main.sqlite" "whiskey-main"
-make_fixture "$W/split/data/openwa.sqlite" "whiskey-data"
+make_fixture "$W/split/data/zaplink.sqlite" "whiskey-data"
 printf 'whiskey-code\n' >"$W/split/pkgs/pkg-a/index.js"
 printf '{"plugins":[{"id":"chatwoot"}]}' >"$W/split/state/plugins/registry.json"
 printf 'whiskey-state\n' >"$W/split/state/plugins/chatwoot/k.json"
@@ -1137,7 +1137,7 @@ printf 'whiskey-stale\n' >"$W/dst/data/plugins/old/x"
 )
 (
   cd "$W/dst"
-  "$RESTORE" "$(ls "$W"/out/openwa-backup-*.tar.gz)" >/dev/null
+  "$RESTORE" "$(ls "$W"/out/zaplink-backup-*.tar.gz)" >/dev/null
 )
 # check_plugins <dir> <label>: the package, the registry and the plugin's storage all landed in <dir>.
 check_plugins() {
@@ -1166,7 +1166,7 @@ fi
 mkdir -p "$W/dst2"
 (
   cd "$W/dst2"
-  "$RESTORE" "$(ls "$W"/out-default/openwa-backup-*.tar.gz)" >/dev/null
+  "$RESTORE" "$(ls "$W"/out-default/zaplink-backup-*.tar.gz)" >/dev/null
 )
 check_plugins "$W/dst2/data/plugins" "default round trip"
 pass "(w) the colocated plugins dir gets packages and state, and loses what the archive does not carry"
@@ -1179,14 +1179,14 @@ echo "==> (x) a BOOTSTRAP_KEY_FILE outside the data dir is archived and restored
 X="$WORK/x"
 mkdir -p "$X/src/data" "$X/src/secrets" "$X/dst" "$X/ro/data"
 make_fixture "$X/src/data/main.sqlite" "xray-main"
-make_fixture "$X/src/data/openwa.sqlite" "xray-data"
+make_fixture "$X/src/data/zaplink.sqlite" "xray-data"
 printf 'xray-key\n' >"$X/src/secrets/admin.key"
 printf 'BOOTSTRAP_KEY_FILE=%s\n' "$X/src/secrets/admin.key" >"$X/src/.env"
 (
   cd "$X/src"
   BACKUP_DIR="$X/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_X="$(ls "$X"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_X="$(ls "$X"/out/zaplink-backup-*.tar.gz)"
 if [ "$(tar -xOzf "$ARCHIVE_X" ./.api-key 2>/dev/null || true)" != "xray-key" ]; then
   fail "(x) backup left out the admin key BOOTSTRAP_KEY_FILE names"
 fi
@@ -1226,7 +1226,7 @@ echo "==> (y) plugin code in the legacy ./plugins is reported, since the archive
 Y="$WORK/y"
 mkdir -p "$Y/data" "$Y/plugins/legacy-bot"
 make_fixture "$Y/data/main.sqlite" "yankee-main"
-make_fixture "$Y/data/openwa.sqlite" "yankee-data"
+make_fixture "$Y/data/zaplink.sqlite" "yankee-data"
 printf '{"id":"legacy-bot"}' >"$Y/plugins/legacy-bot/manifest.json"
 OUT_Y="$(cd "$Y" && BACKUP_DIR="$Y/out" "$BACKUP" 2>&1)"
 if ! printf '%s' "$OUT_Y" | grep -q 'WARN: ./plugins holds plugin packages'; then
@@ -1240,18 +1240,18 @@ pass "(y) packages in the legacy ./plugins are reported when PLUGINS_DIR is unse
 
 echo ""
 echo "==> (z) a leftover ./uploads that was never created follows the app to an existing ./data/media"
-# docker exec runs the scripts as root, which can create /app/uploads, while the app runs as openwa,
+# docker exec runs the scripts as root, which can create /app/uploads, while the app runs as zaplink,
 # which cannot and keeps media in ./data/media. Deciding by writability alone archived no media there
 # and restored it into the container layer. The app creates a ./uploads it uses at boot, so a missing
 # ./uploads beside an existing ./data/media means ./data/media is the one in use, whatever the uid.
 Z="$WORK/z"
 mkdir -p "$Z/app/data/media" "$Z/dst/data/media"
 make_fixture "$Z/app/data/main.sqlite" "zulu-main"
-make_fixture "$Z/app/data/openwa.sqlite" "zulu-data"
+make_fixture "$Z/app/data/zaplink.sqlite" "zulu-data"
 printf 'zulu-media\n' >"$Z/app/data/media/a.jpg"
 printf 'STORAGE_LOCAL_PATH=./uploads\n' >"$Z/app/data/.env.generated"
 OUT_Z="$(cd "$Z/app" && BACKUP_DIR="$Z/out" "$BACKUP" 2>&1)"
-ARCHIVE_Z="$(ls "$Z"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_Z="$(ls "$Z"/out/zaplink-backup-*.tar.gz)"
 if ! tar_lists -tzf "$ARCHIVE_Z" -x './media/a.jpg'; then
   fail "(z) backup left out the media in ./data/media: $OUT_Z"
 fi
@@ -1270,13 +1270,13 @@ AA="$WORK/aa"
 mkdir -p "$AA/src/data/sessions/session-s1" "$AA/src/data/sessions/session-s2" "$AA/src/data/baileys/s1" \
   "$AA/dst" "$AA/quiet/data/sessions/session-s1"
 make_fixture "$AA/src/data/main.sqlite" "alpha2-main"
-make_fixture "$AA/src/data/openwa.sqlite" "alpha2-data"
+make_fixture "$AA/src/data/zaplink.sqlite" "alpha2-data"
 printf 'profile\n' >"$AA/src/data/sessions/session-s1/Preferences"
 printf 'profile\n' >"$AA/src/data/sessions/session-s2/Preferences"
 ln -s host-123 "$AA/src/data/sessions/session-s1/SingletonLock"
 printf '{}' >"$AA/src/data/baileys/s1/creds.json"
 OUT_AA="$(cd "$AA/src" && BACKUP_DIR="$AA/out" "$BACKUP" 2>&1)"
-ARCHIVE_AA="$(ls "$AA"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AA="$(ls "$AA"/out/zaplink-backup-*.tar.gz)"
 NOTE_AA="$(tar -xOzf "$ARCHIVE_AA" ./ENGINE-STATE-NOTE 2>/dev/null || true)"
 if ! printf '%s\n' "$NOTE_AA" | grep -q 'open or left by a killed browser: session-s1)' ||
   ! printf '%s\n' "$NOTE_AA" | grep -q '^baileys/'; then
@@ -1306,10 +1306,10 @@ if ! printf '%s' "$OUT_AA" | grep -q 'ENGINE-STATE-NOTE; engine auth state may h
 fi
 # No open profile and no Baileys state: nothing to note.
 make_fixture "$AA/quiet/data/main.sqlite" "alpha2-quiet-main"
-make_fixture "$AA/quiet/data/openwa.sqlite" "alpha2-quiet-data"
+make_fixture "$AA/quiet/data/zaplink.sqlite" "alpha2-quiet-data"
 printf 'profile\n' >"$AA/quiet/data/sessions/session-s1/Preferences"
 (cd "$AA/quiet" && BACKUP_DIR="$AA/quiet-out" "$BACKUP" >/dev/null 2>&1)
-if tar_lists -tzf "$(ls "$AA"/quiet-out/openwa-backup-*.tar.gz)" 'ENGINE-STATE-NOTE'; then
+if tar_lists -tzf "$(ls "$AA"/quiet-out/zaplink-backup-*.tar.gz)" 'ENGINE-STATE-NOTE'; then
   fail "(aa) an archive with no open profile and no Baileys state carries the engine note"
 fi
 pass "(aa) live engine auth state is noted in the archive and printed, never refused"
@@ -1322,13 +1322,13 @@ echo "==> (ab) a blank line in ./.env hides the key from data/.env.generated, as
 AB="$WORK/ab"
 mkdir -p "$AB/data" "$AB/elsewhere" "$AB/extract"
 make_fixture "$AB/data/main.sqlite" "bravo2-main"
-make_fixture "$AB/data/openwa.sqlite" "bravo2-default"
-make_fixture "$AB/elsewhere/openwa.sqlite" "WRONG-data"
+make_fixture "$AB/data/zaplink.sqlite" "bravo2-default"
+make_fixture "$AB/elsewhere/zaplink.sqlite" "WRONG-data"
 printf 'DATABASE_NAME=\n' >"$AB/.env"
-printf 'DATABASE_NAME=%s\n' "$AB/elsewhere/openwa.sqlite" >"$AB/data/.env.generated"
+printf 'DATABASE_NAME=%s\n' "$AB/elsewhere/zaplink.sqlite" >"$AB/data/.env.generated"
 (cd "$AB" && BACKUP_DIR="$AB/out" "$BACKUP" >/dev/null 2>&1)
-tar -xzf "$(ls "$AB"/out/openwa-backup-*.tar.gz)" -C "$AB/extract"
-if [ "$(db_fingerprint "$AB/extract/openwa.sqlite")" != "bravo2-default" ]; then
+tar -xzf "$(ls "$AB"/out/zaplink-backup-*.tar.gz)" -C "$AB/extract"
+if [ "$(db_fingerprint "$AB/extract/zaplink.sqlite")" != "bravo2-default" ]; then
   fail "(ab) a blank DATABASE_NAME in ./.env fell through to data/.env.generated"
 fi
 pass "(ab) a blank ./.env line stops the lookup and the built-in default applies"
@@ -1340,7 +1340,7 @@ echo "==> (ac) a Baileys engine chosen in the dashboard is warned about when its
 AC="$WORK/ac"
 mkdir -p "$AC/data"
 make_fixture "$AC/data/main.sqlite" "charlie2-main"
-make_fixture "$AC/data/openwa.sqlite" "charlie2-data"
+make_fixture "$AC/data/zaplink.sqlite" "charlie2-data"
 printf 'ENGINE_TYPE=baileys\n' >"$AC/data/.env.generated"
 OUT_AC="$(cd "$AC" && ENGINE_TYPE='' BACKUP_DIR="$AC/out" "$BACKUP" 2>&1)"
 if ! printf '%s' "$OUT_AC" | grep -q 'ENGINE_TYPE=baileys but .* was not found'; then
@@ -1356,7 +1356,7 @@ echo "==> (ad) a file the engine deletes during the state copy notes the copy in
 AD="$WORK/ad"
 mkdir -p "$AD/data/sessions/session-s1" "$AD/data/baileys/s1" "$AD/data/media" "$AD/data/plugins" "$AD/shim"
 make_fixture "$AD/data/main.sqlite" "delta2-main"
-make_fixture "$AD/data/openwa.sqlite" "delta2-data"
+make_fixture "$AD/data/zaplink.sqlite" "delta2-data"
 printf 'profile\n' >"$AD/data/sessions/session-s1/Preferences"
 printf '{}' >"$AD/data/baileys/s1/creds.json"
 printf 'jpeg\n' >"$AD/data/media/status.jpg"
@@ -1389,7 +1389,7 @@ set -e
 if [ "$RC_AD" -ne 0 ]; then
   fail "(ad) a file that vanished during the engine state copy failed the backup: $OUT_AD"
 fi
-NOTE_AD="$(tar -xOzf "$(ls "$AD"/out/openwa-backup-*.tar.gz)" ./ENGINE-STATE-NOTE 2>/dev/null || true)"
+NOTE_AD="$(tar -xOzf "$(ls "$AD"/out/zaplink-backup-*.tar.gz)" ./ENGINE-STATE-NOTE 2>/dev/null || true)"
 if ! printf '%s\n' "$NOTE_AD" | grep -q '^sessions/ (files changed during the copy)' ||
   ! printf '%s\n' "$NOTE_AD" | grep -q '^baileys/ (files changed during the copy)'; then
   fail "(ad) the archive does not note the state copies that changed underneath: $NOTE_AD"
@@ -1405,7 +1405,7 @@ OUT_AD="$(cd "$AD" && SHIM_CP_ERROR='Permission denied' SHIM_CP_LINES=20000 PATH
 RC_AD=$?
 set -e
 if [ "$RC_AD" -eq 0 ] || ! grep -q 'Permission denied' <<<"$OUT_AD" ||
-  [ -n "$(ls "$AD"/out2/openwa-backup-*.tar.gz 2>/dev/null)" ]; then
+  [ -n "$(ls "$AD"/out2/zaplink-backup-*.tar.gz 2>/dev/null)" ]; then
   fail "(ad) a cp error other than a vanished file did not fail the backup: $(tail -n 5 <<<"$OUT_AD")"
 fi
 pass "(ad) a vanished engine file is noted, a vanished media or plugin file logged, other cp errors fatal"
@@ -1418,7 +1418,7 @@ echo "==> (ae) the min-content check passes an archive whose listing outgrows a 
 AE="$WORK/ae"
 mkdir -p "$AE/data" "$AE/shim"
 make_fixture "$AE/data/main.sqlite" "echo2-main"
-make_fixture "$AE/data/openwa.sqlite" "echo2-data"
+make_fixture "$AE/data/zaplink.sqlite" "echo2-data"
 cat >"$AE/shim/tar" <<SHIM
 #!/bin/sh
 $(command -v tar) "\$@" || exit
@@ -1435,7 +1435,7 @@ set +e
 OUT_AE="$(cd "$AE" && PATH="$AE/shim:$PATH" BACKUP_DIR="$AE/out" "$BACKUP" 2>&1)"
 RC_AE=$?
 set -e
-if [ "$RC_AE" -ne 0 ] || [ -z "$(ls "$AE"/out/openwa-backup-*.tar.gz 2>/dev/null)" ]; then
+if [ "$RC_AE" -ne 0 ] || [ -z "$(ls "$AE"/out/zaplink-backup-*.tar.gz 2>/dev/null)" ]; then
   fail "(ae) a long archive listing failed the min-content check: $(grep -v padding- <<<"$OUT_AE")"
 fi
 pass "(ae) the min-content check reads the whole listing"
@@ -1448,7 +1448,7 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
   AF="$WORK/af"
   mkdir -p "$AF/data"
   make_fixture "$AF/data/main.sqlite" "foxtrot2-main"
-  make_fixture "$AF/data/openwa.sqlite" "foxtrot2-data"
+  make_fixture "$AF/data/zaplink.sqlite" "foxtrot2-data"
   {
     echo 'BEGIN EXCLUSIVE;'
     echo "INSERT INTO sentinel VALUES('foxtrot2-late');"
@@ -1471,7 +1471,7 @@ if [ "$HAS_SQLITE3" -eq 1 ]; then
     fail "(af) the backup failed while a writer held the database lock: $OUT_AF"
   fi
   mkdir -p "$AF/extract"
-  tar -xzf "$(ls "$AF"/out/openwa-backup-*.tar.gz)" -C "$AF/extract"
+  tar -xzf "$(ls "$AF"/out/zaplink-backup-*.tar.gz)" -C "$AF/extract"
   if [ "$(sqlite3 "$AF/extract/main.sqlite" 'PRAGMA integrity_check;')" != ok ]; then
     fail "(af) the snapshot taken after the writer let go is not a sound database"
   fi
@@ -1500,9 +1500,9 @@ PLUGIN_STATE_DIR='./data/state' # it'
 ENGINE_TYPE: baileys
 BOOTSTRAP_KEY_FILE="./data/key\file"
 ENV
-printf 'DATABASE_NAME=./elsewhere/openwa.sqlite\nSESSION_DATA_PATH=./elsewhere/sess\n' >"$AG/data/.env.generated"
+printf 'DATABASE_NAME=./elsewhere/zaplink.sqlite\nSESSION_DATA_PATH=./elsewhere/sess\n' >"$AG/data/.env.generated"
 resolve_ag() {
-  (cd "$AG" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve "$1" "$2") 2>>"$AG/err"
+  (cd "$AG" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve "$1" "$2") 2>>"$AG/err"
 }
 # A blank value resolves to the default, never to data/.env.generated.
 for check in 'PLUGINS_DIR|./data/plugins' 'DATABASE_NAME|DEFAULT' 'MAIN_DATABASE_NAME|./data/quoted main.sqlite' \
@@ -1537,9 +1537,9 @@ AGB="$WORK/ag-backup"
 mkdir -p "$AGB/data/media" "$AGB/dst/data"
 make_fixture "$AGB/data/main.sqlite" "ag-main"
 make_fixture "$AGB/data/active.sqlite" "ag-active"
-make_fixture "$AGB/data/openwa.sqlite" "ag-STALE"
+make_fixture "$AGB/data/zaplink.sqlite" "ag-STALE"
 (cd "$AGB" && BACKUP_DIR="$AGB/good" "$BACKUP" >/dev/null 2>&1) || fail "(ag) the fixture backup failed"
-ARCHIVE_AG="$(ls "$AGB"/good/openwa-backup-*.tar.gz)"
+ARCHIVE_AG="$(ls "$AGB"/good/zaplink-backup-*.tar.gz)"
 for line in 'DATABASE_NAME="./data/active.sqlite" # data store' \
   'DATABASE_TYPE="postgres" # migrated' \
   'STORAGE_LOCAL_PATH="./data/media" # local disk'; do
@@ -1601,9 +1601,9 @@ if grep -q 'null byte' <<<"$OUT_AG"; then
   fail "(ag) a NUL on the line before DATABASE_NAME leaked a shell warning: $OUT_AG"
 fi
 rm -rf "$AGB/x" && mkdir -p "$AGB/x"
-tar -xzf "$(ls "$AGB"/nul/openwa-backup-*.tar.gz)" -C "$AGB/x"
-if [ "$(db_fingerprint "$AGB/x/openwa.sqlite")" != "ag-active" ]; then
-  fail "(ag) a NUL on another line of ./.env archived '$(db_fingerprint "$AGB/x/openwa.sqlite")' instead of the configured data store"
+tar -xzf "$(ls "$AGB"/nul/zaplink-backup-*.tar.gz)" -C "$AGB/x"
+if [ "$(db_fingerprint "$AGB/x/zaplink.sqlite")" != "ag-active" ]; then
+  fail "(ag) a NUL on another line of ./.env archived '$(db_fingerprint "$AGB/x/zaplink.sqlite")' instead of the configured data store"
 fi
 # None of these stop the run, as none changes what the app reads: a comment or another key's value
 # naming the key holds a no-break space or a Latin-1 byte, the key's own inline comment or the middle
@@ -1626,9 +1626,9 @@ for content in 'DATABASE_NAME=./data/active.sqlite\nexport DATABASE_NAME' \
   if [ "$RC_AG" -ne 0 ]; then
     fail "(ag) backup stopped on $content (rc $RC_AG): $OUT_AG"
   fi
-  tar -xzf "$(ls "$AGB"/kept/openwa-backup-*.tar.gz)" -C "$AGB/x"
-  if [ "$(db_fingerprint "$AGB/x/openwa.sqlite")" != "ag-active" ]; then
-    fail "(ag) $content archived '$(db_fingerprint "$AGB/x/openwa.sqlite")' instead of the configured data store"
+  tar -xzf "$(ls "$AGB"/kept/zaplink-backup-*.tar.gz)" -C "$AGB/x"
+  if [ "$(db_fingerprint "$AGB/x/zaplink.sqlite")" != "ag-active" ]; then
+    fail "(ag) $content archived '$(db_fingerprint "$AGB/x/zaplink.sqlite")' instead of the configured data store"
   fi
 done
 if ! grep -q 'sets ENGINE_TYPE in a form' <<<"$OUT_AG" || ! grep -q 'skipping only the check for missing Baileys state' <<<"$OUT_AG"; then
@@ -1653,7 +1653,7 @@ fi
 # line after U+2028, so each of these sets the key for the app, or hides its line, from another line.
 # The scripts used to read the default or the hidden line, and archived it with exit 0.
 for check in 'DATABASE_NAME\n=./data/active.sqlite|names DATABASE_NAME on a line without an =' \
-  'DATABASE_NAME=./data/openwa.sqlite\nexport DATABASE_NAME\n\n=./data/active.sqlite|names DATABASE_NAME on a line without an =' \
+  'DATABASE_NAME=./data/zaplink.sqlite\nexport DATABASE_NAME\n\n=./data/active.sqlite|names DATABASE_NAME on a line without an =' \
   'DATABASE_NAME=\n\n"./data/active.sqlite"|leaves DATABASE_NAME empty on its line' \
   '# note\342\200\250LOG_LEVEL:\nDATABASE_NAME=./data/active.sqlite|just before a line setting DATABASE_NAME'; do
   # shellcheck disable=SC2059 # the line's escapes are the point
@@ -1671,7 +1671,7 @@ done
 for ag_next in "'" "x\\' # note"; do
   printf '%s\n' "DATABASE_NAME='./data/active.sqlite\\'" "$ag_next" >"$AGB/.env"
   set +e
-  OUT_AG="$(cd "$AGB" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve DATABASE_NAME DEFAULT 2>&1)"
+  OUT_AG="$(cd "$AGB" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve DATABASE_NAME DEFAULT 2>&1)"
   RC_AG=$?
   set -e
   if [ "$RC_AG" -eq 0 ] || ! grep -q 'ending in a backslash' <<<"$OUT_AG"; then
@@ -1680,7 +1680,7 @@ for ag_next in "'" "x\\' # note"; do
 done
 # An empty `KEY=` followed by blank lines and an unquoted line stays empty for dotenv too.
 printf 'DATABASE_NAME=\n\n# data store\nLOG_LEVEL=info\n' >"$AGB/.env"
-if [ "$(cd "$AGB" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve DATABASE_NAME DEFAULT)" != DEFAULT ]; then
+if [ "$(cd "$AGB" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve DATABASE_NAME DEFAULT)" != DEFAULT ]; then
   fail "(ag) an empty DATABASE_NAME= followed by a comment and another key did not resolve to the default"
 fi
 # dotenv reads each of these unambiguously, and the scripts used to stop on them: a Unicode blank inside
@@ -1726,7 +1726,7 @@ for check in 'DATABASE_NAME=\047a\302\240#b\047||DATABASE_NAME|a\302\240#b' \
   # shellcheck disable=SC2059
   ag_want="$(printf "$ag_want")"
   set +e
-  got="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve "$ag_key" DEFAULT 2>&1)"
+  got="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve "$ag_key" DEFAULT 2>&1)"
   rc=$?
   set -e
   if [ "$rc" -ne 0 ] || [ "$got" != "$ag_want" ]; then
@@ -1743,7 +1743,7 @@ for ag_env in 'DATABASE_NAME:\n./data/active.sqlite' 'DATABASE_NAME:./data/a.sql
   # shellcheck disable=SC2059 # the escapes are the point
   printf "$ag_env\n" >"$AGC/.env"
   set +e
-  OUT_AG="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve DATABASE_NAME DEFAULT 2>&1)"
+  OUT_AG="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve DATABASE_NAME DEFAULT 2>&1)"
   RC_AG=$?
   set -e
   if [ "$RC_AG" -ne 2 ] || ! grep -q 'sets DATABASE_NAME in a form' <<<"$OUT_AG" || grep -q 'bare NAME:' <<<"$OUT_AG"; then
@@ -1771,7 +1771,7 @@ for ag_env in 'DATABASE_NAME=\047a\302\240\nDATABASE_NAME=./data/a.sqlite\047' \
   # shellcheck disable=SC2059 # the escapes are the point
   printf "$ag_env\n" >"$AGC/.env"
   set +e
-  OUT_AG="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve DATABASE_NAME DEFAULT 2>&1)"
+  OUT_AG="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve DATABASE_NAME DEFAULT 2>&1)"
   RC_AG=$?
   set -e
   if [ "$RC_AG" -ne 2 ] || ! grep -q 'opens a quoted value on line' <<<"$OUT_AG"; then
@@ -1782,7 +1782,7 @@ done
 # and still counts a line of the file that starts with U+2029.
 printf 'Q=1\n\342\200\251# n\nx\ry\342\200\250A=\047v\nDATABASE_NAME=./data/a.sqlite\nz\047\n' >"$AGC/.env"
 set +e
-OUT_AG="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && openwa_resolve DATABASE_NAME DEFAULT 2>&1)"
+OUT_AG="$(cd "$AGC" && DATA_DIR=./data && . "$REPO_ROOT/scripts/lib-env.sh" && zaplink_resolve DATABASE_NAME DEFAULT 2>&1)"
 set -e
 if ! grep -q 'opens a quoted value on line 3 that the app can read on to line 4,' <<<"$OUT_AG"; then
   fail "(ag) the quoted value opened after a bare CR and U+2028 was not reported on line 3: $OUT_AG"
@@ -1794,7 +1794,7 @@ if [ -n "$ag_loc" ]; then
   printf 'DATABASE_NAME=\047\047 \302\240\n' >"$AGC/.env"
   set +e
   # shellcheck disable=SC2016 # expanded by the inner shell
-  OUT_AG="$(cd "$AGC" && LC_ALL="$ag_loc" bash -c 'DATA_DIR=./data && . "$1" && openwa_resolve DATABASE_NAME DEFAULT' _ "$REPO_ROOT/scripts/lib-env.sh" 2>&1)"
+  OUT_AG="$(cd "$AGC" && LC_ALL="$ag_loc" bash -c 'DATA_DIR=./data && . "$1" && zaplink_resolve DATABASE_NAME DEFAULT' _ "$REPO_ROOT/scripts/lib-env.sh" 2>&1)"
   RC_AG=$?
   set -e
   if [ "$RC_AG" -ne 2 ] || ! grep -q 'sets DATABASE_NAME in a form' <<<"$OUT_AG"; then
@@ -1811,7 +1811,7 @@ for ag_tool in tr tail sed grep; do
   rm -f "$AGC/shim/$ag_tool"
   set +e
   # shellcheck disable=SC2016 # expanded by the inner shell
-  OUT_AG="$(cd "$AGC" && PATH="$AGC/shim" bash -c 'DATA_DIR=./data && . "$1" && openwa_resolve DATABASE_SSL false' _ "$REPO_ROOT/scripts/lib-env.sh" 2>&1)"
+  OUT_AG="$(cd "$AGC" && PATH="$AGC/shim" bash -c 'DATA_DIR=./data && . "$1" && zaplink_resolve DATABASE_SSL false' _ "$REPO_ROOT/scripts/lib-env.sh" 2>&1)"
   RC_AG=$?
   set -e
   if [ "$RC_AG" -ne 2 ] || ! grep -q "$ag_tool is required" <<<"$OUT_AG"; then
@@ -1833,9 +1833,9 @@ fi
 printf '%s\n' "DATABASE_NAME=\"./data/o'brien.sqlite\"" >"$AGB/.env"
 (cd "$AGB" && BACKUP_DIR="$AGB/quote-fix" "$BACKUP" >/dev/null 2>&1) || fail "(ag) backup failed with the value in the other quote style"
 rm -rf "$AGB/x" "$AGB/data/o'brien.sqlite" && mkdir -p "$AGB/x"
-tar -xzf "$(ls "$AGB"/quote-fix/openwa-backup-*.tar.gz)" -C "$AGB/x"
-if [ "$(db_fingerprint "$AGB/x/openwa.sqlite")" != "ag-active" ]; then
-  fail "(ag) the other quote style archived '$(db_fingerprint "$AGB/x/openwa.sqlite")' instead of the configured data store"
+tar -xzf "$(ls "$AGB"/quote-fix/zaplink-backup-*.tar.gz)" -C "$AGB/x"
+if [ "$(db_fingerprint "$AGB/x/zaplink.sqlite")" != "ag-active" ]; then
+  fail "(ag) the other quote style archived '$(db_fingerprint "$AGB/x/zaplink.sqlite")' instead of the configured data store"
 fi
 # The Postgres connection keys are resolved where a failure stops the run, before pg_dump starts.
 mkdir -p "$AGB/bin"
@@ -1852,18 +1852,18 @@ fi
 # DATABASE_NAME is the SQLite data store's path or the Postgres database's name, so a line for it the
 # scripts cannot parse stops neither a Postgres backup that dumps DATABASE_URL nor the restore of a
 # PostgreSQL archive, neither of which reads it.
-printf 'DATABASE_TYPE=postgres\nDATABASE_NAME="openwa" # primary\n' >"$AGB/.env"
+printf 'DATABASE_TYPE=postgres\nDATABASE_NAME="zaplink" # primary\n' >"$AGB/.env"
 set +e
-OUT_AG="$(cd "$AGB" && PATH="$AGB/bin:$PATH" DATABASE_URL=postgres://db.internal/openwa BACKUP_DIR="$AGB/pg" "$BACKUP" 2>&1)"
+OUT_AG="$(cd "$AGB" && PATH="$AGB/bin:$PATH" DATABASE_URL=postgres://db.internal/zaplink BACKUP_DIR="$AGB/pg" "$BACKUP" 2>&1)"
 RC_AG=$?
 set -e
-if [ "$RC_AG" -ne 0 ] || [ ! -e "$AGB/pg_dump-ran" ] || ! tar_lists -tzf "$(ls "$AGB"/pg/openwa-backup-*.tar.gz)" -x './database.sql'; then
+if [ "$RC_AG" -ne 0 ] || [ ! -e "$AGB/pg_dump-ran" ] || ! tar_lists -tzf "$(ls "$AGB"/pg/zaplink-backup-*.tar.gz)" -x './database.sql'; then
   fail "(ag) a Postgres backup through DATABASE_URL stopped on a DATABASE_NAME line it does not use (rc $RC_AG): $OUT_AG"
 fi
 rm -rf "$AGB/pgdst" && mkdir -p "$AGB/pgdst/data"
-printf 'DATABASE_NAME="openwa" # primary\n' >"$AGB/pgdst/.env"
+printf 'DATABASE_NAME="zaplink" # primary\n' >"$AGB/pgdst/.env"
 set +e
-OUT_AG="$(cd "$AGB/pgdst" && "$RESTORE" "$(ls "$AGB"/pg/openwa-backup-*.tar.gz)" --force 2>&1)"
+OUT_AG="$(cd "$AGB/pgdst" && "$RESTORE" "$(ls "$AGB"/pg/zaplink-backup-*.tar.gz)" --force 2>&1)"
 RC_AG=$?
 set -e
 if [ "$RC_AG" -ne 0 ] || [ ! -f "$AGB/pgdst/data/database.sql" ] || [ "$(db_fingerprint "$AGB/pgdst/data/main.sqlite")" != "ag-main" ]; then
@@ -1879,9 +1879,9 @@ printf '# data store\nDATABASE_NAME="./data/active.sqlite"\n' >"$AGB/.env"
 (cd "$AGB" && BACKUP_DIR="$AGB/line-fix" "$BACKUP" >/dev/null 2>&1) || fail "(ag) backup failed with the comment on its own line"
 for dir in env-fix line-fix; do
   rm -rf "$AGB/x" && mkdir -p "$AGB/x"
-  tar -xzf "$(ls "$AGB/$dir"/openwa-backup-*.tar.gz)" -C "$AGB/x"
-  if [ "$(db_fingerprint "$AGB/x/openwa.sqlite")" != "ag-active" ]; then
-    fail "(ag) the $dir backup archived '$(db_fingerprint "$AGB/x/openwa.sqlite")' instead of the configured data store"
+  tar -xzf "$(ls "$AGB/$dir"/zaplink-backup-*.tar.gz)" -C "$AGB/x"
+  if [ "$(db_fingerprint "$AGB/x/zaplink.sqlite")" != "ag-active" ]; then
+    fail "(ag) the $dir backup archived '$(db_fingerprint "$AGB/x/zaplink.sqlite")' instead of the configured data store"
   fi
 done
 # A line that only data/.env.generated holds stops the run as well, and so does one in the archive's
@@ -1901,7 +1901,7 @@ fi
   fail "(ag) backup failed with DATABASE_NAME passed in the environment over data/.env.generated"
 rm -f "$AGB/data/.env.generated" "$AGB/dst/.env"
 set +e
-OUT_AG="$(cd "$AGB/dst" && "$RESTORE" "$(ls "$AGB"/gen/openwa-backup-*.tar.gz)" --force 2>&1)"
+OUT_AG="$(cd "$AGB/dst" && "$RESTORE" "$(ls "$AGB"/gen/zaplink-backup-*.tar.gz)" --force 2>&1)"
 RC_AG=$?
 set -e
 if [ "$RC_AG" -eq 0 ] || [ -n "$(ls "$AGB/dst/data")" ] ||
@@ -1911,9 +1911,9 @@ fi
 if ! grep -q "come from the archive's .env.generated" <<<"$OUT_AG"; then
   fail "(ag) restore did not name the archive's .env.generated as the source of its paths: $OUT_AG"
 fi
-(cd "$AGB/dst" && DATABASE_NAME=./data/active.sqlite "$RESTORE" "$(ls "$AGB"/gen/openwa-backup-*.tar.gz)" --force >/dev/null 2>&1) ||
+(cd "$AGB/dst" && DATABASE_NAME=./data/active.sqlite "$RESTORE" "$(ls "$AGB"/gen/zaplink-backup-*.tar.gz)" --force >/dev/null 2>&1) ||
   fail "(ag) restore failed with DATABASE_NAME passed in the environment over the archive's .env.generated"
-if [ "$(db_fingerprint "$AGB/dst/data/active.sqlite")" != "ag-active" ] || [ -e "$AGB/dst/data/openwa.sqlite" ]; then
+if [ "$(db_fingerprint "$AGB/dst/data/active.sqlite")" != "ag-active" ] || [ -e "$AGB/dst/data/zaplink.sqlite" ]; then
   fail "(ag) restore with DATABASE_NAME in the environment did not land on the configured data store only"
 fi
 pass "(ag) dotenv's quoted, commented and empty forms resolve like the app, and an unparsed line stops both scripts"
@@ -1971,7 +1971,7 @@ for preload in "" "--require=$AH/old-node.js"; do
   fi
 done
 if [ "$(backup_ah "${PG_AH}DATABASE_SSL=true\nDATABASE_SSL_REJECT_UNAUTHORIZED=false\n" \
-  DATABASE_URL=postgres://openwa@db/openwa)" != "mode=require root= certs=none" ]; then
+  DATABASE_URL=postgres://zaplink@db/zaplink)" != "mode=require root= certs=none" ]; then
   fail "(ah) DATABASE_SSL_REJECT_UNAUTHORIZED=false did not encrypt without verifying: $(cat "$AH/log")"
 fi
 # psql defaults to sslmode=prefer as well, so the import command restore.sh prints asks for the
@@ -1981,7 +1981,7 @@ fi
 restore_ah() {
   rm -rf "$AH/dst" && mkdir -p "$AH/dst"
   printf '%b' "${1:-}" >"$AH/dst/.env"
-  OUT_AH="$(cd "$AH/dst" && env "${@:2}" "$RESTORE" "$(ls "$AH"/out/openwa-backup-*.tar.gz)" 2>&1)" ||
+  OUT_AH="$(cd "$AH/dst" && env "${@:2}" "$RESTORE" "$(ls "$AH"/out/zaplink-backup-*.tar.gz)" 2>&1)" ||
     fail "(ah) the restore failed: $OUT_AH"
   printf '%s' "$(sed -n 's/.*database\.sql | \(.*\)psql --single-transaction -v ON_ERROR_STOP=1.*/\1/p' <<<"$OUT_AH")"
   if grep -q "verify-full needs the server's CA: set PGSSLROOTCERT" <<<"$OUT_AH"; then printf '+ca'; fi
@@ -2010,7 +2010,7 @@ for check in 'DATABASE_SSL|DATABASE_SSL="true" # tls on\n' \
   OUT_AH="$(cd "$AH" && AH_LOG="$AH/log" PATH="$AH/shim:$PATH" BACKUP_DIR="$AH/out" "$BACKUP" 2>&1)"
   rc=$?
   set -e
-  if [ "$rc" -ne 2 ] || [ -e "$AH/log" ] || ls "$AH"/out/openwa-backup-* >/dev/null 2>&1 ||
+  if [ "$rc" -ne 2 ] || [ -e "$AH/log" ] || ls "$AH"/out/zaplink-backup-* >/dev/null 2>&1 ||
     ! grep -q "sets $key in a form" <<<"$OUT_AH"; then
     fail "(ah) backup ran pg_dump past an unparsed $key line (rc $rc): $OUT_AH"
   fi
@@ -2036,20 +2036,20 @@ if [ "$(PATH="$AH/nonode" backup_ah "${PG_AH}DATABASE_SSL=true\n")" != "mode=ver
   fail "(ah) without node the system CA store was not used, or the log gave no hint: $(cat "$AH/out.log")"
 fi
 pass "(ah) pg_dump and the printed psql command verify the server under DATABASE_SSL=true and are unchanged without it"
-echo "==> (ai) ./data defaults and paths follow OPENWA_DATA_DIR in a run on the host"
+echo "==> (ai) ./data defaults and paths follow ZAPLINK_DATA_DIR in a run on the host"
 # The app writes STORAGE_LOCAL_PATH=./data/media on first run, and a dashboard save adds
 # SESSION_DATA_PATH=./data/sessions, both relative to /app in the image, where the databases default to
 # ./data too and compose hands ./.env's PLUGINS_DIR=./data/plugins (as .env.example sets it) to the
-# app. Run on the host with OPENWA_DATA_DIR at the volume's mountpoint, the scripts read these
+# app. Run on the host with ZAPLINK_DATA_DIR at the volume's mountpoint, the scripts read these
 # against the host's working directory: the backup took a stale ./data there, or left the volume's
 # state out, and exited 0, and the restore put it where the app never reads it.
 AI="$WORK/ai"
 mkdir -p "$AI/vol/media" "$AI/vol/sessions/session-1" "$AI/vol/plugins/p1" "$AI/host/data/media" \
   "$AI/host/data/plugins/stale" "$AI/vol2" "$AI/x"
 make_fixture "$AI/vol/main.sqlite" "ai-main"
-make_fixture "$AI/vol/openwa.sqlite" "ai-data"
+make_fixture "$AI/vol/zaplink.sqlite" "ai-data"
 make_fixture "$AI/host/data/main.sqlite" "ai-stale-main"
-make_fixture "$AI/host/data/openwa.sqlite" "ai-stale-data"
+make_fixture "$AI/host/data/zaplink.sqlite" "ai-stale-data"
 printf 'ai-media\n' >"$AI/vol/media/a.jpg"
 printf 'ai-session\n' >"$AI/vol/sessions/session-1/marker"
 printf '{}\n' >"$AI/vol/plugins/p1/manifest.json"
@@ -2059,12 +2059,12 @@ printf 'PLUGINS_DIR=./data/plugins\n' >"$AI/host/.env"
 # What the app writes: no database path, so the databases take their ./data defaults.
 printf '%s\n' DATABASE_TYPE=sqlite STORAGE_LOCAL_PATH=./data/media SESSION_DATA_PATH=./data/sessions \
   >"$AI/vol/.env.generated"
-(cd "$AI/host" && OPENWA_DATA_DIR="$AI/vol" BACKUP_DIR="$AI/out" "$BACKUP" >/dev/null 2>&1) ||
+(cd "$AI/host" && ZAPLINK_DATA_DIR="$AI/vol" BACKUP_DIR="$AI/out" "$BACKUP" >/dev/null 2>&1) ||
   fail "(ai) backup from the host failed"
-ARCHIVE_AI="$(ls "$AI"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AI="$(ls "$AI"/out/zaplink-backup-*.tar.gz)"
 tar -xzf "$ARCHIVE_AI" -C "$AI/x"
 if [ "$(db_fingerprint "$AI/x/main.sqlite")" != "ai-main" ] ||
-  [ "$(db_fingerprint "$AI/x/openwa.sqlite")" != "ai-data" ]; then
+  [ "$(db_fingerprint "$AI/x/zaplink.sqlite")" != "ai-data" ]; then
   fail "(ai) backup did not archive the volume's databases"
 fi
 if [ "$(cat "$AI/x/media/a.jpg" 2>/dev/null || true)" != "ai-media" ] || [ -e "$AI/x/media/stale.jpg" ]; then
@@ -2076,44 +2076,44 @@ fi
 if [ ! -f "$AI/x/plugin-packages/p1/manifest.json" ] || [ -e "$AI/x/plugin-packages/stale" ]; then
   fail "(ai) backup did not archive the volume's plugins: $(find "$AI/x/plugin-packages" 2>&1 | tr '\n' ' ')"
 fi
-(cd "$AI/host" && OPENWA_DATA_DIR="$AI/vol2" "$RESTORE" "$ARCHIVE_AI" >/dev/null 2>&1) ||
+(cd "$AI/host" && ZAPLINK_DATA_DIR="$AI/vol2" "$RESTORE" "$ARCHIVE_AI" >/dev/null 2>&1) ||
   fail "(ai) restore from the host failed"
 if [ "$(cat "$AI/vol2/media/a.jpg" 2>/dev/null || true)" != "ai-media" ] ||
   [ "$(cat "$AI/vol2/sessions/session-1/marker" 2>/dev/null || true)" != "ai-session" ] ||
   [ "$(db_fingerprint "$AI/vol2/main.sqlite" 2>/dev/null || true)" != "ai-main" ] ||
-  [ "$(db_fingerprint "$AI/vol2/openwa.sqlite" 2>/dev/null || true)" != "ai-data" ] ||
+  [ "$(db_fingerprint "$AI/vol2/zaplink.sqlite" 2>/dev/null || true)" != "ai-data" ] ||
   [ ! -f "$AI/vol2/plugins/p1/manifest.json" ]; then
   fail "(ai) restore did not put media, sessions, plugins and databases in the volume"
 fi
 if [ "$(db_fingerprint "$AI/host/data/main.sqlite")" != "ai-stale-main" ] ||
-  [ "$(db_fingerprint "$AI/host/data/openwa.sqlite")" != "ai-stale-data" ] ||
+  [ "$(db_fingerprint "$AI/host/data/zaplink.sqlite")" != "ai-stale-data" ] ||
   [ "$(cd "$AI/host/data" && find . -mindepth 1 -maxdepth 1 | LC_ALL=C sort | tr '\n' ' ')" != \
-    "./main.sqlite ./media ./openwa.sqlite ./plugins " ] ||
+    "./main.sqlite ./media ./zaplink.sqlite ./plugins " ] ||
   [ "$(ls -A "$AI/host/data/media")" != stale.jpg ] || [ "$(ls -A "$AI/host/data/plugins")" != stale ]; then
   fail "(ai) restore wrote into the host's working directory: $(find "$AI/host/data" | tr '\n' ' ')"
 fi
 # A ./data path passed in the environment is the caller's own and is read against the working directory.
 mkdir -p "$AI/host/data/sessions/session-1"
 printf 'ai-host-session\n' >"$AI/host/data/sessions/session-1/marker"
-(cd "$AI/host" && OPENWA_DATA_DIR="$AI/vol" SESSION_DATA_PATH=./data/sessions BACKUP_DIR="$AI/out-env" \
+(cd "$AI/host" && ZAPLINK_DATA_DIR="$AI/vol" SESSION_DATA_PATH=./data/sessions BACKUP_DIR="$AI/out-env" \
   "$BACKUP" >/dev/null 2>&1) || fail "(ai) backup with SESSION_DATA_PATH in the environment failed"
-if [ "$(tar -xzOf "$(ls "$AI"/out-env/openwa-backup-*.tar.gz)" ./sessions/session-1/marker)" != "ai-host-session" ]; then
-  fail "(ai) a ./data path from the environment was taken under OPENWA_DATA_DIR"
+if [ "$(tar -xzOf "$(ls "$AI"/out-env/zaplink-backup-*.tar.gz)" ./sessions/session-1/marker)" != "ai-host-session" ]; then
+  fail "(ai) a ./data path from the environment was taken under ZAPLINK_DATA_DIR"
 fi
 # A leftover ./uploads falls back to the volume's media as well, not to the host's ./data/media.
 printf 'STORAGE_LOCAL_PATH=./uploads\n' >"$AI/vol/.env.generated"
-(cd "$AI/host" && OPENWA_DATA_DIR="$AI/vol" BACKUP_DIR="$AI/out-uploads" "$BACKUP" >/dev/null 2>&1) ||
+(cd "$AI/host" && ZAPLINK_DATA_DIR="$AI/vol" BACKUP_DIR="$AI/out-uploads" "$BACKUP" >/dev/null 2>&1) ||
   fail "(ai) backup with a leftover ./uploads failed"
-if ! tar_lists -tzf "$(ls "$AI"/out-uploads/openwa-backup-*.tar.gz)" -x './media/a.jpg'; then
+if ! tar_lists -tzf "$(ls "$AI"/out-uploads/zaplink-backup-*.tar.gz)" -x './media/a.jpg'; then
   fail "(ai) a leftover ./uploads did not fall back to the volume's media"
 fi
 # Restored into an empty volume, whose media dir does not exist yet, the media lands there too rather
 # than in the host's ./uploads, which the app in the container never reads, whether or not one exists.
-ARCHIVE_AI_UP="$(ls "$AI"/out-uploads/openwa-backup-*.tar.gz)"
+ARCHIVE_AI_UP="$(ls "$AI"/out-uploads/zaplink-backup-*.tar.gz)"
 for AI_VOL in vol3 vol3b; do
   [ "$AI_VOL" = vol3b ] && mkdir -p "$AI/host/uploads"
   mkdir -p "$AI/$AI_VOL"
-  (cd "$AI/host" && OPENWA_DATA_DIR="$AI/$AI_VOL" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>"$AI/$AI_VOL.err") ||
+  (cd "$AI/host" && ZAPLINK_DATA_DIR="$AI/$AI_VOL" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>"$AI/$AI_VOL.err") ||
     fail "(ai) restore into $AI_VOL with a leftover ./uploads failed"
   if [ "$(cat "$AI/$AI_VOL/media/a.jpg" 2>/dev/null || true)" != "ai-media" ] ||
     [ -n "$(ls -A "$AI/host/uploads" 2>/dev/null)" ]; then
@@ -2127,7 +2127,7 @@ done
 # named in a warning with the environment override that keeps it.
 mkdir -p "$AI/hostup/uploads" "$AI/vol3c"
 printf 'in-use\n' >"$AI/hostup/uploads/old.jpg"
-(cd "$AI/hostup" && OPENWA_DATA_DIR="$AI/vol3c" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>"$AI/vol3c.err") ||
+(cd "$AI/hostup" && ZAPLINK_DATA_DIR="$AI/vol3c" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>"$AI/vol3c.err") ||
   fail "(ai) restore into vol3c beside a non-empty ./uploads failed"
 if ! grep -qF "STORAGE_LOCAL_PATH=\"$AI/hostup/uploads\" in the environment" "$AI/vol3c.err"; then
   fail "(ai) a skipped non-empty ./uploads was not named in a warning: $(cat "$AI/vol3c.err")"
@@ -2136,7 +2136,7 @@ fi
 # up a live install from the host.
 cp -R "$AI/vol3c" "$AI/vol3d"
 rm -rf "$AI/vol3d/media" && mkdir "$AI/vol3d/media"
-(cd "$AI/hostup" && OPENWA_DATA_DIR="$AI/vol3d" BACKUP_DIR="$AI/out-vol3d" "$BACKUP" >/dev/null 2>"$AI/vol3d.err") ||
+(cd "$AI/hostup" && ZAPLINK_DATA_DIR="$AI/vol3d" BACKUP_DIR="$AI/out-vol3d" "$BACKUP" >/dev/null 2>"$AI/vol3d.err") ||
   fail "(ai) backup from vol3d beside a non-empty ./uploads failed"
 if ! grep -qF "STORAGE_LOCAL_PATH=\"$AI/hostup/uploads\" in the environment" "$AI/vol3d.err"; then
   fail "(ai) a non-empty ./uploads skipped beside an empty media dir was not named in a warning: $(cat "$AI/vol3d.err")"
@@ -2147,7 +2147,7 @@ for AI_SPELL in "$AI/bare/data" "$AI/bare-slash/data/./" ./data/.; do
   AI_BARE="$AI/bare"
   case "$AI_SPELL" in */data/./) AI_BARE="$AI/bare-slash" ;; ./*) AI_BARE="$AI/bare-dot" ;; esac
   mkdir -p "$AI_BARE"
-  (cd "$AI_BARE" && OPENWA_DATA_DIR="$AI_SPELL" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>&1) ||
+  (cd "$AI_BARE" && ZAPLINK_DATA_DIR="$AI_SPELL" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>&1) ||
     fail "(ai) bare-metal restore into $AI_SPELL with a leftover ./uploads failed"
   if [ "$(cat "$AI_BARE/uploads/a.jpg" 2>/dev/null || true)" != "ai-media" ] || [ -e "$AI_BARE/data/media" ]; then
     fail "(ai) a bare-metal restore into $AI_SPELL did not restore the media into ./uploads"
@@ -2162,44 +2162,44 @@ cp -R "$AI/bare/uploads" "$AI/linked/uploads"
 ln -s "$AI/linked-target" "$AI/linked/data"
 for AI_SPELL in "$AI/bare:$AI/bare/data" "$AI/bare:$AI/bare-link/data" "$AI/linked:$AI/linked-target"; do
   rm -rf "$AI/out-bare"
-  (cd "${AI_SPELL%%:*}" && OPENWA_DATA_DIR="${AI_SPELL#*:}" BACKUP_DIR="$AI/out-bare" "$BACKUP" >/dev/null 2>&1) ||
+  (cd "${AI_SPELL%%:*}" && ZAPLINK_DATA_DIR="${AI_SPELL#*:}" BACKUP_DIR="$AI/out-bare" "$BACKUP" >/dev/null 2>&1) ||
     fail "(ai) bare-metal backup from ${AI_SPELL#*:} with a leftover ./uploads failed"
-  if [ "$(tar -xzOf "$(ls "$AI"/out-bare/openwa-backup-*.tar.gz)" ./media/a.jpg 2>/dev/null)" != "ai-media" ]; then
+  if [ "$(tar -xzOf "$(ls "$AI"/out-bare/zaplink-backup-*.tar.gz)" ./media/a.jpg 2>/dev/null)" != "ai-media" ]; then
     fail "(ai) a bare-metal backup from ${AI_SPELL#*:} did not archive the media in ./uploads"
   fi
 done
 # STORAGE_LOCAL_PATH=./uploads passed in the environment is the caller's own and skips the empty-volume rule.
 mkdir -p "$AI/envup" "$AI/vol4"
-(cd "$AI/envup" && OPENWA_DATA_DIR="$AI/vol4" STORAGE_LOCAL_PATH=./uploads "$RESTORE" "$ARCHIVE_AI_UP" \
+(cd "$AI/envup" && ZAPLINK_DATA_DIR="$AI/vol4" STORAGE_LOCAL_PATH=./uploads "$RESTORE" "$ARCHIVE_AI_UP" \
   >/dev/null 2>&1) || fail "(ai) restore with STORAGE_LOCAL_PATH=./uploads in the environment failed"
 if [ "$(cat "$AI/envup/uploads/a.jpg" 2>/dev/null || true)" != "ai-media" ] || [ -e "$AI/vol4/media" ]; then
   fail "(ai) STORAGE_LOCAL_PATH=./uploads from the environment was not read as written"
 fi
-# The runbook's ways to keep ./uploads for a bare-metal restore with OPENWA_DATA_DIR at the data dir
+# The runbook's ways to keep ./uploads for a bare-metal restore with ZAPLINK_DATA_DIR at the data dir
 # ./data links to: create that dir and the link first, or pass an absolute STORAGE_LOCAL_PATH, which the
 # fallback never touches, even beside an existing <data dir>/media with no ./uploads.
 mkdir -p "$AI/prelink/inst" "$AI/prelink/disk/data" "$AI/envabs" "$AI/vol5/media"
 ln -s "$AI/prelink/disk/data" "$AI/prelink/inst/data"
-(cd "$AI/prelink/inst" && OPENWA_DATA_DIR="$AI/prelink/disk/data" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>&1) ||
+(cd "$AI/prelink/inst" && ZAPLINK_DATA_DIR="$AI/prelink/disk/data" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>&1) ||
   fail "(ai) bare-metal restore through a pre-created ./data link failed"
 if [ "$(cat "$AI/prelink/inst/uploads/a.jpg" 2>/dev/null || true)" != "ai-media" ] ||
   [ -e "$AI/prelink/disk/data/media" ]; then
   fail "(ai) a bare-metal restore through a pre-created ./data link did not restore the media into ./uploads"
 fi
-# A ./data link created before its target, absolute or relative, is followed too when OPENWA_DATA_DIR
+# A ./data link created before its target, absolute or relative, is followed too when ZAPLINK_DATA_DIR
 # names that target.
 for AI_LINK in "$AI/danglink-abs/disk/data" ../disk/data; do
   AI_BARE="$AI/danglink-abs"
   [ "$AI_LINK" = ../disk/data ] && AI_BARE="$AI/danglink-rel"
   mkdir -p "$AI_BARE/inst"
   ln -s "$AI_LINK" "$AI_BARE/inst/data"
-  (cd "$AI_BARE/inst" && OPENWA_DATA_DIR="$AI_BARE/disk/data" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>&1) ||
+  (cd "$AI_BARE/inst" && ZAPLINK_DATA_DIR="$AI_BARE/disk/data" "$RESTORE" "$ARCHIVE_AI_UP" >/dev/null 2>&1) ||
     fail "(ai) bare-metal restore through a ./data link to $AI_LINK, not yet created, failed"
   if [ "$(cat "$AI_BARE/inst/uploads/a.jpg" 2>/dev/null || true)" != "ai-media" ] || [ -e "$AI_BARE/disk/data/media" ]; then
     fail "(ai) a restore through a ./data link to $AI_LINK, not yet created, did not restore the media into ./uploads"
   fi
 done
-(cd "$AI/envabs" && OPENWA_DATA_DIR="$AI/vol5" STORAGE_LOCAL_PATH="$AI/envabs/uploads" "$RESTORE" \
+(cd "$AI/envabs" && ZAPLINK_DATA_DIR="$AI/vol5" STORAGE_LOCAL_PATH="$AI/envabs/uploads" "$RESTORE" \
   "$ARCHIVE_AI_UP" >/dev/null 2>&1) || fail "(ai) restore with an absolute STORAGE_LOCAL_PATH failed"
 if [ "$(cat "$AI/envabs/uploads/a.jpg" 2>/dev/null || true)" != "ai-media" ] || [ -e "$AI/vol5/media/a.jpg" ]; then
   fail "(ai) an absolute STORAGE_LOCAL_PATH from the environment was not read as written"
@@ -2231,9 +2231,9 @@ if [ "$(id -u)" -ne 0 ]; then
   AJ="$WORK/aj"
   mkdir -p "$AJ/src/data" "$AJ/dst"
   make_fixture "$AJ/src/data/main.sqlite" "aj-main"
-  make_fixture "$AJ/src/data/openwa.sqlite" "aj-data"
+  make_fixture "$AJ/src/data/zaplink.sqlite" "aj-data"
   (cd "$AJ/src" && BACKUP_DIR="$AJ/out" "$BACKUP" >/dev/null 2>&1) || fail "(aj) the setup backup failed"
-  ARCHIVE_AJ="$(ls "$AJ"/out/openwa-backup-*.tar.gz)"
+  ARCHIVE_AJ="$(ls "$AJ"/out/zaplink-backup-*.tar.gz)"
   for AJ_DIR in src dst; do
     printf 'DATABASE_NAME=./data/active.sqlite\n' >"$AJ/$AJ_DIR/.env"
     chmod 000 "$AJ/$AJ_DIR/.env"
@@ -2247,7 +2247,7 @@ if [ "$(id -u)" -ne 0 ]; then
   if [ "$RC_AJ_BACKUP" -eq 0 ] || ! printf '%s' "$OUT_AJ_BACKUP" | grep -q 'cannot be read'; then
     fail "(aj) backup went on past an unreadable ./.env (rc $RC_AJ_BACKUP): $OUT_AJ_BACKUP"
   fi
-  if ls "$AJ"/out-unread/openwa-backup-*.tar.gz >/dev/null 2>&1; then
+  if ls "$AJ"/out-unread/zaplink-backup-*.tar.gz >/dev/null 2>&1; then
     fail "(aj) backup archived the default path past an unreadable ./.env"
   fi
   if [ "$RC_AJ_RESTORE" -eq 0 ] || ! printf '%s' "$OUT_AJ_RESTORE" | grep -q 'cannot be read'; then
@@ -2269,11 +2269,11 @@ echo "==> (ak) the archive and its staging copy stay private"
 AK="$WORK/ak"
 mkdir -p "$AK/ok/data" "$AK/bad/data" "$AK/tmp-ok" "$AK/tmp-bad"
 make_fixture "$AK/ok/data/main.sqlite" "ak-main"
-make_fixture "$AK/ok/data/openwa.sqlite" "ak-data"
+make_fixture "$AK/ok/data/zaplink.sqlite" "ak-data"
 printf 'ak-admin-key\n' >"$AK/ok/data/.api-key"
 (umask 022 && cd "$AK/ok" && TMPDIR="$AK/tmp-ok" BACKUP_DIR="$AK/new/out" "$BACKUP" >/dev/null 2>&1) ||
   fail "(ak) backup under umask 022 failed"
-ARCHIVE_AK="$(ls "$AK"/new/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AK="$(ls "$AK"/new/out/zaplink-backup-*.tar.gz)"
 if [ -z "$(find "$ARCHIVE_AK" -maxdepth 0 -perm 600)" ]; then
   fail "(ak) under umask 022 the archive is not mode 600"
 fi
@@ -2303,11 +2303,11 @@ esac
 echo ""
 echo "==> (al) a tar that fails part way leaves no archive behind"
 # A full volume stops tar after part of the archive is written. That file must not stay under the
-# openwa-backup-*.tar.gz name, where a listing or a keep-newest rotation reads it as the latest backup.
+# zaplink-backup-*.tar.gz name, where a listing or a keep-newest rotation reads it as the latest backup.
 AL="$WORK/al"
 mkdir -p "$AL/src/data" "$AL/shim"
 make_fixture "$AL/src/data/main.sqlite" "al-main"
-make_fixture "$AL/src/data/openwa.sqlite" "al-data"
+make_fixture "$AL/src/data/zaplink.sqlite" "al-data"
 if [ "$HAS_SQLITE3" -eq 1 ]; then
   populate_shim "$AL/shim" with-sqlite3
 else
@@ -2381,20 +2381,20 @@ if [ "$(id -u)" -ne 0 ] && [ ! -w / ]; then
 fi
 
 echo ""
-echo "==> (am) restore refuses an unsafe OPENWA_DATA_DIR before it reads the archive"
+echo "==> (am) restore refuses an unsafe ZAPLINK_DATA_DIR before it reads the archive"
 # The data dir is replaced wholesale, so one that is the working directory, a parent of it, the home
 # directory or a bare relative spelling would take its neighbours with it. The checks compare resolved
 # paths: a link to the working directory is refused like the directory itself.
 AM="$WORK/am"
 mkdir -p "$AM/src/data/sessions/session-s1" "$AM/work" "$AM/home"
 make_fixture "$AM/src/data/main.sqlite" "am-main"
-make_fixture "$AM/src/data/openwa.sqlite" "am-data"
+make_fixture "$AM/src/data/zaplink.sqlite" "am-data"
 printf 'am-session\n' >"$AM/src/data/sessions/session-s1/marker"
 (
   cd "$AM/src"
   BACKUP_DIR="$AM/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_AM="$(ls "$AM"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AM="$(ls "$AM"/out/zaplink-backup-*.tar.gz)"
 printf 'am-keep\n' >"$AM/work/keep.txt"
 ln -s work "$AM/alias"
 AM_WORKSPACE='must not be the workspace or one of its parent directories'
@@ -2406,28 +2406,28 @@ am_refused() {
     fail "($2) the restore read the archive before it refused: $OUT"
   fi
 }
-am_refused "$AM" "am: ." 'refusing unsafe OPENWA_DATA_DIR target: .' "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR=.
-am_refused "$AM" "am: ./" 'refusing unsafe OPENWA_DATA_DIR target: ./' "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR=./
-am_refused "$AM" "am: .." 'refusing unsafe OPENWA_DATA_DIR target: ..' "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR=..
-am_refused "$AM" "am: ../" 'refusing unsafe OPENWA_DATA_DIR target: ../' "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR=../
-am_refused "$AM" "am: working directory" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR="$AM/work"
-am_refused "$AM" "am: parent of the working directory" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR="$AM"
-am_refused "$AM" "am: link to the working directory" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR="$AM/alias"
+am_refused "$AM" "am: ." 'refusing unsafe ZAPLINK_DATA_DIR target: .' "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR=.
+am_refused "$AM" "am: ./" 'refusing unsafe ZAPLINK_DATA_DIR target: ./' "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR=./
+am_refused "$AM" "am: .." 'refusing unsafe ZAPLINK_DATA_DIR target: ..' "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR=..
+am_refused "$AM" "am: ../" 'refusing unsafe ZAPLINK_DATA_DIR target: ../' "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR=../
+am_refused "$AM" "am: working directory" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR="$AM/work"
+am_refused "$AM" "am: parent of the working directory" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR="$AM"
+am_refused "$AM" "am: link to the working directory" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR="$AM/alias"
 if [ -d "$WORK/AM" ]; then
   # The temp filesystem ignores case: the workspace's parent typed in other case is the same directory.
-  am_refused "$AM" "am: parent of the working directory in other case" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR="$WORK/AM"
+  am_refused "$AM" "am: parent of the working directory in other case" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR="$WORK/AM"
 fi
-am_refused "$AM" "am: home directory" 'must not be the user home directory' "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR="$AM/home"
+am_refused "$AM" "am: home directory" 'must not be the user home directory' "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR="$AM/home"
 # A parent of the home directory holds it, and every other home under it, as the workspace's parent holds the
 # workspace. The home is outside the workspace here, so the workspace check is not what refuses it.
 mkdir -p "$AM/homes/u"
 printf 'am-keep\n' >"$AM/homes/keep.txt"
 am_refused "$AM" "am: parent of the home directory" 'must not be the user home directory or one of its parent directories' \
-  "$AM/work" "$ARCHIVE_AM" HOME="$AM/homes/u" OPENWA_DATA_DIR="$AM/homes"
-pass "(am) an OPENWA_DATA_DIR that is ., ./, .., ../, the workspace, a parent of it, a link to it, the home directory or a parent of it is refused"
+  "$AM/work" "$ARCHIVE_AM" HOME="$AM/homes/u" ZAPLINK_DATA_DIR="$AM/homes"
+pass "(am) an ZAPLINK_DATA_DIR that is ., ./, .., ../, the workspace, a parent of it, a link to it, the home directory or a parent of it is refused"
 if [ "$ROOT_SAFE" -eq 1 ]; then
-  am_refused "$AM" "am: /" 'refusing unsafe OPENWA_DATA_DIR target: /' "$AM/work" "$ARCHIVE_AM" OPENWA_DATA_DIR=/
-  pass "(am) / is refused as OPENWA_DATA_DIR"
+  am_refused "$AM" "am: /" 'refusing unsafe ZAPLINK_DATA_DIR target: /' "$AM/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR=/
+  pass "(am) / is refused as ZAPLINK_DATA_DIR"
   # Every other spelling of the root gets past the literal list. Were it not refused, the restore would
   # snapshot the data dir with cp -pRH, that is copy / into a directory inside it, until the disk is
   # full. So these runs have a cp first on PATH that stops at a source resolving to /, with exit 97 and
@@ -2472,7 +2472,7 @@ EOF
   ln -s rootlink/.. "$AM/links/up"
   ln -s up "$AM/links/up2"
   am_root() {
-    am_refused "$AM" "am: $1" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" PATH="$AM/cpguard:$PATH" OPENWA_DATA_DIR="$2"
+    am_refused "$AM" "am: $1" "$AM_WORKSPACE" "$AM/work" "$ARCHIVE_AM" PATH="$AM/cpguard:$PATH" ZAPLINK_DATA_DIR="$2"
   }
   am_root "//" //
   am_root "/." /.
@@ -2489,14 +2489,14 @@ EOF
   mkdir -p "$WORK/badlinks"
   ln -s / "$BAD_LINK" 2>/dev/null || BAD_LINK=""
   if [ -n "$BAD_LINK" ]; then
-    am_refused "$AM" "am: link to / with a name that is not valid UTF-8" 'refusing unsafe OPENWA_DATA_DIR target' \
-      "$AM/work" "$ARCHIVE_AM" PATH="$AM/cpguard:$PATH" OPENWA_DATA_DIR="$BAD_LINK"
+    am_refused "$AM" "am: link to / with a name that is not valid UTF-8" 'refusing unsafe ZAPLINK_DATA_DIR target' \
+      "$AM/work" "$ARCHIVE_AM" PATH="$AM/cpguard:$PATH" ZAPLINK_DATA_DIR="$BAD_LINK"
   else
     echo "SKIP: (am) the link to / with a name that is not valid UTF-8, which needs a filesystem that accepts one"
   fi
   am_root "link whose target is a link to / and .." "$AM/links/up"
   am_root "link to a link whose target is a link to / and .." "$AM/links/up2"
-  pass "(am) //, /., /./, /.., links to / and links whose target ends in a link to / plus .. are refused as OPENWA_DATA_DIR, before the archive is read"
+  pass "(am) //, /., /./, /.., links to / and links whose target ends in a link to / plus .. are refused as ZAPLINK_DATA_DIR, before the archive is read"
 else
   echo "SKIP: (am) the / case, which needs a user who cannot write /"
 fi
@@ -2520,7 +2520,7 @@ refused_restore "$AN" "an: home directory" "$AN_BROAD" "$AN/work" "$ARCHIVE_AM" 
 refused_restore "$AN" "an: around the workspace" 'whatsapp-web.js sessions target that contains the workspace' \
   "$AN/work" "$ARCHIVE_AM" SESSION_DATA_PATH="$AN"
 refused_restore "$AN" "an: around the data dir" 'whatsapp-web.js sessions target that contains the data directory' \
-  "$AN/work" "$ARCHIVE_AM" OPENWA_DATA_DIR="$AN/vol/data" SESSION_DATA_PATH="$AN/vol"
+  "$AN/work" "$ARCHIVE_AM" ZAPLINK_DATA_DIR="$AN/vol/data" SESSION_DATA_PATH="$AN/vol"
 # The same for a parent of the home directory, with the home outside the workspace and the data dir.
 mkdir -p "$AN/homes/u"
 printf 'an-keep\n' >"$AN/homes/keep.txt"
@@ -2635,19 +2635,19 @@ echo "==> (ap) a restore over files other users can read leaves them at mode 600
 AP="$WORK/ap"
 mkdir -p "$AP/src/data" "$AP/live/data"
 make_fixture "$AP/src/data/main.sqlite" "ap-archive-main"
-make_fixture "$AP/src/data/openwa.sqlite" "ap-archive-data"
+make_fixture "$AP/src/data/zaplink.sqlite" "ap-archive-data"
 printf 'ap-archive-key\n' >"$AP/src/data/.api-key"
 printf 'LOG_LEVEL=info\n' >"$AP/src/data/.env.generated"
 (
   cd "$AP/src"
   BACKUP_DIR="$AP/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_AP="$(ls "$AP"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AP="$(ls "$AP"/out/zaplink-backup-*.tar.gz)"
 make_fixture "$AP/live/data/main.sqlite" "ap-live-main"
-make_fixture "$AP/live/data/openwa.sqlite" "ap-live-data"
+make_fixture "$AP/live/data/zaplink.sqlite" "ap-live-data"
 printf 'ap-live-key\n' >"$AP/live/data/.api-key"
 printf 'LOG_LEVEL=debug\n' >"$AP/live/data/.env.generated"
-chmod 644 "$AP/live/data/main.sqlite" "$AP/live/data/openwa.sqlite" "$AP/live/data/.api-key" "$AP/live/data/.env.generated"
+chmod 644 "$AP/live/data/main.sqlite" "$AP/live/data/zaplink.sqlite" "$AP/live/data/.api-key" "$AP/live/data/.env.generated"
 (
   cd "$AP/live"
   "$RESTORE" "$ARCHIVE_AP" --force >/dev/null
@@ -2657,7 +2657,7 @@ if [ "$(db_fingerprint "$AP/live/data/main.sqlite")" != "ap-archive-main" ] ||
   [ "$(cat "$AP/live/data/.env.generated")" != "LOG_LEVEL=info" ]; then
   fail "(ap) the restore did not replace the files it was meant to tighten"
 fi
-for f in main.sqlite openwa.sqlite .api-key .env.generated; do
+for f in main.sqlite zaplink.sqlite .api-key .env.generated; do
   if [ -z "$(find "$AP/live/data/$f" -maxdepth 0 -perm 600)" ]; then
     fail "(ap) the restored $f is not mode 600"
   fi
@@ -2675,16 +2675,16 @@ echo "==> (aq) every sidecar of a replaced database goes, and an external databa
 AQ="$WORK/aq"
 mkdir -p "$AQ/src/data" "$AQ/live/data" "$AQ/ext" "$AQ/real"
 make_fixture "$AQ/src/data/main.sqlite" "aq-archive-main"
-make_fixture "$AQ/src/data/openwa.sqlite" "aq-archive-data"
+make_fixture "$AQ/src/data/zaplink.sqlite" "aq-archive-data"
 (
   cd "$AQ/src"
   BACKUP_DIR="$AQ/out" "$BACKUP" >/dev/null
 )
-ARCHIVE_AQ="$(ls "$AQ"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AQ="$(ls "$AQ"/out/zaplink-backup-*.tar.gz)"
 make_fixture "$AQ/real/auth.sqlite" "aq-live-main"
 ln -s "$AQ/real/auth.sqlite" "$AQ/ext/auth.sqlite"
-make_fixture "$AQ/live/data/openwa.sqlite" "aq-live-data"
-for db in "$AQ/real/auth.sqlite" "$AQ/live/data/openwa.sqlite"; do
+make_fixture "$AQ/live/data/zaplink.sqlite" "aq-live-data"
+for db in "$AQ/real/auth.sqlite" "$AQ/live/data/zaplink.sqlite"; do
   for sfx in -wal -shm -journal; do
     printf 'aq-stale%s\n' "$sfx" >"$db$sfx"
   done
@@ -2696,7 +2696,7 @@ done
   cd "$AQ/live"
   MAIN_DATABASE_NAME="$AQ/ext/auth.sqlite" "$RESTORE" "$ARCHIVE_AQ" --force >/dev/null
 )
-for db in "$AQ/real/auth.sqlite" "$AQ/ext/auth.sqlite" "$AQ/live/data/openwa.sqlite"; do
+for db in "$AQ/real/auth.sqlite" "$AQ/ext/auth.sqlite" "$AQ/live/data/zaplink.sqlite"; do
   for sfx in -wal -shm -journal; do
     if [ -e "$db$sfx" ]; then
       fail "(aq) the old install's $(basename "$db")$sfx survived the restore"
@@ -2704,14 +2704,14 @@ for db in "$AQ/real/auth.sqlite" "$AQ/ext/auth.sqlite" "$AQ/live/data/openwa.sql
   done
 done
 if [ "$(db_fingerprint "$AQ/ext/auth.sqlite")" != "aq-archive-main" ] ||
-  [ "$(db_fingerprint "$AQ/live/data/openwa.sqlite")" != "aq-archive-data" ]; then
+  [ "$(db_fingerprint "$AQ/live/data/zaplink.sqlite")" != "aq-archive-data" ]; then
   fail "(aq) the databases were not restored"
 fi
 for sfx in -wal -shm -journal; do
   if [ "$(cat "$AQ"/ext/auth.sqlite.pre-restore-*"$sfx" 2>/dev/null || true)" != "aq-stale$sfx" ]; then
     fail "(aq) the snapshot of the external database lost its $sfx"
   fi
-  if [ "$(cat "$AQ"/live/data.pre-restore-*/openwa.sqlite"$sfx" 2>/dev/null || true)" != "aq-stale$sfx" ]; then
+  if [ "$(cat "$AQ"/live/data.pre-restore-*/zaplink.sqlite"$sfx" 2>/dev/null || true)" != "aq-stale$sfx" ]; then
     fail "(aq) the data-dir snapshot lost the data store's $sfx"
   fi
 done
@@ -2737,7 +2737,7 @@ if [ "$ROOT_SAFE" -eq 1 ]; then
     ar_label="${target#* }"
     for ar_spelling in / // /. "$AR/links/rootlink" "$AR/links/rootlink/.." "$AR/links/rootlink2/.." "$AR/links/up" "$AR/links/up2" ${BAD_LINK:+"$BAD_LINK"}; do
       refused_restore "$AR" "ar: $ar_var=$ar_spelling" "refusing to replace broad $ar_label target" "$AR/work" "$ARCHIVE_AP" \
-        PATH="$AM/cpguard:$PATH" OPENWA_DATA_DIR="$AR/work/data" "$ar_var=$ar_spelling"
+        PATH="$AM/cpguard:$PATH" ZAPLINK_DATA_DIR="$AR/work/data" "$ar_var=$ar_spelling"
     done
   done
   pass "(ar) MAIN_DATABASE_NAME, DATABASE_NAME and BOOTSTRAP_KEY_FILE as /, //, /., links to / and links whose target ends in a link to / plus .. are refused"
@@ -2766,7 +2766,7 @@ for target in 'MAIN_DATABASE_NAME auth/audit DB' 'DATABASE_NAME data store' 'BOO
   for as_dir in "$AS/top" "$AS/top/proj/data" "$AS/other" "$AS/otherlink"; do
     as_mode="$(dir_mode "$as_dir")"
     refused_restore "$AS" "as: $as_var=${as_dir#"$AS"/}" "refusing to replace $as_label target that is a directory" "$AS/top/proj" "$ARCHIVE_AP" \
-      OPENWA_DATA_DIR="$AS/top/proj/data" "$as_var=$as_dir"
+      ZAPLINK_DATA_DIR="$AS/top/proj/data" "$as_var=$as_dir"
     if [ "$(dir_mode "$as_dir")" != "$as_mode" ]; then
       fail "(as: $as_var=${as_dir#"$AS"/}) the refused restore changed the mode of the directory: $as_mode to $(dir_mode "$as_dir")"
     fi
@@ -2785,7 +2785,7 @@ AT="$WORK/at"
 mkdir -p "$AT/src/data/sessions/session-1" "$AT/src/data/baileys/b1" "$AT/src/data/media" "$AT/src/data/plugins/p1" \
   "$AT/work/data/sessions/old" "$AT/home/.ssh" "$AT/victim" "$AT/stage"
 make_fixture "$AT/src/data/main.sqlite" "at-main"
-make_fixture "$AT/src/data/openwa.sqlite" "at-data"
+make_fixture "$AT/src/data/zaplink.sqlite" "at-data"
 printf 'at-session\n' >"$AT/src/data/sessions/session-1/marker"
 printf 'at-baileys\n' >"$AT/src/data/baileys/b1/creds.json"
 printf 'at-media\n' >"$AT/src/data/media/a.jpg"
@@ -2795,7 +2795,7 @@ printf 'at-key\n' >"$AT/src/data/.api-key"
   cd "$AT/src"
   BACKUP_DIR="$AT/out" "$BACKUP" >/dev/null 2>&1
 )
-ARCHIVE_AT="$(ls "$AT"/out/openwa-backup-*.tar.gz)"
+ARCHIVE_AT="$(ls "$AT"/out/zaplink-backup-*.tar.gz)"
 printf 'at-keep\n' >"$AT/work/data/keep.txt"
 printf 'at-precious\n' >"$AT/victim/precious.txt"
 # at_archive <name> <.env.generated text> [<name in sessions/> <link target>]: the backup.sh archive above with that
@@ -2814,7 +2814,7 @@ at_archive() {
 at_refused() {
   local label="$1" message="$2" archive="$3"
   shift 3
-  refused_restore "$AT" "$label" "$message" "$AT/work" "$archive" OPENWA_DATA_DIR="$AT/work/data" "$@"
+  refused_restore "$AT" "$label" "$message" "$AT/work" "$archive" ZAPLINK_DATA_DIR="$AT/work/data" "$@"
   if printf '%s' "$OUT" | grep -q 'Snapshotting' || [ -n "$(find "$AT" -name '*.pre-restore-*' -print -quit)" ]; then
     fail "($label) the restore took a snapshot before it refused: $OUT"
   fi
@@ -2858,7 +2858,7 @@ fi
 pass "(at) a path from the archive's .env.generated that leads out of the data dir is refused before anything is copied"
 # The same paths, named by the operator, are restored there.
 at_archive elsewhere "SESSION_DATA_PATH=$AT/elsewhere\n"
-(cd "$AT/work" && HOME="$AT/home" OPENWA_DATA_DIR="$AT/env/data" SESSION_DATA_PATH="$AT/elsewhere" \
+(cd "$AT/work" && HOME="$AT/home" ZAPLINK_DATA_DIR="$AT/env/data" SESSION_DATA_PATH="$AT/elsewhere" \
   "$RESTORE" "$AT/elsewhere.tar.gz" >/dev/null 2>&1) || fail "(at) restore with SESSION_DATA_PATH in the environment failed"
 if [ "$(cat "$AT/elsewhere/session-1/marker" 2>/dev/null || true)" != "at-session" ]; then
   fail "(at) the sessions did not land at the SESSION_DATA_PATH the environment names"
@@ -2956,7 +2956,7 @@ echo '-- dump'
 s=public
 [ "\$1" != -n ] || s="\$2"
 [ -z "\${AV_QUOTE:-}" ] || s="\"\$s\""
-echo "CREATE INDEX idx_messages_body_trgm ON \$s.messages USING gin (\$s.openwa_unaccent(body) \$s.gin_trgm_ops);"
+echo "CREATE INDEX idx_messages_body_trgm ON \$s.messages USING gin (\$s.zaplink_unaccent(body) \$s.gin_trgm_ops);"
 echo "GRANT ALL ON SCHEMA \$s TO app;"
 printf '%s\\n' '\\unrestrict key'
 [ -z "\${AV_DUMP_FAIL:-}" ] || exit 1
@@ -2976,44 +2976,44 @@ backup_av() {
   printf '%s' "$rc"
 }
 AV_PG='DATABASE_TYPE=postgres\nDATABASE_HOST=db\nDATABASE_USERNAME=app\nDATABASE_NAME=shared\n'
-AV_SCOPED="-n|openwa_s|--no-comments|-e|plpgsql|-e|pg_trgm|-e|unaccent|-h|db|-p|5432|-U|app|shared|"
+AV_SCOPED="-n|zaplink_s|--no-comments|-e|plpgsql|-e|pg_trgm|-e|unaccent|-h|db|-p|5432|-U|app|shared|"
 for AV_FROM in env dotenv generated; do
   case "$AV_FROM" in
-    env) rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s)" ;;
-    dotenv) rc="$(backup_av 'POSTGRES_SCHEMA=openwa_s\n' "$AV_PG")" ;;
-    generated) rc="$(backup_av '' "${AV_PG}POSTGRES_SCHEMA=openwa_s\n")" ;;
+    env) rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s)" ;;
+    dotenv) rc="$(backup_av 'POSTGRES_SCHEMA=zaplink_s\n' "$AV_PG")" ;;
+    generated) rc="$(backup_av '' "${AV_PG}POSTGRES_SCHEMA=zaplink_s\n")" ;;
   esac
   [ "$rc" -eq 0 ] || fail "(av) the backup with POSTGRES_SCHEMA from $AV_FROM failed: $OUT_AV"
   if [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "$AV_SCOPED" ]; then
     fail "(av) POSTGRES_SCHEMA from $AV_FROM did not scope the dump: $(cat "$AV/pg_dump-args" 2>&1)"
   fi
   if [ "$(cat "$AV/pg_dump-probe-args" 2>/dev/null || true)" != \
-    "--schema-only|-n|openwa_s|-e|plpgsql|-e|pgcrypto|-h|db|-p|5432|-U|app|shared|" ]; then
+    "--schema-only|-n|zaplink_s|-e|plpgsql|-e|pgcrypto|-h|db|-p|5432|-U|app|shared|" ]; then
     fail "(av) POSTGRES_SCHEMA from $AV_FROM did not probe its schema for pgcrypto: $(cat "$AV/pg_dump-probe-args" 2>&1)"
   fi
 done
 ARCHIVE_AV="$AV/scoped.tar.gz"
-cp "$(ls "$AV"/out/openwa-backup-*.tar.gz)" "$ARCHIVE_AV"
-if [ "$(tar -xzOf "$ARCHIVE_AV" ./database.schema)" != openwa_s ]; then
+cp "$(ls "$AV"/out/zaplink-backup-*.tar.gz)" "$ARCHIVE_AV"
+if [ "$(tar -xzOf "$ARCHIVE_AV" ./database.schema)" != zaplink_s ]; then
   fail "(av) the archive does not name the dumped schema in database.schema"
 fi
 AV_SQL="$(tar -xzOf "$ARCHIVE_AV" ./database.sql)"
 # The trigram index expression runs as the table owner, which pg_dump grants USAGE on a schema another role owns
 # only in its closing ACL pass, so the scoped dump creates that index last, quoted name or not; nothing else moves.
-AV_INDEX='CREATE INDEX idx_messages_body_trgm ON openwa_s.messages USING gin (openwa_s.openwa_unaccent(body) openwa_s.gin_trgm_ops);'
-if ! grep -q "ALTER SCHEMA %I RENAME TO %I', 'openwa_s'" <<<"$AV_SQL" ||
-  [ "$(tail -n 4 <<<"$AV_SQL" | tr '\n' '|')" != "-- dump|GRANT ALL ON SCHEMA openwa_s TO app;|\\unrestrict key|$AV_INDEX|" ]; then
+AV_INDEX='CREATE INDEX idx_messages_body_trgm ON zaplink_s.messages USING gin (zaplink_s.zaplink_unaccent(body) zaplink_s.gin_trgm_ops);'
+if ! grep -q "ALTER SCHEMA %I RENAME TO %I', 'zaplink_s'" <<<"$AV_SQL" ||
+  [ "$(tail -n 4 <<<"$AV_SQL" | tr '\n' '|')" != "-- dump|GRANT ALL ON SCHEMA zaplink_s TO app;|\\unrestrict key|$AV_INDEX|" ]; then
   fail "(av) the schema dump does not start with the prelude that moves the schema aside and end with its index: $AV_SQL"
 fi
-rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_QUOTE=1)"
-if [ "$rc" -ne 0 ] || [ "$(tar -xzOf "$(ls "$AV"/out/openwa-backup-*.tar.gz)" ./database.sql | tail -n 2 | tr '\n' '|')" != \
-  "\\unrestrict key|${AV_INDEX//openwa_s./\"openwa_s\".}|" ]; then
+rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_QUOTE=1)"
+if [ "$rc" -ne 0 ] || [ "$(tar -xzOf "$(ls "$AV"/out/zaplink-backup-*.tar.gz)" ./database.sql | tail -n 2 | tr '\n' '|')" != \
+  "\\unrestrict key|${AV_INDEX//zaplink_s./\"zaplink_s\".}|" ]; then
   fail "(av) a quoted schema name kept the trigram index before the grants (rc $rc): $OUT_AV"
 fi
 # The dump goes through a filter, and a pg_dump that fails still fails the backup, leaving no archive.
-backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_DUMP_FAIL=1 >"$AV/rc"
+backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_DUMP_FAIL=1 >"$AV/rc"
 rc="$(cat "$AV/rc")"
-if [ "$rc" -eq 0 ] || ls "$AV"/out/openwa-backup-* >/dev/null 2>&1; then
+if [ "$rc" -eq 0 ] || ls "$AV"/out/zaplink-backup-* >/dev/null 2>&1; then
   fail "(av) a scoped pg_dump that failed did not fail the backup (rc $rc): $OUT_AV"
 fi
 # Another schema may use the extensions that move aside: the prelude drops them without CASCADE, so that use fails
@@ -3025,59 +3025,59 @@ if grep -q CASCADE <<<"$AV_SQL" ||
   fail "(av) the prelude drops the extensions with CASCADE, or not the copy's trigram index first: $AV_SQL"
 fi
 # The DATABASE_URL branch is scoped the same way.
-rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s DATABASE_URL=postgres://app@db/shared)"
+rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s DATABASE_URL=postgres://app@db/shared)"
 if [ "$rc" -ne 0 ] ||
-  [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "-n|openwa_s|--no-comments|-e|plpgsql|-e|pg_trgm|-e|unaccent|postgres://app@db/shared|" ] ||
-  [ "$(cat "$AV/pg_dump-probe-args" 2>/dev/null || true)" != "--schema-only|-n|openwa_s|-e|plpgsql|-e|pgcrypto|postgres://app@db/shared|" ]; then
+  [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "-n|zaplink_s|--no-comments|-e|plpgsql|-e|pg_trgm|-e|unaccent|postgres://app@db/shared|" ] ||
+  [ "$(cat "$AV/pg_dump-probe-args" 2>/dev/null || true)" != "--schema-only|-n|zaplink_s|-e|plpgsql|-e|pgcrypto|postgres://app@db/shared|" ]; then
   fail "(av) DATABASE_URL did not get the scoped dump (rc $rc): $(cat "$AV/pg_dump-args" "$AV/pg_dump-probe-args" 2>&1)"
 fi
 # On PostgreSQL 12 and older the migrations create pgcrypto in the schema for the id defaults: pg_dump's CREATE
 # EXTENSION line names the schema, quoted or not, and the dump and its prelude then carry pgcrypto, the prelude
 # dropping the copy's defaults that call it first. One in another schema stays out, as the app on 13 and newer
 # never uses it, and a probe that fails stops the backup before anything is archived.
-for AV_LINE in 'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA openwa_s;' \
-  'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA "openwa_s";'; do
-  rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_PGCRYPTO="$AV_LINE")"
-  AV_SQL="$(tar -xzOf "$(ls "$AV"/out/openwa-backup-*.tar.gz 2>/dev/null)" ./database.sql 2>/dev/null || true)"
+for AV_LINE in 'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA zaplink_s;' \
+  'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA "zaplink_s";'; do
+  rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_PGCRYPTO="$AV_LINE")"
+  AV_SQL="$(tar -xzOf "$(ls "$AV"/out/zaplink-backup-*.tar.gz 2>/dev/null)" ./database.sql 2>/dev/null || true)"
   if [ "$rc" -ne 0 ] ||
-    [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "-n|openwa_s|--no-comments|-e|plpgsql|-e|pg_trgm|-e|unaccent|-e|pgcrypto|-h|db|-p|5432|-U|app|shared|" ] ||
+    [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "-n|zaplink_s|--no-comments|-e|plpgsql|-e|pg_trgm|-e|unaccent|-e|pgcrypto|-h|db|-p|5432|-U|app|shared|" ] ||
     ! grep -q "WHERE extname IN ('pg_trgm', 'unaccent', 'pgcrypto') AND" <<<"$AV_SQL" ||
     ! grep -q "ALTER TABLE %I.%I ALTER COLUMN %I DROP DEFAULT', aside" <<<"$AV_SQL" || grep -q CASCADE <<<"$AV_SQL"; then
     fail "(av) pgcrypto in the schema ($AV_LINE) did not reach the dump and its prelude (rc $rc): $(cat "$AV/pg_dump-args" 2>&1)"
   fi
 done
 for AV_LINE in 'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;' \
-  'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA openwa_s_old;'; do
-  rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_PGCRYPTO="$AV_LINE")"
+  'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA zaplink_s_old;'; do
+  rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_PGCRYPTO="$AV_LINE")"
   if [ "$rc" -ne 0 ] || [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "$AV_SCOPED" ]; then
     fail "(av) pgcrypto in another schema ($AV_LINE) reached the dump (rc $rc): $(cat "$AV/pg_dump-args" 2>&1)"
   fi
 done
-backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_PROBE_FAIL=1 >"$AV/rc"
+backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_PROBE_FAIL=1 >"$AV/rc"
 rc="$(cat "$AV/rc")"
-if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/openwa-backup-* >/dev/null 2>&1; then
+if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/zaplink-backup-* >/dev/null 2>&1; then
   fail "(av) a failed pgcrypto probe did not stop the backup before the dump (rc $rc): $OUT_AV"
 fi
 # The scoped dump names its extensions with -e, which pg_dump has had since 14. An older client, or one whose
 # version cannot be read, stops the backup before it dumps or writes an archive, with a message naming 14; the
 # whole-database dump of public does not need it.
 for AV_OLD in 13.23 9.6.24 unknown; do
-  backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_PG_DUMP_VERSION="$AV_OLD" >"$AV/rc"
+  backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_PG_DUMP_VERSION="$AV_OLD" >"$AV/rc"
   rc="$(cat "$AV/rc")"
-  if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/openwa-backup-* >/dev/null 2>&1 ||
+  if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/zaplink-backup-* >/dev/null 2>&1 ||
     ! grep -q 'needs pg_dump 14 or newer' <<<"$OUT_AV"; then
     fail "(av) pg_dump $AV_OLD did not stop the scoped backup before the dump (rc $rc): $OUT_AV"
   fi
 done
 # The version is the one the dump runs with: read with the dump's arguments, as pg_wrapper picks the client by them.
 # A host argument gets the newer client, which the dump then uses; a DATABASE_URL leaves the cluster's 13, refused.
-rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_PG_WRAPPER=1)"
+rc="$(backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_PG_WRAPPER=1)"
 if [ "$rc" -ne 0 ] || [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "$AV_SCOPED" ]; then
   fail "(av) the client pg_wrapper runs for the dump's host was not the one checked (rc $rc): $(cat "$AV/pg_dump-args" 2>&1)"
 fi
-backup_av '' "$AV_PG" POSTGRES_SCHEMA=openwa_s AV_PG_WRAPPER=1 DATABASE_URL=postgres://app@db/shared >"$AV/rc"
+backup_av '' "$AV_PG" POSTGRES_SCHEMA=zaplink_s AV_PG_WRAPPER=1 DATABASE_URL=postgres://app@db/shared >"$AV/rc"
 rc="$(cat "$AV/rc")"
-if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/openwa-backup-* >/dev/null 2>&1 ||
+if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/zaplink-backup-* >/dev/null 2>&1 ||
   ! grep -q 'needs pg_dump 14 or newer' <<<"$OUT_AV" || ! grep -q 'reports: pg_dump (PostgreSQL) 13.23' <<<"$OUT_AV"; then
   fail "(av) the cluster's pg_dump 13 under a DATABASE_URL did not stop the scoped backup (rc $rc): $OUT_AV"
 fi
@@ -3089,23 +3089,23 @@ fi
 for AV_PUBLIC in 'POSTGRES_SCHEMA=public\n' 'POSTGRES_SCHEMA=\n' ''; do
   rc="$(backup_av '' "${AV_PG}${AV_PUBLIC}")"
   if [ "$rc" -ne 0 ] || [ "$(cat "$AV/pg_dump-args" 2>/dev/null || true)" != "-h|db|-p|5432|-U|app|shared|" ] ||
-    tar_lists -tzf "$(ls "$AV"/out/openwa-backup-*.tar.gz)" -x './database.schema'; then
+    tar_lists -tzf "$(ls "$AV"/out/zaplink-backup-*.tar.gz)" -x './database.schema'; then
     fail "(av) a public schema ('$AV_PUBLIC') did not keep the whole-database dump (rc $rc): $(cat "$AV/pg_dump-args" 2>&1)"
   fi
 done
 ARCHIVE_AV_WHOLE="$AV/whole.tar.gz"
-cp "$(ls "$AV"/out/openwa-backup-*.tar.gz)" "$ARCHIVE_AV_WHOLE"
+cp "$(ls "$AV"/out/zaplink-backup-*.tar.gz)" "$ARCHIVE_AV_WHOLE"
 # The whole-database dump is pg_dump's output as written, its trigram index included.
 if [ "$(tar -xzOf "$ARCHIVE_AV_WHOLE" ./database.sql | tr '\n' '|')" != \
-  "-- dump|${AV_INDEX//openwa_s/public}|GRANT ALL ON SCHEMA public TO app;|\\unrestrict key|" ]; then
+  "-- dump|${AV_INDEX//zaplink_s/public}|GRANT ALL ON SCHEMA public TO app;|\\unrestrict key|" ]; then
   fail "(av) the whole-database dump is not pg_dump's output as written: $(tar -xzOf "$ARCHIVE_AV_WHOLE" ./database.sql)"
 fi
 # A name the app refuses, which pg_dump would fold or read as a pattern, and a line the scripts cannot parse,
 # stop the backup before pg_dump starts.
-for AV_BAD in 'POSTGRES_SCHEMA=OpenWA\n' 'POSTGRES_SCHEMA=openwa?\n' 'POSTGRES_SCHEMA=pg_openwa\n' \
-  'POSTGRES_SCHEMA="openwa_s" # note\n'; do
+for AV_BAD in 'POSTGRES_SCHEMA=ZapLink\n' 'POSTGRES_SCHEMA=zaplink?\n' 'POSTGRES_SCHEMA=pg_zaplink\n' \
+  'POSTGRES_SCHEMA="zaplink_s" # note\n'; do
   rc="$(backup_av '' "${AV_PG}${AV_BAD}")"
-  if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/openwa-backup-* >/dev/null 2>&1; then
+  if [ "$rc" -eq 0 ] || [ -e "$AV/pg_dump-args" ] || ls "$AV"/out/zaplink-backup-* >/dev/null 2>&1; then
     fail "(av) POSTGRES_SCHEMA line '$AV_BAD' reached pg_dump or produced an archive (rc $rc): $OUT_AV"
   fi
 done
@@ -3116,11 +3116,11 @@ restore_av() {
   OUT_AV="$(cd "$AV/dst" && "$RESTORE" "$1" 2>&1)" || fail "(av) the restore of $1 failed: $OUT_AV"
 }
 restore_av "$ARCHIVE_AV"
-if ! grep -q 'dump of schema openwa_s (POSTGRES_SCHEMA) present' <<<"$OUT_AV" ||
+if ! grep -q 'dump of schema zaplink_s (POSTGRES_SCHEMA) present' <<<"$OUT_AV" ||
   grep -q 'EMPTY database' <<<"$OUT_AV" || ! grep -q 'psql --single-transaction -v ON_ERROR_STOP=1' <<<"$OUT_AV"; then
   fail "(av) restore did not print the schema load for a marked archive: $OUT_AV"
 fi
-# Dropping extensions that live in the schema takes their owner, and another OpenWA deployment's trigram index on
+# Dropping extensions that live in the schema takes their owner, and another ZapLink deployment's trigram index on
 # them refuses the load until that index is dropped: the printed text names both, and pgcrypto, which the dump
 # carries only when it lived in the schema. The dump gives the schema's objects to the app's role before it grants
 # that role CREATE on a schema another role owns, which only a superuser's load gets past: the text says so.

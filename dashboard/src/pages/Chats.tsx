@@ -758,7 +758,7 @@ export function Chats() {
   // read flushed then goes out keyless and its 401 reloads the login form, so drop it instead.
   useEffect(
     () => () => {
-      if (sessionStorage.getItem('openwa_api_key')) markReadCoalescer.flush();
+      if (sessionStorage.getItem('zaplink_api_key')) markReadCoalescer.flush();
       else markReadCoalescer.cancel();
     },
     [markReadCoalescer],

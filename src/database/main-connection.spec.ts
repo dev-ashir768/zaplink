@@ -26,7 +26,7 @@ describe('main connection', () => {
   let file: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'openwa-main-'));
+    dir = mkdtempSync(join(tmpdir(), 'zaplink-main-'));
     file = join(dir, 'main.sqlite');
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -301,7 +301,7 @@ describe('main connection', () => {
       };
       const [service, mount] = Object.entries(compose.services)
         .flatMap(([name, svc]) =>
-          (svc.volumes ?? []).filter(v => v.startsWith('openwa-data:')).map(v => [name, v.split(':')[1]]),
+          (svc.volumes ?? []).filter(v => v.startsWith('zaplink-data:')).map(v => [name, v.split(':')[1]]),
         )
         .at(0) ?? ['', ''];
       expect(service).not.toBe('');

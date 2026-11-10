@@ -131,7 +131,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
 
   it('the managed profiles are exactly the compose services labeled as built-in', () => {
     const builtin = Object.entries(compose.services)
-      .filter(([, svc]) => (svc.labels ?? []).includes('com.openwa.builtin=true'))
+      .filter(([, svc]) => (svc.labels ?? []).includes('com.zaplink.builtin=true'))
       .map(([name]) => name)
       .sort();
     expect([...MANAGED_DOCKER_PROFILES].sort()).toEqual(builtin);
@@ -155,13 +155,13 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     expect(cfg.Image).not.toMatch(/^(quay\.io\/)?minio\/minio[:@]/);
   });
 
-  it.each(PROFILES)('%s: attaches to the fixed openwa-network like the compose service', async profile => {
+  it.each(PROFILES)('%s: attaches to the fixed zaplink-network like the compose service', async profile => {
     const cfg = await capture(profile);
-    expect(cfg.HostConfig.NetworkMode).toBe('openwa-network');
-    expect(compose.networks['openwa-network'].name).toBe('openwa-network');
-    expect(compose.services[profile].networks).toContain('openwa-network');
+    expect(cfg.HostConfig.NetworkMode).toBe('zaplink-network');
+    expect(compose.networks['zaplink-network'].name).toBe('zaplink-network');
+    expect(compose.services[profile].networks).toContain('zaplink-network');
     // Compose DNS resolves peers by service name; the Docker-API path adds it as an alias.
-    expect(cfg.NetworkingConfig.EndpointsConfig['openwa-network'].Aliases).toContain(profile);
+    expect(cfg.NetworkingConfig.EndpointsConfig['zaplink-network'].Aliases).toContain(profile);
   });
 
   it.each(PROFILES)('%s: uses the same restart policy as compose', async profile => {
@@ -186,8 +186,8 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     const composeVol = `${profile}-data`;
     expect(compose.services[profile].volumes).toContain(`${composeVol}:${VOLUME_PATH[profile]}`);
     // The compose volume name is pinned to the literal name the Docker-API path binds.
-    expect(compose.volumes[composeVol].name).toBe(`openwa_${composeVol}`);
-    expect(cfg.HostConfig.Binds).toEqual([`openwa_${composeVol}:${VOLUME_PATH[profile]}`]);
+    expect(compose.volumes[composeVol].name).toBe(`zaplink_${composeVol}`);
+    expect(cfg.HostConfig.Binds).toEqual([`zaplink_${composeVol}:${VOLUME_PATH[profile]}`]);
   });
 
   it.each(PROFILES)('%s: matches the compose healthcheck timing', async profile => {
@@ -200,7 +200,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     });
   });
 
-  it.each(PROFILES)('%s: sets no CPU/memory/PID limits on either path (only openwa-api is limited)', async profile => {
+  it.each(PROFILES)('%s: sets no CPU/memory/PID limits on either path (only zaplink-api is limited)', async profile => {
     const svc = compose.services[profile];
     expect(svc.mem_limit).toBeUndefined();
     expect(svc.pids_limit).toBeUndefined();
@@ -213,28 +213,28 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
 
   it('postgres: provisions the default built-in credentials; compose defaults agree on user/db only', async () => {
     const cfg = await capture('postgres');
-    expect(cfg.Env).toEqual(['POSTGRES_USER=openwa', 'POSTGRES_PASSWORD=openwa', 'POSTGRES_DB=openwa']);
+    expect(cfg.Env).toEqual(['POSTGRES_USER=zaplink', 'POSTGRES_PASSWORD=zaplink', 'POSTGRES_DB=zaplink']);
     const env = compose.services.postgres.environment!;
     // Compose is the manual operator path: same user/db defaults, but deliberately NO default
     // password (the image fails fast on an empty one). The orchestrated built-in path instead
     // provisions the fixed credential the production boot guard exempts for the built-in,
     // internal-host deployment (see the getContainerSpec docblock).
-    expect(env.POSTGRES_USER).toBe('${DATABASE_USERNAME:-openwa}');
-    expect(env.POSTGRES_DB).toBe('${DATABASE_NAME:-openwa}');
+    expect(env.POSTGRES_USER).toBe('${DATABASE_USERNAME:-zaplink}');
+    expect(env.POSTGRES_DB).toBe('${DATABASE_NAME:-zaplink}');
     expect(env.POSTGRES_PASSWORD).toBe('${DATABASE_PASSWORD:-}');
   });
 
   it('postgres: initializes the role with the password the app will dial with', async () => {
     process.env.DATABASE_PASSWORD = 'S3cure-pw-9';
     const cfg = await capture('postgres');
-    expect(cfg.Env).toEqual(['POSTGRES_USER=openwa', 'POSTGRES_PASSWORD=S3cure-pw-9', 'POSTGRES_DB=openwa']);
+    expect(cfg.Env).toEqual(['POSTGRES_USER=zaplink', 'POSTGRES_PASSWORD=S3cure-pw-9', 'POSTGRES_DB=zaplink']);
   });
 
   it('postgres: provisions the password the next boot reads, not the one this process booted with', async () => {
     // A password saved from the dashboard reached process.env from data/.env.generated at boot; a later
     // save has rewritten the file, and the restart that creates the container runs in this old process.
     // Fresh modules: the precedence snapshot is global.
-    const dir = mkdtempSync(join(tmpdir(), 'openwa-pg-'));
+    const dir = mkdtempSync(join(tmpdir(), 'zaplink-pg-'));
     mkdirSync(join(dir, 'data'));
     writeFileSync(join(dir, 'data', '.env.generated'), 'DATABASE_PASSWORD=S3cure-pw-9\n');
     const cwd = jest.spyOn(process, 'cwd').mockReturnValue(dir);
@@ -250,7 +250,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
       });
       process.env.DATABASE_PASSWORD = 'old-boot-password';
       const cfg = await capture('postgres', FreshDockerService);
-      expect(cfg.Env).toEqual(['POSTGRES_USER=openwa', 'POSTGRES_PASSWORD=S3cure-pw-9', 'POSTGRES_DB=openwa']);
+      expect(cfg.Env).toEqual(['POSTGRES_USER=zaplink', 'POSTGRES_PASSWORD=S3cure-pw-9', 'POSTGRES_DB=zaplink']);
     } finally {
       cwd.mockRestore();
       rmSync(dir, { recursive: true, force: true });
@@ -260,9 +260,9 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
   it('postgres: healthcheck resolves to the same pg_isready command as compose', async () => {
     const cfg = await capture('postgres');
     const composeTest = compose.services.postgres.healthcheck!.test;
-    // Compose interpolates the manual-path user default; the built-in user is always openwa.
+    // Compose interpolates the manual-path user default; the built-in user is always zaplink.
     expect(cfg.Healthcheck!.Test[0]).toBe(composeTest[0]);
-    expect(cfg.Healthcheck!.Test[1]).toBe(composeTest[1].replace('${DATABASE_USERNAME:-openwa}', 'openwa'));
+    expect(cfg.Healthcheck!.Test[1]).toBe(composeTest[1].replace('${DATABASE_USERNAME:-zaplink}', 'zaplink'));
   });
 
   it('postgres: publishes no host ports, like compose', async () => {
@@ -424,15 +424,16 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
   // start runs the dev file, so a hardcoded 2785 there ignores the knob when that port is taken.
   it.each(['docker-compose.yml', 'docker-compose.dev.yml'])('%s publishes the API on the API_PORT host port', file => {
     const parsed = yaml.load(readFileSync(join(__dirname, '../../..', file), 'utf8')) as ComposeFile;
-    const api = Object.values(parsed.services).find(service => service.container_name === 'openwa-api');
+    const api = Object.values(parsed.services).find(service => service.container_name === 'zaplink-api');
     expect(api?.ports).toEqual([expect.stringMatching(/:\$\{API_PORT:-2785\}:2785$/)]);
   });
 
-  it('openwa-api uses the same readiness healthcheck in both compose files', () => {
+  it('zaplink-api uses the same readiness healthcheck in both compose files', () => {
     const root = join(__dirname, '../../..');
     const apiHealthcheck = (file: string): string[] | undefined => {
       const parsed = yaml.load(readFileSync(join(root, file), 'utf8')) as ComposeFile;
-      return Object.values(parsed.services).find(service => service.container_name === 'openwa-api')?.healthcheck?.test;
+      return Object.values(parsed.services).find(service => service.container_name === 'zaplink-api')?.healthcheck
+        ?.test;
     };
     const url = 'http://localhost:2785/api/health/ready';
     expect(apiHealthcheck('docker-compose.yml')).toEqual(['CMD', 'curl', '-f', url]);
@@ -448,7 +449,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     const dockerfile = readFileSync(join(__dirname, '../../../Dockerfile'), 'utf8');
     const probe = /^HEALTHCHECK .*\\\n\s*CMD (.+)$/m.exec(dockerfile)?.[1];
     expect(probe).toContain('curl -f');
-    const bin = mkdtempSync(join(tmpdir(), 'openwa-healthcheck-'));
+    const bin = mkdtempSync(join(tmpdir(), 'zaplink-healthcheck-'));
     try {
       writeFileSync(join(bin, 'curl'), '#!/bin/sh\necho "$@"\n', { mode: 0o755 });
       const env = { PATH: `${bin}:${process.env.PATH}`, ...(port && { PORT: port }) };
@@ -507,7 +508,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
       // finds that container by its label and only restarts it, so the built-in option cannot recover.
       const text = readFileSync(join(__dirname, '../../..', file), 'utf8').replace(/\s+/g, ' ');
       expect(text).toContain('do not also start the `minio` or `full` profile');
-      expect(text).toContain('docker rm -f openwa-minio');
+      expect(text).toContain('docker rm -f zaplink-minio');
       // Built-in PostgreSQL and Redis also create their own containers. The compose postgres service
       // refuses to initialize without DATABASE_PASSWORD, and startService would only restart it, so
       // the dashboard route must not be told to start any profile.
@@ -532,7 +533,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     // External keys saved from the dashboard reached process.env from data/.env.generated at boot; a
     // switch to built-in storage has since rewritten that file with minioadmin, and the restart that
     // creates the container runs in this old process. Fresh modules: the precedence snapshot is global.
-    const dir = mkdtempSync(join(tmpdir(), 'openwa-minio-'));
+    const dir = mkdtempSync(join(tmpdir(), 'zaplink-minio-'));
     mkdirSync(join(dir, 'data'));
     writeFileSync(
       join(dir, 'data', '.env.generated'),

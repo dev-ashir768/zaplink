@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Resources;
+namespace ZapLink\Resources;
 
-use OpenWA\Http\HttpExecutor;
+use ZapLink\Http\HttpExecutor;
 
 /**
  * Groups resource — WhatsApp group management.

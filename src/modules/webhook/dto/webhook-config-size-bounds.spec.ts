@@ -5,7 +5,7 @@ import { CreateAutomationRuleDto, UpdateAutomationRuleDto } from '../../automati
 import { collectFilterErrors } from '../filters/filter-validation';
 import { TABLE_IMPORTERS } from '../../infra/table-importers';
 
-// Every event an OpenWA process emits for a session reads and evaluates each active webhook row of that session,
+// Every event an ZapLink process emits for a session reads and evaluates each active webhook row of that session,
 // so what a webhook may store is per-event work. The events list names at most the event vocabulary plus '*', and
 // a filter id value is a WhatsApp id; neither has a reason to be megabytes long.
 describe('webhook configuration size bounds', () => {

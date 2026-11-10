@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# OpenWA restore.
+# ZapLink restore.
 #
 # Restores the always-SQLite auth/audit database, a SQLite data store, engine authentication, local
 # media, installed plugins, and bootstrap configuration from an archive produced by scripts/backup.sh.
@@ -17,11 +17,11 @@
 #                     the restore refuses to touch a live target before changing anything
 # Environment:
 #   MAIN_DATABASE_NAME  restore target for the auth/audit DB (default: <data dir>/main.sqlite)
-#   DATABASE_NAME       restore target for the SQLite data store (default: <data dir>/openwa.sqlite)
+#   DATABASE_NAME       restore target for the SQLite data store (default: <data dir>/zaplink.sqlite)
 #                       Both resolve EXACTLY like the app: the environment first, then ./.env, then
 #                       .env.generated (the archive's copy when it carries one, else the data dir's),
 #                       otherwise the app's ./data default (see lib-env.sh).
-#   OPENWA_DATA_DIR   the app's ./data directory to restore into, such as a volume's mountpoint on
+#   ZAPLINK_DATA_DIR   the app's ./data directory to restore into, such as a volume's mountpoint on
 #                     the host (default: ./data); the ./data defaults, and a ./data/... path read
 #                     from ./.env or .env.generated, are taken under it
 #   SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH, PLUGINS_DIR
@@ -34,12 +34,12 @@
 #                     is the default: the restore stops at one that leads elsewhere, naming the key,
 #                     before it copies anything. Set the key in the environment or ./.env to restore
 #                     outside the data dir.
-#   OPENWA_RESTORE_SNAPSHOT_DIR
+#   ZAPLINK_RESTORE_SNAPSHOT_DIR
 #                     where the safety snapshots go (default: next to the data dir, and next to
 #                     each target outside it); needed when a parent is read-only, as in the
 #                     shipped container
 #
-# Stop the OpenWA app before restoring. A snapshot of the current data dir, and of every target
+# Stop the ZapLink app before restoring. A snapshot of the current data dir, and of every target
 # outside it, is taken before anything is written so a bad restore can be undone.
 #
 set -euo pipefail
@@ -77,7 +77,7 @@ for arg in "$@"; do
   esac
 done
 
-DATA_DIR="${OPENWA_DATA_DIR:-./data}"
+DATA_DIR="${ZAPLINK_DATA_DIR:-./data}"
 # shellcheck source=scripts/lib-env.sh
 . "$(dirname "$0")/lib-env.sh"
 RESTORE_TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -118,13 +118,13 @@ resolve_path() {
 }
 
 RESOLVED_DATA_DIR="$(resolve_path "$DATA_DIR")"
-RESOLVED_USER_HOME="$(resolve_path "${HOME:-/nonexistent-openwa-home}")"
+RESOLVED_USER_HOME="$(resolve_path "${HOME:-/nonexistent-zaplink-home}")"
 
 log() { echo "[restore] $*"; }
 
 case "$DATA_DIR" in
   '' | / | . | ./ | .. | ../)
-    log "ERROR: refusing unsafe OPENWA_DATA_DIR target: ${DATA_DIR:-<empty>}"
+    log "ERROR: refusing unsafe ZAPLINK_DATA_DIR target: ${DATA_DIR:-<empty>}"
     exit 1
     ;;
 esac
@@ -135,7 +135,7 @@ esac
 # bash 5 does not match "${dir%/}"/* against anything when the trim leaves nothing, and bash 3 does.
 case "$RESOLVED_CWD/" in
   "${RESOLVED_DATA_DIR%/}/"*)
-    log "ERROR: OPENWA_DATA_DIR must not be the workspace or one of its parent directories: $DATA_DIR"
+    log "ERROR: ZAPLINK_DATA_DIR must not be the workspace or one of its parent directories: $DATA_DIR"
     exit 1
     ;;
 esac
@@ -143,14 +143,14 @@ esac
 # a link whose name is not valid UTF-8, which node reads back with replacement characters so that the
 # resolution above misses it. test -ef compares device and inode, as the kernel does.
 if [ "$DATA_DIR" -ef / ]; then
-  log "ERROR: refusing unsafe OPENWA_DATA_DIR target: $DATA_DIR"
+  log "ERROR: refusing unsafe ZAPLINK_DATA_DIR target: $DATA_DIR"
   exit 1
 fi
 # The home directory, or a parent of it, holds every other home under it as the workspace's parent holds the
 # workspace, so the data dir is refused when it is either.
 case "$RESOLVED_USER_HOME/" in
   "${RESOLVED_DATA_DIR%/}/"*)
-    log "ERROR: OPENWA_DATA_DIR must not be the user home directory or one of its parent directories: $DATA_DIR"
+    log "ERROR: ZAPLINK_DATA_DIR must not be the user home directory or one of its parent directories: $DATA_DIR"
     exit 1
     ;;
 esac
@@ -217,7 +217,7 @@ replace_tree() {
   esac
   if [ "$PHASE" = snapshot ]; then
     # An existing directory is emptied before it is refilled, which needs every directory in it.
-    openwa_writable "$target_dir" || refuse_unwritable "$target_dir" "$label"
+    zaplink_writable "$target_dir" || refuse_unwritable "$target_dir" "$label"
     if [ -d "$target_dir" ]; then
       blocked="$(find "$target_dir/" -type d \
         -exec sh -c 'for d do [ -w "$d" ] || { echo "$d"; exit 1; }; done' sh {} + 2>/dev/null)" || true
@@ -244,7 +244,7 @@ replace_tree() {
 # The data-dir safety snapshot below cannot cover a target that lives OUTSIDE it (a custom
 # MAIN_DATABASE_NAME / DATABASE_NAME, SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH,
 # PLUGINS_DIR or BOOTSTRAP_KEY_FILE). Preserve such a target separately, so a restore pointed at the
-# wrong archive remains recoverable. OPENWA_RESTORE_SNAPSHOT_DIR takes these snapshots too when it is
+# wrong archive remains recoverable. ZAPLINK_RESTORE_SNAPSHOT_DIR takes these snapshots too when it is
 # set: a target on its own mount under a read-only root has no writable place next to it.
 snapshot_external() {
   target="$1"
@@ -253,7 +253,7 @@ snapshot_external() {
     "${RESOLVED_DATA_DIR%/}/"*) return 0 ;;
   esac
   [ -e "$target" ] || return 0
-  snapshot_dir="${OPENWA_RESTORE_SNAPSHOT_DIR:-$(dirname "$target")}"
+  snapshot_dir="${ZAPLINK_RESTORE_SNAPSHOT_DIR:-$(dirname "$target")}"
   external_snapshot="${snapshot_dir%/}/$(basename "$target").pre-restore-$RESTORE_TIMESTAMP"
   # Targets from different parents can share a name in one snapshot dir (a PLUGINS_DIR and a
   # PLUGIN_STATE_DIR both end in plugins); never copy one into the other's snapshot.
@@ -279,7 +279,7 @@ restore_db() {
   if [ "$PHASE" = snapshot ]; then
     refuse_root_target "$2" "$3"
     refuse_directory_target "$2" "$3"
-    openwa_writable "$2" || refuse_unwritable "$2" "$3"
+    zaplink_writable "$2" || refuse_unwritable "$2" "$3"
     for db in "$2" "$resolved_db"; do
       for sfx in -wal -shm -journal; do
         if [ -e "$db$sfx" ] && [ ! -w "$(dirname "$db")" ]; then
@@ -365,7 +365,7 @@ tar -xzf "$ARCHIVE" -C "$STAGE"
 PG_DUMP_SCHEMA=""
 if [ -f "$STAGE/database.sql" ] && [ -f "$STAGE/database.schema" ]; then
   PG_DUMP_SCHEMA="$(tr -d '\r\n' <"$STAGE/database.schema")"
-  if ! openwa_pg_schema_valid "$PG_DUMP_SCHEMA"; then
+  if ! zaplink_pg_schema_valid "$PG_DUMP_SCHEMA"; then
     log "ERROR: the archive's database.schema does not name a PostgreSQL schema the app accepts: $PG_DUMP_SCHEMA"
     exit 1
   fi
@@ -376,7 +376,7 @@ fi
 # nothing. The printed load runs the psql on PATH, so one that cannot read this dump stops the restore before
 # anything is written. Only the psql on PATH is checked, read without the load's arguments (Debian's
 # pg_wrapper may pick another client by them); with none, the printed text names the versions. The runbook's
-# load into the built-in openwa-postgres container runs that container's psql, not this one, so the refusal
+# load into the built-in zaplink-postgres container runs that container's psql, not this one, so the refusal
 # also names the way that load needs: this restore run in the image, whose psql reads the dump.
 psql_reads_restrict() {
   local re='\) ([0-9]+)\.?([0-9]*)'
@@ -400,47 +400,47 @@ if [ -f "$STAGE/database.sql" ] && grep -q '^\\restrict ' "$STAGE/database.sql";
       log "ERROR: the archive's PostgreSQL dump opens with \\restrict, which this psql cannot read: $PSQL_VERSION"
       log "       the load needs $PSQL_RESTRICT; nothing has been restored yet. Install a newer"
       log "       PostgreSQL client or put one first on PATH (the image ships 17), then re-run"
-      log "       The runbook's load into the built-in openwa-postgres container runs that container's psql,"
+      log "       The runbook's load into the built-in zaplink-postgres container runs that container's psql,"
       log "       not this one: for it, run this restore in the image instead, whose psql reads the dump, as"
-      log "       docs/11-operational-runbooks.md (Restore from Backup) shows for the openwa-data volume"
+      log "       docs/11-operational-runbooks.md (Restore from Backup) shows for the zaplink-data volume"
       exit 1
     fi
   fi
 fi
 
 # Targets resolve exactly like the app: an explicit environment value, then ./.env, then the
-# dashboard's .env.generated, else the app's ./data defaults under OPENWA_DATA_DIR. They may
+# dashboard's .env.generated, else the app's ./data defaults under ZAPLINK_DATA_DIR. They may
 # legitimately live outside it, where the environment or ./.env says so (see archive_target). The
 # archive's .env.generated replaces the target's further down, so when it carries one, that copy is
 # the third layer: the restored app reads its paths, and state placed where the replaced file
 # pointed would never be opened. Resolved before anything is validated or written.
 if [ -f "$STAGE/.env.generated" ]; then
-  OPENWA_GENERATED_ENV="$STAGE/.env.generated"
+  ZAPLINK_GENERATED_ENV="$STAGE/.env.generated"
   log "Paths not set in the environment or ./.env come from the archive's .env.generated."
 fi
-MAIN_DB="$(openwa_resolve MAIN_DATABASE_NAME "${DATA_DIR%/}/main.sqlite" path)"
+MAIN_DB="$(zaplink_resolve MAIN_DATABASE_NAME "${DATA_DIR%/}/main.sqlite" path)"
 # DATABASE_NAME is only a target for an archive carrying the SQLite data store; a PostgreSQL dump is
 # loaded by hand, so a line for it the scripts cannot parse does not stop that restore.
-if [ -f "$STAGE/openwa.sqlite" ]; then
-  DATA_DB="$(openwa_resolve DATABASE_NAME "${DATA_DIR%/}/openwa.sqlite" path)"
+if [ -f "$STAGE/zaplink.sqlite" ]; then
+  DATA_DB="$(zaplink_resolve DATABASE_NAME "${DATA_DIR%/}/zaplink.sqlite" path)"
 fi
-SESSIONS_DIR="$(openwa_resolve SESSION_DATA_PATH "$DATA_DIR/sessions" path)"
-BAILEYS_DIR="$(openwa_resolve BAILEYS_AUTH_DIR "$DATA_DIR/baileys" path)"
-MEDIA_DIR="$(openwa_media_dir)"
+SESSIONS_DIR="$(zaplink_resolve SESSION_DATA_PATH "$DATA_DIR/sessions" path)"
+BAILEYS_DIR="$(zaplink_resolve BAILEYS_AUTH_DIR "$DATA_DIR/baileys" path)"
+MEDIA_DIR="$(zaplink_media_dir)"
 # Installed plugin code. The app defaults this to <dataDir>/plugins — the same tree as the
 # registry and each plugin's ctx.storage below — so an unset PLUGINS_DIR must resolve there
 # too, or the archive silently omits the plugin packages.
-PLUGIN_PACKAGES_DIR="$(openwa_resolve PLUGINS_DIR "$DATA_DIR/plugins" path)"
+PLUGIN_PACKAGES_DIR="$(zaplink_resolve PLUGINS_DIR "$DATA_DIR/plugins" path)"
 # Plugin registry + every plugin's persisted ctx.storage. The app puts them at <dataDir>/plugins,
 # where dataDir is PLUGIN_STATE_DIR when that is set and ./data otherwise, so the knob has to be
 # resolved here exactly like PLUGINS_DIR above. Hardcoding $DATA_DIR/plugins meant an operator who
 # moved plugin state got an archive with neither the registry nor any plugin's storage in it, and
 # a restore that put nothing back. Resolved under its own name because the knob names the ROOT,
 # not the plugins directory inside it.
-PLUGIN_STATE_ROOT="$(openwa_resolve PLUGIN_STATE_DIR "$DATA_DIR" path)"
+PLUGIN_STATE_ROOT="$(zaplink_resolve PLUGIN_STATE_DIR "$DATA_DIR" path)"
 PLUGIN_STATE_DIR="$PLUGIN_STATE_ROOT/plugins"
 # The app reads the plaintext admin key from BOOTSTRAP_KEY_FILE when that is set.
-ADMIN_KEY_FILE="$(openwa_resolve BOOTSTRAP_KEY_FILE "$DATA_DIR/.api-key" path)"
+ADMIN_KEY_FILE="$(zaplink_resolve BOOTSTRAP_KEY_FILE "$DATA_DIR/.api-key" path)"
 
 # backup.sh archives state directories by content. An archive from before it followed symlinks
 # carries a link instead, which on this host may point at the very directory the restore empties
@@ -460,9 +460,9 @@ done
 # follows wherever it points, and a target inside or around a directory refilled from the archive, whose links
 # are in place before the other target is written. Setting the key in the environment or ./.env lifts this.
 from_archive() {
-  [ "$OPENWA_GENERATED_ENV" = "$STAGE/.env.generated" ] && [ -z "$(printenv "$1" 2>/dev/null || true)" ] &&
-    ! openwa_env_file_value ./.env "$1" >/dev/null 2>&1 &&
-    openwa_env_file_value "$OPENWA_GENERATED_ENV" "$1" >/dev/null 2>&1
+  [ "$ZAPLINK_GENERATED_ENV" = "$STAGE/.env.generated" ] && [ -z "$(printenv "$1" 2>/dev/null || true)" ] &&
+    ! zaplink_env_file_value ./.env "$1" >/dev/null 2>&1 &&
+    zaplink_env_file_value "$ZAPLINK_GENERATED_ENV" "$1" >/dev/null 2>&1
 }
 
 refuse_archive_path() {
@@ -506,8 +506,8 @@ archive_target() {
 if [ -f "$STAGE/main.sqlite" ]; then
   archive_target MAIN_DATABASE_NAME "$MAIN_DB" file "${DATA_DIR%/}/main.sqlite"
 fi
-if [ -f "$STAGE/openwa.sqlite" ]; then
-  archive_target DATABASE_NAME "$DATA_DB" file "${DATA_DIR%/}/openwa.sqlite"
+if [ -f "$STAGE/zaplink.sqlite" ]; then
+  archive_target DATABASE_NAME "$DATA_DB" file "${DATA_DIR%/}/zaplink.sqlite"
 fi
 if [ -d "$STAGE/sessions" ]; then
   archive_target SESSION_DATA_PATH "$SESSIONS_DIR" dir "$DATA_DIR/sessions"
@@ -515,7 +515,7 @@ fi
 if [ -d "$STAGE/baileys" ]; then
   archive_target BAILEYS_AUTH_DIR "$BAILEYS_DIR" dir "$DATA_DIR/baileys"
 fi
-# A leftover ./uploads stays where the app itself keeps media (openwa_media_dir), so it counts as a default.
+# A leftover ./uploads stays where the app itself keeps media (zaplink_media_dir), so it counts as a default.
 if [ -d "$STAGE/media" ]; then
   archive_target STORAGE_LOCAL_PATH "$MEDIA_DIR" dir "$DATA_DIR/media" ./uploads
 fi
@@ -588,7 +588,7 @@ if [ "$FORCE" -ne 1 ]; then
   if [ -f "$STAGE/main.sqlite" ] && db_appears_live "$MAIN_DB"; then
     LIVE_TARGETS="$LIVE_TARGETS $MAIN_DB"
   fi
-  if [ -f "$STAGE/openwa.sqlite" ] && db_appears_live "$DATA_DB"; then
+  if [ -f "$STAGE/zaplink.sqlite" ] && db_appears_live "$DATA_DB"; then
     LIVE_TARGETS="$LIVE_TARGETS $DATA_DB"
   fi
   if [ -n "$LIVE_TARGETS" ]; then
@@ -598,11 +598,11 @@ if [ "$FORCE" -ne 1 ]; then
   fi
 fi
 
-# Safety snapshot of whatever is there now, next to the data dir unless OPENWA_RESTORE_SNAPSHOT_DIR
+# Safety snapshot of whatever is there now, next to the data dir unless ZAPLINK_RESTORE_SNAPSHOT_DIR
 # names another directory. The shipped compose file and Helm chart mount the data dir as a volume
 # under a read-only root, where that sibling cannot be written.
 if [ -d "$DATA_DIR" ] && [ -n "$(ls -A "$DATA_DIR" 2>/dev/null || true)" ]; then
-  SAFETY_DIR="${OPENWA_RESTORE_SNAPSHOT_DIR:-$(dirname "$DATA_DIR")}"
+  SAFETY_DIR="${ZAPLINK_RESTORE_SNAPSHOT_DIR:-$(dirname "$DATA_DIR")}"
   SAFETY="${SAFETY_DIR%/}/$(basename "$DATA_DIR").pre-restore-$RESTORE_TIMESTAMP"
   log "Snapshotting current data dir -> $SAFETY"
   mkdir -p "$SAFETY_DIR"
@@ -635,8 +635,8 @@ restore_targets() {
   if [ -f "$STAGE/main.sqlite" ]; then
     restore_db "$STAGE/main.sqlite" "$MAIN_DB" "auth/audit DB"
   fi
-  if [ -f "$STAGE/openwa.sqlite" ]; then
-    restore_db "$STAGE/openwa.sqlite" "$DATA_DB" "data store"
+  if [ -f "$STAGE/zaplink.sqlite" ]; then
+    restore_db "$STAGE/zaplink.sqlite" "$DATA_DB" "data store"
   fi
   if [ -d "$STAGE/sessions" ]; then
     replace_tree "$STAGE/sessions" "$SESSIONS_DIR" "whatsapp-web.js sessions"
@@ -668,7 +668,7 @@ restore_admin_key() {
   if [ "$PHASE" = snapshot ]; then
     refuse_root_target "$ADMIN_KEY_FILE" "admin key (BOOTSTRAP_KEY_FILE)"
     refuse_directory_target "$ADMIN_KEY_FILE" "admin key (BOOTSTRAP_KEY_FILE)"
-    openwa_writable "$ADMIN_KEY_FILE" || refuse_unwritable "$ADMIN_KEY_FILE" "admin key (BOOTSTRAP_KEY_FILE)"
+    zaplink_writable "$ADMIN_KEY_FILE" || refuse_unwritable "$ADMIN_KEY_FILE" "admin key (BOOTSTRAP_KEY_FILE)"
     snapshot_external "$ADMIN_KEY_FILE"
     return
   fi
@@ -682,11 +682,11 @@ PHASE=snapshot
 restore_targets
 # Written into the data dir after the targets, so checked with them; the data-dir snapshot holds both.
 if [ -f "$STAGE/.env.generated" ]; then
-  openwa_writable "$DATA_DIR/.env.generated" ||
+  zaplink_writable "$DATA_DIR/.env.generated" ||
     refuse_unwritable "$DATA_DIR/.env.generated" "dashboard-generated configuration"
 fi
 if [ -f "$STAGE/database.sql" ]; then
-  openwa_writable "$DATA_DIR/database.sql" || refuse_unwritable "$DATA_DIR/database.sql" "PostgreSQL dump"
+  zaplink_writable "$DATA_DIR/database.sql" || refuse_unwritable "$DATA_DIR/database.sql" "PostgreSQL dump"
 fi
 PHASE=apply
 restore_targets
@@ -713,13 +713,13 @@ if [ -f "$STAGE/database.sql" ]; then
     log "unaccent, when they live in it, are dropped from the copy with its trigram index (idx_messages_body_trgm), and"
     log "such a pgcrypto with the copy's id column defaults, so the dump can create them again. A load that"
     log "stops at 'cannot drop extension' means another schema uses them, and its DETAIL lines name what. When that"
-    log "is another OpenWA deployment's idx_messages_body_trgm, drop that index and load again: that deployment's"
+    log "is another ZapLink deployment's idx_messages_body_trgm, drop that index and load again: that deployment's"
     log "contains search then reads its whole messages table until its next start builds the index again, and"
     log "answers 501 while it builds. Drop anything else named first and recreate it after the load. One"
     log "transaction: a load that fails changes nothing. With DATABASE_URL set to your own URL for that database:"
   else
     log "Postgres dump present: load it into an EMPTY database, as docs/11-operational-runbooks.md"
-    log "(Restore from Backup, step 3) shows for the built-in openwa-postgres container. For an external"
+    log "(Restore from Backup, step 3) shows for the built-in zaplink-postgres container. For an external"
     log "server, with DATABASE_URL set to your own URL for that database:"
   fi
   # psql defaults to sslmode=prefer, which falls back to plaintext and takes any certificate, so the
@@ -728,10 +728,10 @@ if [ -f "$STAGE/database.sql" ]; then
   PSQL_SSL=""
   PSQL_UNREAD=""
   if [ -z "${PGSSLMODE:-}" ]; then
-    PSQL_TLS="$(openwa_resolve DATABASE_SSL false 2>/dev/null)" || { PSQL_TLS=true && PSQL_UNREAD=DATABASE_SSL; }
+    PSQL_TLS="$(zaplink_resolve DATABASE_SSL false 2>/dev/null)" || { PSQL_TLS=true && PSQL_UNREAD=DATABASE_SSL; }
     if [ "$PSQL_TLS" = true ]; then
       PSQL_SSL="PGSSLMODE=verify-full "
-      PSQL_REJECT="$(openwa_resolve DATABASE_SSL_REJECT_UNAUTHORIZED true 2>/dev/null)" ||
+      PSQL_REJECT="$(zaplink_resolve DATABASE_SSL_REJECT_UNAUTHORIZED true 2>/dev/null)" ||
         PSQL_UNREAD="${PSQL_UNREAD:+$PSQL_UNREAD and }DATABASE_SSL_REJECT_UNAUTHORIZED"
       if [ "$PSQL_REJECT" = false ]; then
         PSQL_SSL="PGSSLMODE=require "

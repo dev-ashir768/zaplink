@@ -19,7 +19,7 @@ const MAX_VALUE_LENGTH = 1024;
 // deliver-once.ts), so a row naming one would be saved and silently never sent.
 function isDroppedAtDelivery(name: string): boolean {
   return (
-    /^(content-type|x-openwa-)/i.test(name) ||
+    /^(content-type|x-zaplink-)/i.test(name) ||
     /^(connection|content-length|expect|keep-alive|te|trailer|transfer-encoding|upgrade|user-agent)$/i.test(name)
   );
 }

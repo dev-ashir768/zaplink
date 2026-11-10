@@ -22,7 +22,7 @@ const REAL_DOCKERIGNORE = readFileSync(join(ROOT, '.dockerignore'), 'utf8');
 
 /** Run a copy of the gate in a fresh root holding `files`; `files` maps a relative path to its text. */
 function runGate(files) {
-  const root = mkdtempSync(join(tmpdir(), 'openwa-dockerignore-'));
+  const root = mkdtempSync(join(tmpdir(), 'zaplink-dockerignore-'));
   try {
     mkdirSync(join(root, 'scripts'));
     copyFileSync(GATE, join(root, 'scripts', 'check-dockerignore.mjs'));
@@ -141,7 +141,7 @@ test('the JSON array form of COPY and ADD names its sources', () => {
   const forms = [
     ['COPY ["new.txt", "./"]', 'new.txt'],
     ['COPY ["scripts/new.js", "./scripts/"]', 'scripts/new.js'],
-    ['COPY --chown=openwa:openwa ["new.txt", "./"]', 'new.txt'],
+    ['COPY --chown=zaplink:zaplink ["new.txt", "./"]', 'new.txt'],
     ['ADD ["new.txt", "./"]', 'new.txt'],
     ['COPY ["dir with blank/new.txt", "./"]', 'dir with blank/new.txt'],
   ];
@@ -292,7 +292,7 @@ test('only the context files a COPY or ADD reads are build inputs', () => {
   const decorated = keptPaths(
     gate(
       [
-        'COPY --chown=openwa:openwa src-a.txt dest-1/',
+        'COPY --chown=zaplink:zaplink src-a.txt dest-1/',
         'COPY --from=builder /stage-src /stage-dest',
         'COPY --from=builder ["/stage-json", "/stage-json-dest"]',
         'COPY ./src-b.txt dest-2',

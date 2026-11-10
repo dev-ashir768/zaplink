@@ -49,8 +49,8 @@ const SAVED: SavedConfig = {
     builtInSet: true,
     host: 'pg.internal',
     port: '5433',
-    username: 'openwa',
-    database: 'openwa_prod',
+    username: 'zaplink',
+    database: 'zaplink_prod',
     schema: 'app',
     poolSize: 20,
     sslEnabled: true,
@@ -164,7 +164,7 @@ const RUNNING_BUILTIN: InfraStatus = {
   database: { connected: true, type: 'postgres', host: 'postgres', builtIn: true },
   redis: { enabled: true, connected: true, host: 'redis', port: 6379, builtIn: true },
   queue: { enabled: true, webhooks: { pending: 0, completed: 0, failed: 0 } },
-  storage: { type: 's3', bucket: 'openwa', builtIn: true },
+  storage: { type: 's3', bucket: 'zaplink', builtIn: true },
   engine: { type: 'whatsapp-web.js', headless: true },
 };
 
@@ -432,7 +432,7 @@ test('a built-in flag beside a pinned host is left out of a save until its toggl
 // The hosts pinned to the bundled containers, in some of the spellings that reach them.
 const SAVED_PINNED_BUNDLED: SavedConfig = {
   ...SAVED,
-  database: { ...SAVED.database, builtIn: true, builtInSet: false, host: 'openwa-postgres' },
+  database: { ...SAVED.database, builtIn: true, builtInSet: false, host: 'zaplink-postgres' },
   redis: { ...SAVED.redis, builtIn: true, builtInSet: false, host: 'REDIS' },
   storage: { ...SAVED.storage, builtIn: true, builtInSet: false, s3Endpoint: 'http://minio:9000/' },
 };

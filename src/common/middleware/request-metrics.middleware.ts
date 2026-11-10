@@ -18,7 +18,7 @@ const SKIPPED_MOUNTS = ['/api/admin/queues'];
  * claims the requests it observes; at response time this middleware records only requests
  * left unclaimed, so every API response is counted exactly once.
  */
-export const HTTP_REQUEST_METRICS_CLAIMED = Symbol('openwa.httpRequestMetricsClaimed');
+export const HTTP_REQUEST_METRICS_CLAIMED = Symbol('zaplink.httpRequestMetricsClaimed');
 
 type MetricsRequest = Request & { [HTTP_REQUEST_METRICS_CLAIMED]?: boolean };
 
@@ -31,7 +31,7 @@ export function claimHttpRequestMetrics(req: Request): void {
 const CLIENT_CLOSED_REQUEST = 499;
 
 /** Where a body drop leaves the status its request is to be counted under. */
-const HTTP_DROPPED_STATUS = Symbol('openwa.httpDroppedStatus');
+const HTTP_DROPPED_STATUS = Symbol('zaplink.httpDroppedStatus');
 
 type DroppedResponse = Response & { [HTTP_DROPPED_STATUS]?: number };
 

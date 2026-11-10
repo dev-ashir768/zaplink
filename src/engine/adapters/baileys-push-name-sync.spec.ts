@@ -64,7 +64,7 @@ async function linkedAdapter(me: Me = { id: ACCOUNT }) {
   const adapter = new BaileysAdapter({
     sessionId: 'push-name',
     dbSessionId: 'push-name-db',
-    authDir: '/nonexistent/openwa-push-name-spec',
+    authDir: '/nonexistent/zaplink-push-name-spec',
     messageStore: {
       put: jest.fn(),
       getMessage: jest.fn(),

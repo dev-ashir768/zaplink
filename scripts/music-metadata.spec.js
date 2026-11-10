@@ -23,7 +23,7 @@ const OVERSIZED_WEBM = Buffer.from(
 );
 
 test('a WebM leaf that declares 32 GiB is rejected by music-metadata, not fatal to the process', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'openwa-mm-'));
+  const dir = mkdtempSync(join(tmpdir(), 'zaplink-mm-'));
   try {
     const file = join(dir, 'oversized.webm');
     writeFileSync(file, OVERSIZED_WEBM);

@@ -39,7 +39,7 @@ before(async () => {
 
 test('an accepted text send with an empty message id is reported as sent', async () => {
   const { screen, fireEvent } = rtl;
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
   rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
@@ -61,12 +61,12 @@ afterEach(async () => {
   client?.clear();
   client = undefined;
   forwards.length = 0;
-  window.sessionStorage.removeItem('openwa_user_role');
+  window.sessionStorage.removeItem('zaplink_user_role');
 });
 
 test('a forward the gateway accepted without the copy id is reported as sent, not failed', async () => {
   const { screen, fireEvent } = rtl;
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
   const { container } = rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),

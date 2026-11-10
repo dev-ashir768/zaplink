@@ -1,25 +1,25 @@
-# rmyndharis-openwa
+# rmyndharis-zaplink
 
-This document describes SDK 0.10.0. `messages.receipts` requires OpenWA 0.28.0 or later. `contacts.lid` requires OpenWA 0.27.1 or later. `groups.set_member_label`, the `match` key of the search query, and the `thumbnailUrl` and `thumbnailBase64` keys of `CustomLinkPreview` require OpenWA 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require OpenWA 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require OpenWA 0.26.0 or later.
+This document describes SDK 0.10.0. `messages.receipts` requires ZapLink 0.28.0 or later. `contacts.lid` requires ZapLink 0.27.1 or later. `groups.set_member_label`, the `match` key of the search query, and the `thumbnailUrl` and `thumbnailBase64` keys of `CustomLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Official Python SDK for [OpenWA](https://github.com/rmyndharis/OpenWA), the open-source WhatsApp API Gateway. OpenWA is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
+Official Python SDK for [ZapLink](https://github.com/dev-ashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
 
 A synchronous client built on [httpx](https://www.python-httpx.org/), with bundled type hints (PEP 561).
 
 ## Install
 
 ```bash
-pip install rmyndharis-openwa
+pip install rmyndharis-zaplink
 ```
 
-Requires Python 3.9+. The importable module is `openwa`.
+Requires Python 3.9+. The importable module is `zaplink`.
 
 ## Usage
 
 ```python
-from openwa import OpenWAClient
+from zaplink import ZapLinkClient
 
-client = OpenWAClient(
+client = ZapLinkClient(
     base_url="https://your-gateway.example.com",
     api_key="owa_k1_…",
 )
@@ -33,7 +33,7 @@ client.sessions.start(session["id"])
 # then wait for status "ready". An unlinked session answers the send with 409.
 result = client.messages.send_text(session["id"], {
     "chatId": "628123456789@c.us",
-    "text": "Hello from the OpenWA Python SDK!",
+    "text": "Hello from the ZapLink Python SDK!",
 })
 print(result["messageId"])
 ```
@@ -41,7 +41,7 @@ print(result["messageId"])
 The client is also a context manager (it closes the underlying connection pool on exit):
 
 ```python
-with OpenWAClient(base_url="…", api_key="…") as client:
+with ZapLinkClient(base_url="…", api_key="…") as client:
     client.messages.send_text(session_id, {"chatId": "…@c.us", "text": "hi"})
 ```
 
@@ -49,7 +49,7 @@ For tests, pass an httpx transport — no global monkey-patching required:
 
 ```python
 import httpx
-client = OpenWAClient(base_url="…", api_key="…", transport=httpx.MockTransport(handler))
+client = ZapLinkClient(base_url="…", api_key="…", transport=httpx.MockTransport(handler))
 ```
 
 ## Search
@@ -79,10 +79,10 @@ to sessions or chats, so read it with `get`.
 
 ## Errors
 
-A non-2xx response raises a typed `OpenWAApiError` subclass — `OpenWAAuthError` (401),
-`OpenWAForbiddenError` (403), `OpenWANotFoundError` (404), `OpenWAConflictError` (409),
-`OpenWARateLimitError` (429), `OpenWANotImplementedError` (501), `OpenWAServiceUnavailableError`
-(503) — each carrying `.status` and the parsed `.body`. A timeout raises `OpenWATimeoutError`,
+A non-2xx response raises a typed `ZapLinkApiError` subclass — `ZapLinkAuthError` (401),
+`ZapLinkForbiddenError` (403), `ZapLinkNotFoundError` (404), `ZapLinkConflictError` (409),
+`ZapLinkRateLimitError` (429), `ZapLinkNotImplementedError` (501), `ZapLinkServiceUnavailableError`
+(503) — each carrying `.status` and the parsed `.body`. A timeout raises `ZapLinkTimeoutError`,
 though the gateway may still complete the request: retry a send only with the same `Idempotency-Key`.
 503 means the gateway could not complete the request right now: the path to WhatsApp failed, the gateway
 is draining or short of a dependency, or, on Baileys, WhatsApp throttled (code 429) or timed out
@@ -108,11 +108,11 @@ that fails after the request reached it answers 502 or 504, and a 503 from the o
 relayed unchanged.
 
 ```python
-from openwa import OpenWANotFoundError
+from zaplink import ZapLinkNotFoundError
 
 try:
     client.sessions.get("00000000-0000-0000-0000-000000000000")
-except OpenWANotFoundError as e:
+except ZapLinkNotFoundError as e:
     print(e.status)  # 404
 ```
 
@@ -129,26 +129,26 @@ except OpenWANotFoundError as e:
 
 ## Receiving webhooks
 
-A webhook configured with a secret signs each delivery in its `X-OpenWA-Signature` header. Check it
+A webhook configured with a secret signs each delivery in its `X-ZapLink-Signature` header. Check it
 with `verify_webhook_signature` against the raw, unparsed request body (`bytes` or `str`), exactly
 as received, and parse the JSON only after the check passes: a re-serialized body can differ byte
 for byte and will not verify. The helper returns `False` (never raises) for a missing, malformed or
-non-matching signature. `WebhookDelivery` (in `openwa.types`) types the parsed body.
+non-matching signature. `WebhookDelivery` (in `zaplink.types`) types the parsed body.
 
 ```python
 import json
 
 from flask import Flask, request
-from openwa import verify_webhook_signature
-from openwa.types import WebhookDelivery
+from zaplink import verify_webhook_signature
+from zaplink.types import WebhookDelivery
 
 app = Flask(__name__)
 
 
-@app.post("/openwa/webhook")
-def openwa_webhook():
+@app.post("/zaplink/webhook")
+def zaplink_webhook():
     raw_body = request.get_data()
-    if not verify_webhook_signature(raw_body, request.headers.get("X-OpenWA-Signature"), secret):
+    if not verify_webhook_signature(raw_body, request.headers.get("X-ZapLink-Signature"), secret):
         return "Invalid signature", 401
     delivery: WebhookDelivery = json.loads(raw_body)
     # Process delivery["event"] and delivery["data"] here.
@@ -156,7 +156,7 @@ def openwa_webhook():
 ```
 
 The signature covers the body only and carries no timestamp, so a captured delivery still verifies
-when it is sent again. Dedupe on `delivery["idempotencyKey"]` (also the `X-OpenWA-Idempotency-Key`
+when it is sent again. Dedupe on `delivery["idempotencyKey"]` (also the `X-ZapLink-Idempotency-Key`
 header): the gateway's own retries and an operator's redrive of a failed delivery reuse it, so a key
 you have already handled is the same event arriving again.
 
@@ -173,7 +173,7 @@ One-time setup, required **before** the first tag — on pypi.org, open the
 project's publishing settings and add a GitHub trusted publisher:
 
 - Owner: `rmyndharis`
-- Repository: `OpenWA`
+- Repository: `ZapLink`
 - Workflow name: `python-sdk-release.yml`
 
 There are no repository secrets to add. Until the trusted publisher exists PyPI
@@ -190,7 +190,7 @@ Cutting a release:
 
 ## Send idempotency
 
-The example below requires SDK 0.6.0 or later and OpenWA 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
+The example below requires SDK 0.6.0 or later and ZapLink 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
 
 Supply a unique caller-owned key for one logical send and reuse it when retrying that same call. Keys contain 1-255 visible ASCII characters; unrelated calls must use different keys. The SDK forwards the key without changing its retry policy or generating one automatically.
 

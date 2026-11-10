@@ -21,7 +21,7 @@ docker compose ps
 docker compose logs --tail=50
 
 # System resources
-docker stats openwa-api
+docker stats zaplink-api
 ```
 
 ### Diagnostic Flowchart
@@ -156,17 +156,17 @@ netstat -tlnp | grep 2785
 # Kill process using port
 kill -9 $(lsof -t -i:2785)
 
-# Check Docker logs (service name in the shipped production compose; it is `openwa` in
+# Check Docker logs (service name in the shipped production compose; it is `zaplink` in
 # docker-compose.dev.yml)
-docker compose logs openwa-api
+docker compose logs zaplink-api
 
 # Common fixes
 docker system prune -f         # Clean up dangling images/containers
-git pull                       # The shipped compose BUILDS openwa-api from source —
+git pull                       # The shipped compose BUILDS zaplink-api from source —
 docker compose up -d --build   # `docker compose pull` never updates it
 ```
 
-> Do **not** reach for `docker compose down --volumes` here. It deletes the `openwa-data` volume,
+> Do **not** reach for `docker compose down --volumes` here. It deletes the `zaplink-data` volume,
 > which holds the linked WhatsApp session profiles, the auth/audit database and every API key — a
 > port conflict never requires it.
 
@@ -181,7 +181,7 @@ docker compose up -d --build   # `docker compose pull` never updates it
 - You reach the instance directly over plain HTTP (a host:port allocation, a private network, a
   panel like Pterodactyl) rather than through a TLS-terminating reverse proxy
 
-**Cause:** In production OpenWA sends the CSP `upgrade-insecure-requests` directive, which tells the
+**Cause:** In production ZapLink sends the CSP `upgrade-insecure-requests` directive, which tells the
 browser to upgrade every sub-resource fetch to HTTPS. That is correct behind a TLS proxy. Over plain
 HTTP the browser upgrades the dashboard's own script requests to `https://`, the non-TLS server
 cannot answer them, no JavaScript runs, and React never mounts — a blank page. The failure happens
@@ -194,13 +194,13 @@ in the browser, so the server log stays clean.
 CSP_UPGRADE_INSECURE_REQUESTS=false
 
 # Confirm it actually reached the process
-docker compose exec openwa-api printenv NODE_ENV CSP_UPGRADE_INSECURE_REQUESTS
+docker compose exec zaplink-api printenv NODE_ENV CSP_UPGRADE_INSECURE_REQUESTS
 ```
 
 A production boot that serves the dashboard with the opt-out unset prints a warning naming this
 setting. If you are behind a TLS proxy, ignore that warning — the directive is doing its job.
 
-> The alternative is to front OpenWA with your own TLS-terminating reverse proxy (the shipped
+> The alternative is to front ZapLink with your own TLS-terminating reverse proxy (the shipped
 > `docker-compose.yml` has none; see the nginx example in 12.8), which serves the dashboard over
 > HTTPS and makes the upgrade a no-op.
 
@@ -220,13 +220,13 @@ curl -H "X-API-Key: $API_KEY" \
   http://localhost:2785/api/sessions/{sessionId}
 
 # Check WhatsApp engine logs
-docker compose logs openwa-api 2>&1 | grep -i "whatsapp\|puppeteer\|browser"
+docker compose logs zaplink-api 2>&1 | grep -i "whatsapp\|puppeteer\|browser"
 
 # Check auth folder. Both engines key it on the session UUID id, but the location differs:
 #   whatsapp-web.js → SESSION_DATA_PATH (default /app/data/sessions), dir `session-<id>`
 #   baileys         → BAILEYS_AUTH_DIR  (default /app/data/baileys),  dir `<id>` (no prefix)
-docker compose exec openwa-api ls -la /app/data/sessions/session-<id>/   # whatsapp-web.js
-docker compose exec openwa-api ls -la /app/data/baileys/<id>/            # baileys
+docker compose exec zaplink-api ls -la /app/data/sessions/session-<id>/   # whatsapp-web.js
+docker compose exec zaplink-api ls -la /app/data/baileys/<id>/            # baileys
 ```
 
 **Solutions:**
@@ -242,15 +242,15 @@ docker compose exec openwa-api ls -la /app/data/baileys/<id>/            # baile
 ```bash
 # Clear auth and restart (the profile dir carries the session's UUID id, not its name).
 # Remove the one that matches the session's engine — deleting the other path is a silent no-op.
-docker compose exec openwa-api rm -rf /app/data/sessions/session-<id>   # whatsapp-web.js
-docker compose exec openwa-api rm -rf /app/data/baileys/<id>            # baileys
-docker compose restart openwa-api
+docker compose exec zaplink-api rm -rf /app/data/sessions/session-<id>   # whatsapp-web.js
+docker compose exec zaplink-api rm -rf /app/data/baileys/<id>            # baileys
+docker compose restart zaplink-api
 ```
 
-> The service name above is the one in the shipped production `docker-compose.yml` (`openwa-api`),
+> The service name above is the one in the shipped production `docker-compose.yml` (`zaplink-api`),
 > which mounts `/app/data` from a **named volume** — there is no `./data` on the host to inspect;
-> reach into the container (`docker compose exec openwa-api ls /app/data/sessions`) instead. In
-> `docker-compose.dev.yml` the app service is called `openwa` and `./data` is bind-mounted, so the
+> reach into the container (`docker compose exec zaplink-api ls /app/data/sessions`) instead. In
+> `docker-compose.dev.yml` the app service is called `zaplink` and `./data` is bind-mounted, so the
 > same paths can be read directly from the host. Host-relative `./data/...` commands elsewhere in
 > this document assume a source install (`npm run start:dev`) or that dev bind mount.
 
@@ -277,13 +277,13 @@ initialization deadline, without it.
 
 **Cause:** WhatsApp added a passkey (WebAuthn) step to its companion linking handshake for some
 accounts. That step is enforced server-side inside the linking frames, which live in the engine
-libraries; neither whatsapp-web.js 1.34.7 nor Baileys 7.0.0-rc14 implements it, and OpenWA passes the
-QR string and the pairing-code request straight through to those libraries. There is no OpenWA-side
+libraries; neither whatsapp-web.js 1.34.7 nor Baileys 7.0.0-rc14 implements it, and ZapLink passes the
+QR string and the pairing-code request straight through to those libraries. There is no ZapLink-side
 fix, and nothing on the client side changes the outcome: switching engine, using a pairing code instead
 of a QR, or presenting a different client identity (`BAILEYS_BROWSER_NAME` or otherwise) all end at the
 same gate. Re-registering the number as a different account type has also been tried by the community
 and did not hold; the block returned on its own within days. Background in
-[#560](https://github.com/rmyndharis/OpenWA/issues/560), upstream work in
+[#560](https://github.com/dev-ashir768/zaplink/issues/560), upstream work in
 [WhiskeySockets/Baileys#2672](https://github.com/WhiskeySockets/Baileys/issues/2672); the only durable
 change will come from the engine libraries implementing the step.
 
@@ -302,7 +302,7 @@ session never becomes `ready`_ below.
 **Cause:** the pairing request carries the linked-device identity, and some accounts reject a
 non-standard one. The default device name is `Ubuntu`; if `BAILEYS_BROWSER_NAME` is set to a custom
 brand, set it back to `Ubuntu` (or another standard OS name like `macOS` or `Windows`),
-restart OpenWA itself (the name is read at boot, so stopping and starting the session is not enough),
+restart ZapLink itself (the name is read at boot, so stopping and starting the session is not enough),
 and request a fresh code. The name applies to new pairings only; a session that is already linked
 keeps the name it was paired with until it is re-linked. See the phone-number pairing example in
 `docs/examples/session-phone-number-pairing.md`.
@@ -327,17 +327,17 @@ that gets this far leaves another 812 `pre-key-*` files behind, so the auth dire
 stuck here grows into the thousands, where a linked session holds about 800 or fewer:
 
 ```bash
-docker compose exec openwa-api sh -c 'ls /app/data/baileys/<session id> | grep -c "^pre-key-"'
+docker compose exec zaplink-api sh -c 'ls /app/data/baileys/<session id> | grep -c "^pre-key-"'
 ```
 
 That step needs two things from the host, and both can be measured from inside the container:
 
 ```bash
 # 812 small files, each flushed to disk, in the data volume
-docker compose exec openwa-api node -e "const fs=require('fs'),d='/app/data/.flush-probe';fs.mkdirSync(d,{recursive:true});const t=Date.now();Promise.all(Array.from({length:812},async(_,i)=>{const h=await fs.promises.open(d+'/'+i,'w');await h.writeFile('x'.repeat(150));await h.sync();await h.close()})).then(()=>{console.log('812 flushed files in',Date.now()-t,'ms');fs.rmSync(d,{recursive:true})})"
+docker compose exec zaplink-api node -e "const fs=require('fs'),d='/app/data/.flush-probe';fs.mkdirSync(d,{recursive:true});const t=Date.now();Promise.all(Array.from({length:812},async(_,i)=>{const h=await fs.promises.open(d+'/'+i,'w');await h.writeFile('x'.repeat(150));await h.sync();await h.close()})).then(()=>{console.log('812 flushed files in',Date.now()-t,'ms');fs.rmSync(d,{recursive:true})})"
 
 # one request of 100 KB to the host the engine talks to; any HTTP status means it got through
-docker compose exec openwa-api node -e "fetch('https://web.whatsapp.com/',{method:'POST',body:Buffer.alloc(100000),signal:AbortSignal.timeout(20000)}).then(r=>console.log('answered with HTTP',r.status),e=>console.log('no answer:',e.name))"
+docker compose exec zaplink-api node -e "fetch('https://web.whatsapp.com/',{method:'POST',body:Buffer.alloc(100000),signal:AbortSignal.timeout(20000)}).then(r=>console.log('answered with HTTP',r.status),e=>console.log('no answer:',e.name))"
 ```
 
 A write that takes tens of seconds points at the storage behind the volume (network storage, an SD
@@ -405,7 +405,7 @@ stuck. Often seen on ARM64 (e.g. Raspberry Pi) after upgrading to v0.2.x.
 stalls the post-link sync. (If you also see `chrome_crashpad_handler: --database is required` _and the
 session never starts at all_, that is a different problem — see "Session fails to launch …" below.)
 
-**Fix:** OpenWA reconciles a missed `ready` event when WhatsApp Web is connected, the injected
+**Fix:** ZapLink reconciles a missed `ready` event when WhatsApp Web is connected, the injected
 runtime is available, and whatsapp-web.js has populated the linked account identity. If your
 environment still hits a WA-Web compatibility hang, pin a known-good WA-Web version with
 `WWEBJS_WEB_VERSION`:
@@ -420,7 +420,7 @@ Restart the container after changing it. Pick the build from
 build the registry no longer serves cannot be fetched, and the session starts on the live build rather
 than the pin you asked for, with a warning at start (action `web_version_html_unavailable`, naming the
 build, the URL and the reason). With
-`WWEBJS_WEB_VERSION` unset, `latest`, or `auto` (the default), OpenWA auto-resolves a settled build
+`WWEBJS_WEB_VERSION` unset, `latest`, or `auto` (the default), ZapLink auto-resolves a settled build
 from that registry and pins its HTML — note this HTML is fetched from a third-party repository and
 executed inside the `web.whatsapp.com` origin without an integrity check. Set
 `WWEBJS_WEB_VERSION=off` to disable pinning and use the first-party build served by WhatsApp. An
@@ -440,7 +440,7 @@ at start (the `web_version_html_unavailable` warning above) and the live build l
 Web's service worker can serve its own cached build without the request reaching whatsapp-web.js. In
 the second case the page runs a different build than the one requested, while the startup line
 `Pinning WhatsApp Web version …` still names the requested build.
-When a session reaches `ready`, OpenWA reads the build the page reports and logs it (action
+When a session reaches `ready`, ZapLink reads the build the page reports and logs it (action
 `web_version_running`); when a pin was requested and the page runs a different build, it logs a
 warning naming both (action `web_version_pin_not_applied`). The comparison ignores the registry's
 suffix such as `-alpha`, so a pin and the same bare build count as a match.
@@ -450,7 +450,7 @@ the pin did not cover that page load, and a session that works on that build nee
 Whether the service worker answers can differ from one page load to the next, so a later restart may
 load the pin. When you report a problem with the session, include both builds.
 
-If the session is still `authenticating` 90 s after the link, OpenWA stops waiting. If WhatsApp Web
+If the session is still `authenticating` 90 s after the link, ZapLink stops waiting. If WhatsApp Web
 reports the session connected but its event bridge never attached, the session is marked `failed` with
 the credentials kept (action `ready_reconcile_bridge_dead`), whether it was linked in that start or
 restored: restart it to relaunch the browser. Otherwise, a session linked by a QR or pairing code in
@@ -487,13 +487,13 @@ Restart the container after setting it. Leave it unset to keep the default (3000
 `trap int3` / `Trace/breakpoint trap (core dumped)`. Seen on hardened, `read_only` containers.
 
 **Cause:** Chromium resolves its home directory from the passwd entry (glibc `getpwuid()`) and **ignores
-`$HOME`**. The non-root `openwa` user has no home dir, so Chromium tries to use `/home/openwa`, which does
+`$HOME`**. The non-root `zaplink` user has no home dir, so Chromium tries to use `/home/zaplink`, which does
 not exist on the read-only rootfs — and aborts at launch. (Setting `HOME=` does **not** help, and
 `--crash-dumps-dir` is a no-op for the crashpad database on Debian/Ubuntu system Chromium.)
 
 **Fix:** Give Chromium writable, pre-created config/cache dirs via `XDG_CONFIG_HOME` / `XDG_CACHE_HOME`.
 The bundled image and `docker-compose.yml` already do this (the entrypoint creates them on the tmpfs `/tmp`,
-owned by `openwa`). If you run a custom container, ensure both are set to a writable, existing path:
+owned by `zaplink`). If you run a custom container, ensure both are set to a writable, existing path:
 
 ```bash
 XDG_CONFIG_HOME=/tmp/.config
@@ -536,14 +536,14 @@ whatsapp-web.js runs a full Chromium instance per session, and Chromium is multi
 _Diagnose:_ watch the PIDS column while you click **Start**:
 
 ```bash
-docker stats openwa-api   # watch the PIDS column — does it climb toward the limit right before the failure?
+docker stats zaplink-api   # watch the PIDS column — does it climb toward the limit right before the failure?
 ```
 
-_Fix:_ raise the ceiling. The bundled `docker-compose.yml` exposes it as `OPENWA_PIDS_LIMIT` (default `2048`,
+_Fix:_ raise the ceiling. The bundled `docker-compose.yml` exposes it as `ZAPLINK_PIDS_LIMIT` (default `2048`,
 which fits ~8-10 sessions with startup-spike headroom):
 
 ```bash
-OPENWA_PIDS_LIMIT=4096   # in your .env, then docker compose up -d
+ZAPLINK_PIDS_LIMIT=4096   # in your .env, then docker compose up -d
 ```
 
 Do **not** set `-1` (unlimited) — the PID ceiling is a fork-bomb guard and should stay finite. Baileys
@@ -557,10 +557,10 @@ _Diagnose:_ check the host kernel log for an OOM kill:
 
 ```bash
 dmesg -T | grep -i "killed process"          # Linux host
-# Docker Desktop: check the VM via the app, or nudge OPENWA_MEM_LIMIT up and retry
+# Docker Desktop: check the VM via the app, or nudge ZAPLINK_MEM_LIMIT up and retry
 ```
 
-_Fix:_ raise the ceiling (`OPENWA_MEM_LIMIT=4g` in your `.env`, or Docker Desktop → Settings → Resources →
+_Fix:_ raise the ceiling (`ZAPLINK_MEM_LIMIT=4g` in your `.env`, or Docker Desktop → Settings → Resources →
 Memory for the VM).
 
 **Cause C — the XDG/crashpad home-dir crash.**
@@ -573,7 +573,7 @@ custom container that drops the `XDG_CONFIG_HOME` / `XDG_CACHE_HOME` setup or th
 If `Code: null` happens on Kubernetes, and the host kernel logs or `dmesg` shows `Trace/breakpoint trap (core dumped)` with exit code 133, the underlying Debian 12 OS `chromium` package has crashed due to strict non-root or seccomp constraints (even with `--no-zygote` or `Unconfined` seccomp).
 _Fix:_ On amd64, do not use the `chromium` package from Debian's `apt` — it SIGTRAPs under strict non-root/seccomp. Instead, download Chrome for Testing via Puppeteer during the Docker build (`./node_modules/.bin/puppeteer browsers install 'chrome@157.0.8103.38'`) and point `PUPPETEER_EXECUTABLE_PATH` to it. (arm64 keeps Debian's `chromium`, which ships a native arm64 binary, by choice: Chrome for Testing publishes linux-arm64 builds only from 153, and the image has not moved arm64 to one.) The official `Dockerfile` implements this mixed approach.
 
-**Quick triage:** run `docker stats openwa-api`, click **Start**, and watch which resource spikes toward its
+**Quick triage:** run `docker stats zaplink-api`, click **Start**, and watch which resource spikes toward its
 limit the instant before the failure — that tells you A vs B. If neither moves and you see the crashpad
 `--database` line, it's C. If running in K8s as non-root with the Debian `chromium` package, it is likely D.
 
@@ -582,7 +582,7 @@ limit the instant before the failure — that tells you A vs B. If neither moves
 > **Engine:** This issue applies to the `whatsapp-web.js` engine only (Chromium/Puppeteer-based). It does not affect `ENGINE_TYPE=baileys`.
 
 **Symptoms:** A `whatsapp-web.js` session that was already authenticated fails within seconds of
-**Start** after upgrading OpenWA — no QR is produced — and the session's `lastError` / container log
+**Start** after upgrading ZapLink — no QR is produced — and the session's `lastError` / container log
 show:
 
 ```text
@@ -617,7 +617,7 @@ The profile dir is named after the session **id** (the UUID the REST API address
 `GET /api/sessions` gives you the value for both commands below:
 
 ```bash
-docker exec openwa-api rm -rf /app/data/sessions/session-<id>
+docker exec zaplink-api rm -rf /app/data/sessions/session-<id>
 # then POST /sessions/<id>/force-kill and POST /sessions/<id>/start, and scan the new QR
 ```
 
@@ -637,9 +637,9 @@ so the stop → start sequence alone is sufficient once the engine is gone.
 **Symptoms:** The session reaches `ready` normally, then at almost exactly five minutes WhatsApp Web
 reloads, briefly returns to `CONNECTED`/`hasSynced`, and navigates to
 `?post_logout=1&logout_reason=0`. The phone silently removes the companion from Linked devices and
-OpenWA returns to a fresh QR because `whatsapp-web.js` deletes LocalAuth credentials on `LOGOUT`.
+ZapLink returns to a fresh QR because `whatsapp-web.js` deletes LocalAuth credentials on `LOGOUT`.
 
-**Cause:** OpenWA used to backfill active WhatsApp Status posts immediately in its `ready` callback by
+**Cause:** ZapLink used to backfill active WhatsApp Status posts immediately in its `ready` callback by
 fetching `status@broadcast`. Some accounts tolerate that request, but affected accounts have the new
 companion revoked at WhatsApp Web's first scheduled reload. A minimal `whatsapp-web.js` client using
 the same container, browser, account and Web build remains linked when it does not perform this eager
@@ -664,11 +664,11 @@ and only gives up after five clicks that fail to land — at that point a human 
 once, so the session stops instead of being silently unlinked by WhatsApp about five minutes later.
 
 > **If the modal is not in English:** by default the detector matches only the English button label
-> (`Continue`) under the English heading ("What's new"). OpenWA appends `--lang=en-US` to the browser
+> (`Continue`) under the English heading ("What's new"). ZapLink appends `--lang=en-US` to the browser
 > flags unless `PUPPETEER_ARGS` already carries a `--lang`, but that sets the browser's language, and
 > WhatsApp Web may still render in the account's own language. For another language, add the modal's
 > confirm-button label to `WWEBJS_ONBOARDING_CONTINUE_LABELS` (for example `Continuar`) and restart
-> OpenWA itself: the value is read at boot, so stopping and starting the session is not enough. A
+> ZapLink itself: the value is read at boot, so stopping and starting the session is not enough. A
 > configured label is clicked
 > without the English heading check, but only on a button inside a visible dialog. If your deployment gets a
 > localised modal without a matching label, it is **not** auto-dismissed and the session never reaches
@@ -829,7 +829,7 @@ curl -H "X-API-Key: $API_KEY" \
   `The installed whatsapp-web.js carries only part of the message-id backport…` after an interrupted install
 
 **Cause:** WhatsApp Web 2.3000.x renamed the internal message-id property that whatsapp-web.js
-reads. OpenWA ships a backport that restores it, applied at install time by
+reads. ZapLink ships a backport that restores it, applied at install time by
 `scripts/patch-wwebjs-201832.js`. When the install cannot run it — neither GNU `patch` nor `git`
 available, or `npm install --ignore-scripts` — whatsapp-web.js stays unpatched and every operation
 that reads a message id fails. Source installs only; the Docker image always applies the backport.
@@ -857,13 +857,13 @@ rm -rf node_modules/whatsapp-web.js && npm ci
 
 **Symptoms:**
 
-- Startup logs contain `The installed whatsapp-web.js is missing N of OpenWA's install-time patches: …`,
+- Startup logs contain `The installed whatsapp-web.js is missing N of ZapLink's install-time patches: …`,
   or the same line naming `@whiskeysockets/baileys`
 - One capability fails while everything around it works: an unnamed `500` from a single route,
   block/unblock refusing every id, a status media send that never arrives, a group description that
   cannot be set, an app-state resync that never settles
 
-**Cause:** OpenWA applies fourteen exact source transforms to its engine libraries at install time
+**Cause:** ZapLink applies fourteen exact source transforms to its engine libraries at install time
 (docs/29 §29.3). The Docker image runs them without `--best-effort`, so a source shape a patcher
 cannot recognise fails the image build. Source installs run the Puppeteer compatibility transform
 without best-effort too, because browser teardown depends on it. The other transforms use
@@ -955,7 +955,7 @@ MEDIA_DOWNLOAD_MAX_BYTES=52428800
 BODY_SIZE_LIMIT=25mb
 
 # Behind nginx, raise client_max_body_size to match: its default is 1m, so a base64 media send
-# is refused with nginx's own HTML 413 before OpenWA sees it. Behind ingress-nginx, set the
+# is refused with nginx's own HTML 413 before ZapLink sees it. Behind ingress-nginx, set the
 # nginx.ingress.kubernetes.io/proxy-body-size annotation (default 1m).
 
 # Note: send the body uncompressed. A request carrying Content-Encoding: gzip (or deflate/br)
@@ -1014,7 +1014,7 @@ instead of `TimeoutError`.
 
 One trigger was reproduced in a test: with another tab in front, so that the WhatsApp Web page was
 hidden, a valid H.264/AAC MP4 failed after 20 seconds with exactly this error, while the same page
-prepared the same file as a document, and an image, in milliseconds. It has not been seen in OpenWA,
+prepared the same file as a document, and an image, in milliseconds. It has not been seen in ZapLink,
 which runs a single headless page in front.
 
 **Diagnosis:**
@@ -1062,7 +1062,7 @@ curl -H "X-API-Key: $ADMIN_API_KEY" \
   "http://localhost:2785/api/webhooks/delivery-failures?sessionId={sessionId}&limit=20"
 
 # Attempts still in flight (not yet exhausted) appear only in the server logs:
-docker compose logs openwa-api 2>&1 | grep -i webhook
+docker compose logs zaplink-api 2>&1 | grep -i webhook
 
 # Test webhook endpoint
 curl -X POST http://your-webhook-url \
@@ -1152,9 +1152,9 @@ no mapping to return. Both engines support the lookup.
 
 ```bash
 # Check memory usage
-docker stats openwa-api --no-stream
+docker stats zaplink-api --no-stream
 
-# Check process memory (Prometheus text; read openwa_process_resident_memory_bytes)
+# Check process memory (Prometheus text; read zaplink_process_resident_memory_bytes)
 curl -H "Authorization: Bearer $METRICS_TOKEN" \
   http://localhost:2785/api/metrics
 
@@ -1167,8 +1167,8 @@ curl -H "Authorization: Bearer $METRICS_TOKEN" \
 ```yaml
 # docker-compose.yml - Set memory limits
 services:
-  openwa-api:
-    # The shipped compose already exposes this as mem_limit: ${OPENWA_MEM_LIMIT:-2g}
+  zaplink-api:
+    # The shipped compose already exposes this as mem_limit: ${ZAPLINK_MEM_LIMIT:-2g}
     mem_limit: 2g
     # Chromium already starts with --disable-dev-shm-usage and --disable-gpu by default, and
     # PUPPETEER_ARGS replaces that list rather than adding to it.
@@ -1247,14 +1247,14 @@ DATABASE_STATEMENT_TIMEOUT_MS=30000   # server-side per-query cap (default 30000
 
 ```bash
 # Check for long-running queries (default SQLite file; override with DATABASE_NAME)
-sqlite3 ./data/openwa.sqlite ".timeout 30000"
+sqlite3 ./data/zaplink.sqlite ".timeout 30000"
 
 # Check WAL mode
-sqlite3 ./data/openwa.sqlite "PRAGMA journal_mode;"
-# Default is: delete (rollback journal) — OpenWA does not force WAL
+sqlite3 ./data/zaplink.sqlite "PRAGMA journal_mode;"
+# Default is: delete (rollback journal) — ZapLink does not force WAL
 
 # Optionally enable WAL mode to reduce writer/reader lock contention
-sqlite3 ./data/openwa.sqlite "PRAGMA journal_mode=WAL;"
+sqlite3 ./data/zaplink.sqlite "PRAGMA journal_mode=WAL;"
 ```
 
 There is no `DATABASE_SQLITE_BUSY_TIMEOUT`-style env knob — both SQLite connections wait a
@@ -1294,8 +1294,8 @@ npm run migration:show
 npm run migration:run
 
 # Inside the released image, which has no ts-node, use the :prod variants against dist/
-docker compose run --rm openwa-api npm run migration:show:prod
-docker compose run --rm openwa-api npm run migration:run:prod
+docker compose run --rm zaplink-api npm run migration:show:prod
+docker compose run --rm zaplink-api npm run migration:run:prod
 
 # Schema is managed by migrations (there is no schema:sync)
 # The auth/audit DB has parallel :main variants, e.g.:
@@ -1319,13 +1319,13 @@ A failed migration is not recorded: the run executes in one transaction, so the 
 
 **Solutions:**
 
-By default the entrypoint starts as root, re-owns `/app/data` to the `openwa` user (uid/gid 997) on
+By default the entrypoint starts as root, re-owns `/app/data` to the `zaplink` user (uid/gid 997) on
 every start, and then drops privileges with `gosu`. Keep that path intact:
 
 - Keep the `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `KILL`, `SETGID` and `SETUID` entries under `cap_add` in
   `docker-compose.yml`; the entrypoint needs ownership and privilege-drop permissions, and
   `dumb-init` needs `KILL` to forward shutdown signals to the process after its UID changes.
-- Setting `user:` on `openwa-api` (or `--user` on `docker run`) starts the entrypoint as that uid
+- Setting `user:` on `zaplink-api` (or `--user` on `docker run`) starts the entrypoint as that uid
   instead. It then skips the `chown` and the drop, so `/app/data` must already be writable by that
   uid: `user: "997:997"` works on a volume a root start has already re-owned, and the `cap_add` list
   can then be removed. Any other uid needs the volume chowned to it first. When the volume is not
@@ -1338,7 +1338,7 @@ every start, and then drops privileges with `gosu`. Keep that path intact:
 
 ```bash
 # Look for the failing chown in the startup output
-docker compose logs openwa-api | head -20
+docker compose logs zaplink-api | head -20
 ```
 
 ### Issue: Container Networking
@@ -1354,35 +1354,35 @@ docker compose logs openwa-api | head -20
 ```yaml
 # docker-compose.yml - Ensure proper networking
 services:
-  openwa-api:
+  zaplink-api:
     networks:
-      - openwa-network
+      - zaplink-network
     extra_hosts:
       - 'host.docker.internal:host-gateway' # Access host from container
 
   postgres:
     networks:
-      - openwa-network
+      - zaplink-network
 
 networks:
-  openwa-network:
+  zaplink-network:
     driver: bridge
 ```
 
 ```bash
 # Test connectivity from container
-docker exec openwa-api getent hosts postgres            # DNS: does the name resolve?
-docker exec openwa-api pg_isready -h postgres -p 5432    # TCP + PostgreSQL accepting connections
-docker exec openwa-api curl http://host.docker.internal:8080
+docker exec zaplink-api getent hosts postgres            # DNS: does the name resolve?
+docker exec zaplink-api pg_isready -h postgres -p 5432    # TCP + PostgreSQL accepting connections
+docker exec zaplink-api curl http://host.docker.internal:8080
 ```
 
 ## 12.8 Frequently Asked Questions
 
 ### General Questions
 
-**Q: Is OpenWA safe to use?**
+**Q: Is ZapLink safe to use?**
 
-> A: OpenWA uses unofficial WhatsApp Web API. While we implement best practices to avoid detection, there's inherent risk of account restrictions. We recommend:
+> A: ZapLink uses unofficial WhatsApp Web API. While we implement best practices to avoid detection, there's inherent risk of account restrictions. We recommend:
 >
 > - Use dedicated phone number (not personal)
 > - Don't send spam or bulk unsolicited messages
@@ -1421,7 +1421,7 @@ docker exec openwa-api curl http://host.docker.internal:8080
 
 **Q: Can I use WhatsApp Business account?**
 
-> A: Yes, OpenWA works with both personal and WhatsApp Business accounts. Note that WhatsApp Business API (official Meta API) is different and not supported.
+> A: Yes, ZapLink works with both personal and WhatsApp Business accounts. Note that WhatsApp Business API (official Meta API) is different and not supported.
 
 **Q: How to avoid getting banned?**
 
@@ -1471,7 +1471,7 @@ curl -X POST http://localhost:2785/api/sessions/{id}/messages/reply \
 > See [n8n Integration Guide](./22-n8n-integration.md). Quick setup:
 >
 > 1. Add HTTP Request node
-> 2. Set URL: `http://openwa:2785/api/sessions/{id}/messages/send-text`
+> 2. Set URL: `http://zaplink:2785/api/sessions/{id}/messages/send-text`
 > 3. Add header: `X-API-Key: your-key`
 > 4. Configure webhook trigger for incoming messages
 
@@ -1483,8 +1483,8 @@ server {
     listen 443 ssl;
     server_name api.example.com;
 
-    # nginx refuses a request body over 1m by default, below the 25mb OpenWA itself accepts
-    # (BODY_SIZE_LIMIT), so base64 media sends would answer 413 before reaching OpenWA.
+    # nginx refuses a request body over 1m by default, below the 25mb ZapLink itself accepts
+    # (BODY_SIZE_LIMIT), so base64 media sends would answer 413 before reaching ZapLink.
     # Keep this at or above BODY_SIZE_LIMIT.
     client_max_body_size 25m;
 
@@ -1507,35 +1507,35 @@ server {
 }
 ```
 
-**Then set `TRUSTED_PROXIES` in your `.env`.** With it empty, OpenWA correctly refuses to trust the
+**Then set `TRUSTED_PROXIES` in your `.env`.** With it empty, ZapLink correctly refuses to trust the
 spoofable `X-Forwarded-For` header, which has a side effect worth knowing: every client appears as
 the proxy's address, so ALL traffic shares one rate-limit bucket (a single abuser rate-limits
 everyone) and per-key IP allowlists (`allowedIps`) evaluate the proxy for every caller. Name the
 proxy to key limits per client. For the bundled compose (whose published port traverses Docker's
 NAT, so the container sees the bridge gateway, not 127.0.0.1) use the compose network subnet, e.g.
 `TRUSTED_PROXIES=172.18.0.0/16`; a bare-metal nginx talking to the process directly can name
-`127.0.0.1`. OpenWA logs a one-time warning at the first proxied request when the header is present
+`127.0.0.1`. ZapLink logs a one-time warning at the first proxied request when the header is present
 but the list is empty.
 
 **Q: How to run behind Traefik / Coolify?**
 
-Traefik forwards WebSocket upgrades automatically, so OpenWA's single-port Socket.IO channel works with a normal HTTP router. Two things keep a public deployment stable:
+Traefik forwards WebSocket upgrades automatically, so ZapLink's single-port Socket.IO channel works with a normal HTTP router. Two things keep a public deployment stable:
 
-**1. Let Traefik reach the container over the Docker network — don't _also_ publish the host port.** This is the most common cause of intermittent `504`s on Coolify/Traefik. If OpenWA publishes its port to the host (`ports: ["2785:2785"]`) **and** Traefik also routes to it, every request additionally traverses Docker's userland `docker-proxy`. OpenWA holds a long-lived Socket.IO connection per client (HTTP long-poll → WebSocket upgrade), so those held-open connections accumulate across both hops and gradually exhaust the connection pool to the single upstream — the Dashboard, API, and real-time channel then `504` together "after some time", while `curl http://localhost:2785/api/health/ready` keeps returning `200`. Front it with Traefik on a shared network and **expose** the port internally instead of **publishing** it:
+**1. Let Traefik reach the container over the Docker network — don't _also_ publish the host port.** This is the most common cause of intermittent `504`s on Coolify/Traefik. If ZapLink publishes its port to the host (`ports: ["2785:2785"]`) **and** Traefik also routes to it, every request additionally traverses Docker's userland `docker-proxy`. ZapLink holds a long-lived Socket.IO connection per client (HTTP long-poll → WebSocket upgrade), so those held-open connections accumulate across both hops and gradually exhaust the connection pool to the single upstream — the Dashboard, API, and real-time channel then `504` together "after some time", while `curl http://localhost:2785/api/health/ready` keeps returning `200`. Front it with Traefik on a shared network and **expose** the port internally instead of **publishing** it:
 
 ```yaml
 services:
-  openwa:
-    image: ghcr.io/rmyndharis/openwa:latest
+  zaplink:
+    image: ghcr.io/dev-ashir768/zaplink:latest
     expose:
       - '2785' # internal only — drop any public `ports:` mapping when Traefik is on this network
     networks: [proxy]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.openwa.rule=Host(`api.example.com`)
-      - traefik.http.routers.openwa.entrypoints=websecure
-      - traefik.http.routers.openwa.tls.certresolver=le
-      - traefik.http.services.openwa.loadbalancer.server.port=2785
+      - traefik.http.routers.zaplink.rule=Host(`api.example.com`)
+      - traefik.http.routers.zaplink.entrypoints=websecure
+      - traefik.http.routers.zaplink.tls.certresolver=le
+      - traefik.http.services.zaplink.loadbalancer.server.port=2785
 networks:
   proxy:
     external: true # the network your Traefik already runs on
@@ -1556,20 +1556,20 @@ entryPoints:
         idleTimeout: 600s
 ```
 
-Remember OpenWA is **single-port**: the Dashboard, REST API, and Socket.IO all share `:2785` behind one router, so a choked upstream takes all three down at once. A Dashboard stuck on "Connecting…" while `localhost` is healthy is the proxy hop, not the app.
+Remember ZapLink is **single-port**: the Dashboard, REST API, and Socket.IO all share `:2785` behind one router, so a choked upstream takes all three down at once. A Dashboard stuck on "Connecting…" while `localhost` is healthy is the proxy hop, not the app.
 
 **Q: How to backup sessions automatically?**
 
 ```bash
-# Production compose, whose data is the openwa-data volume: back up inside the container, then copy
+# Production compose, whose data is the zaplink-data volume: back up inside the container, then copy
 # the archive off the volume. In crontab, for example every six hours:
-# 0 */6 * * * docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups openwa-api ./scripts/backup.sh && docker cp openwa-api:/app/data/backups/. /backups/openwa/ && docker exec openwa-api sh -c 'rm -f /app/data/backups/openwa-backup-*.tar.gz'
-docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups openwa-api ./scripts/backup.sh
-docker cp openwa-api:/app/data/backups/. /backups/openwa/ \
-  && docker exec openwa-api sh -c 'rm -f /app/data/backups/openwa-backup-*.tar.gz'
+# 0 */6 * * * docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups zaplink-api ./scripts/backup.sh && docker cp zaplink-api:/app/data/backups/. /backups/zaplink/ && docker exec zaplink-api sh -c 'rm -f /app/data/backups/zaplink-backup-*.tar.gz'
+docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups zaplink-api ./scripts/backup.sh
+docker cp zaplink-api:/app/data/backups/. /backups/zaplink/ \
+  && docker exec zaplink-api sh -c 'rm -f /app/data/backups/zaplink-backup-*.tar.gz'
 
 # Bare metal or docker-compose.dev.yml, whose data is ./data in the checkout:
-# 0 */6 * * * cd /path/to/openwa && BACKUP_DIR=/backups/openwa ./scripts/backup.sh
+# 0 */6 * * * cd /path/to/zaplink && BACKUP_DIR=/backups/zaplink ./scripts/backup.sh
 ```
 
 Once an archive is copied off, the last command removes it from `/app/data/backups`, so archives do not pile up on the volume.
@@ -1699,7 +1699,7 @@ the plugin ingress and the `/mcp` endpoint answer in their own, described with t
 ### Before Asking for Help
 
 1. **Check this FAQ** - Most common issues are covered
-2. **Check logs** - `docker compose logs openwa-api --tail=100`
+2. **Check logs** - `docker compose logs zaplink-api --tail=100`
 3. **Try basic troubleshooting** - Restart, clear cache, etc.
 4. **Search GitHub issues** - Your issue might be already reported
 
@@ -1710,7 +1710,7 @@ When creating GitHub issue, include:
 ````markdown
 ## Environment
 
-- OpenWA version: x.x.x
+- ZapLink version: x.x.x
 - Docker version: x.x.x
 - OS: Ubuntu 22.04 / macOS / Windows
 - Database: SQLite / PostgreSQL
@@ -1749,8 +1749,8 @@ When creating GitHub issue, include:
 
 ### Community Resources
 
-- **GitHub Issues**: [github.com/rmyndharis/OpenWA/issues](https://github.com/rmyndharis/OpenWA/issues)
-- **Discussions**: [github.com/rmyndharis/OpenWA/discussions](https://github.com/rmyndharis/OpenWA/discussions)
+- **GitHub Issues**: [github.com/dev-ashir768/zaplink/issues](https://github.com/dev-ashir768/zaplink/issues)
+- **Discussions**: [github.com/dev-ashir768/zaplink/discussions](https://github.com/dev-ashir768/zaplink/discussions)
 
 ---
 

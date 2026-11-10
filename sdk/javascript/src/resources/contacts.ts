@@ -6,7 +6,7 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type {
   UpsertContactRequest,
   CheckNumberResponse,
@@ -24,7 +24,7 @@ export interface ListContactsQuery {
 }
 
 export class ContactsResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /** List contacts known to the session. */
   list(sessionId: string, query?: ListContactsQuery): Promise<ContactRecord[]> {

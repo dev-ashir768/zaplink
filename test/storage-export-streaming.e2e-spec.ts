@@ -13,7 +13,7 @@ describe('Local storage export completeness', () => {
   let storage: StorageService;
 
   beforeEach(() => {
-    localPath = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-export-'));
+    localPath = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-export-'));
     storage = new StorageService({
       get: (key: string) => ({ 'storage.type': 'local', 'storage.localPath': localPath })[key],
     } as unknown as ConfigService);

@@ -2,7 +2,7 @@
 
 ## 9.1 Current Status
 
-OpenWA now has an active Jest test suite covering the backend core, engine adapters, security helpers,
+ZapLink now has an active Jest test suite covering the backend core, engine adapters, security helpers,
 database migrations, plugin hooks, and smoke-level e2e boot paths. This document describes the current
 test layout and the expected testing workflow for contributors.
 
@@ -32,36 +32,36 @@ npm --prefix dashboard run test:unit
 
 ## 9.2 Test Commands
 
-| Command                                                          | Purpose                                                                                                      |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `npm test`                                                       | Run backend Jest unit tests from `src/`                                                                      |
-| `npm test -- --runInBand`                                        | Run backend tests serially; useful for local debugging and clean output                                      |
-| `npm run test:cov`                                               | Run backend tests with coverage and coverage thresholds                                                      |
-| `npm run test:e2e`                                               | Run smoke-level e2e tests from `test/`                                                                       |
-| `npm run test:docs`                                              | Run the docs and manifest drift gates that `npm test` excludes                                               |
-| `npm run test:pg-smoke`                                          | Run the PostgreSQL migration and UUID-default smoke test                                                     |
-| `npm run test:scripts`                                           | Run the repo-level script tests on the Node test runner                                                      |
-| `npm run build && npm run test:engine-real`                      | Exercise inbound messages and outbound recipient preparation with the real Baileys library and built adapter |
-| `OPENWA_SMOKE_IMAGE=<image> ./scripts/smoke-test-engine-libs.sh` | Import Baileys, launch the browser, check the image has no TypeScript toolchain and run the migration CLI    |
-| `./scripts/smoke-test-backup-restore.sh`                         | Run the backup/restore smoke test used by the `scripts-smoke` job                                            |
-| `npm run lint`                                                   | Run backend ESLint with type-aware rules                                                                     |
-| `npm run format:check`                                           | Check Prettier formatting for backend source and specs                                                       |
-| `npx tsc --noEmit -p tsconfig.json`                              | Type-check backend source, unit specs, and e2e specs                                                         |
-| `npm run openapi:check`                                          | Verify the committed OpenAPI snapshot                                                                        |
-| `npm run check:versions`                                         | Verify documentation and package version consistency                                                         |
-| `npm run check:dockerignore`                                     | Verify the Docker build context that `.dockerignore` defines                                                 |
-| `cd dashboard && npm run lint`                                   | Run dashboard ESLint                                                                                         |
-| `cd dashboard && npm run typecheck`                              | Type-check dashboard test files                                                                              |
-| `cd dashboard && npm run test:unit`                              | Run dashboard pure utility/unit tests                                                                        |
-| `cd dashboard && npm run test:cov`                               | Measure dashboard unit-test coverage (on demand, no enforced floor)                                          |
-| `cd dashboard && npm run i18n:check`                             | Verify dashboard locale key parity                                                                           |
-| `cd dashboard && npm run build`                                  | Type-check and build the dashboard                                                                           |
-| `cd sdk/javascript && npm test && npm run typecheck`             | Type-check and unit-test the JavaScript SDK                                                                  |
-| `cd sdk/javascript && npm run build && npm run smoke`            | Build the JavaScript SDK, then smoke-load both builds and send requests through each client                  |
-| `cd sdk/python && pytest`                                        | Run the Python SDK tests                                                                                     |
-| `cd sdk/php && ./vendor/bin/phpunit`                             | Run the PHP SDK tests                                                                                        |
-| `cd sdk/java && mvn -B verify`                                   | Run the Java SDK tests                                                                                       |
-| `cd sdk/go && gofmt -l . && go vet ./... && go test -race ./...` | List unformatted files, vet, and race-test the Go SDK                                                        |
+| Command                                                           | Purpose                                                                                                      |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `npm test`                                                        | Run backend Jest unit tests from `src/`                                                                      |
+| `npm test -- --runInBand`                                         | Run backend tests serially; useful for local debugging and clean output                                      |
+| `npm run test:cov`                                                | Run backend tests with coverage and coverage thresholds                                                      |
+| `npm run test:e2e`                                                | Run smoke-level e2e tests from `test/`                                                                       |
+| `npm run test:docs`                                               | Run the docs and manifest drift gates that `npm test` excludes                                               |
+| `npm run test:pg-smoke`                                           | Run the PostgreSQL migration and UUID-default smoke test                                                     |
+| `npm run test:scripts`                                            | Run the repo-level script tests on the Node test runner                                                      |
+| `npm run build && npm run test:engine-real`                       | Exercise inbound messages and outbound recipient preparation with the real Baileys library and built adapter |
+| `ZAPLINK_SMOKE_IMAGE=<image> ./scripts/smoke-test-engine-libs.sh` | Import Baileys, launch the browser, check the image has no TypeScript toolchain and run the migration CLI    |
+| `./scripts/smoke-test-backup-restore.sh`                          | Run the backup/restore smoke test used by the `scripts-smoke` job                                            |
+| `npm run lint`                                                    | Run backend ESLint with type-aware rules                                                                     |
+| `npm run format:check`                                            | Check Prettier formatting for backend source and specs                                                       |
+| `npx tsc --noEmit -p tsconfig.json`                               | Type-check backend source, unit specs, and e2e specs                                                         |
+| `npm run openapi:check`                                           | Verify the committed OpenAPI snapshot                                                                        |
+| `npm run check:versions`                                          | Verify documentation and package version consistency                                                         |
+| `npm run check:dockerignore`                                      | Verify the Docker build context that `.dockerignore` defines                                                 |
+| `cd dashboard && npm run lint`                                    | Run dashboard ESLint                                                                                         |
+| `cd dashboard && npm run typecheck`                               | Type-check dashboard test files                                                                              |
+| `cd dashboard && npm run test:unit`                               | Run dashboard pure utility/unit tests                                                                        |
+| `cd dashboard && npm run test:cov`                                | Measure dashboard unit-test coverage (on demand, no enforced floor)                                          |
+| `cd dashboard && npm run i18n:check`                              | Verify dashboard locale key parity                                                                           |
+| `cd dashboard && npm run build`                                   | Type-check and build the dashboard                                                                           |
+| `cd sdk/javascript && npm test && npm run typecheck`              | Type-check and unit-test the JavaScript SDK                                                                  |
+| `cd sdk/javascript && npm run build && npm run smoke`             | Build the JavaScript SDK, then smoke-load both builds and send requests through each client                  |
+| `cd sdk/python && pytest`                                         | Run the Python SDK tests                                                                                     |
+| `cd sdk/php && ./vendor/bin/phpunit`                              | Run the PHP SDK tests                                                                                        |
+| `cd sdk/java && mvn -B verify`                                    | Run the Java SDK tests                                                                                       |
+| `cd sdk/go && gofmt -l . && go vet ./... && go test -race ./...`  | List unformatted files, vet, and race-test the Go SDK                                                        |
 
 ## 9.3 Backend Unit Tests
 
@@ -264,7 +264,7 @@ request's superseded run; push runs on `main` are never cancelled or queued behi
 | `scripts-smoke` | shellcheck on `docker-entrypoint.sh` and every `scripts/*.sh`, plus the backup/restore smoke test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `chart`         | helm lint, helm template with default and fully-toggled values, kubeconform on both renders, the rendered-behaviour check, actionlint on the workflows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `build`         | backend build after lint/audit/test/dashboard/scripts-smoke/chart jobs pass, then `test:engine-real`, which feeds proto-built inbound messages and the outbound recipient preparation through the real Baileys library and the compiled adapter (every jest lane stubs Baileys)                                                                                                                                                                                                                                                                                                                                                                                          |
-| `docker`        | multi-arch build on pushes and pull requests, then against the built image `scripts/smoke-test-non-root.sh` (the entrypoint's root→openwa drop) and `scripts/smoke-test-engine-libs.sh` (imports Baileys and launches the browser, on the runner's native architecture only; the release workflow also runs it for linux/arm64 under emulation, where only the browser binary is executed). Publishes only on push: `:<sha>` from the build, then the branch tag (`:main`) once the smokes pass and only while the commit is still the branch head                                                                                                                       |
+| `docker`        | multi-arch build on pushes and pull requests, then against the built image `scripts/smoke-test-non-root.sh` (the entrypoint's root→zaplink drop) and `scripts/smoke-test-engine-libs.sh` (imports Baileys and launches the browser, on the runner's native architecture only; the release workflow also runs it for linux/arm64 under emulation, where only the browser binary is executed). Publishes only on push: `:<sha>` from the build, then the branch tag (`:main`) once the smokes pass and only while the commit is still the branch head                                                                                                                      |
 
 SDK CI is defined in `.github/workflows/sdk-ci.yml` and is path-filtered to SDK sources plus server
 contract surfaces that SDKs mirror (`src/**/dto/**`, `src/**/*.controller.ts`, `src/**/*.service.ts`, and
@@ -338,7 +338,7 @@ For production-compose changes:
 
 ```bash
 docker compose up -d --build
-docker compose logs -f openwa-api
+docker compose logs -f zaplink-api
 ```
 
 Live WhatsApp checks require an operator-owned account and should not be part of CI:

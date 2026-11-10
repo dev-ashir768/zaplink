@@ -1,16 +1,16 @@
-# OpenWA Go SDK
+# ZapLink Go SDK
 
-This document describes SDK 0.10.0. `Messages.Receipts` requires OpenWA 0.28.0 or later. `Contacts.Lid` requires OpenWA 0.27.1 or later. `Groups.SetMemberLabel`, `SearchQuery.Match`, `CustomLinkPreview.ThumbnailURL` and `CustomLinkPreview.ThumbnailBase64` require OpenWA 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require OpenWA 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require OpenWA 0.26.0 or later.
+This document describes SDK 0.10.0. `Messages.Receipts` requires ZapLink 0.28.0 or later. `Contacts.Lid` requires ZapLink 0.27.1 or later. `Groups.SetMemberLabel`, `SearchQuery.Match`, `CustomLinkPreview.ThumbnailURL` and `CustomLinkPreview.ThumbnailBase64` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Idiomatic Go client for the [OpenWA](https://github.com/rmyndharis/OpenWA) WhatsApp
+Idiomatic Go client for the [ZapLink](https://github.com/dev-ashir768/zaplink) WhatsApp
 API Gateway. Stdlib-only (no dependencies), context-first, with typed errors and
 an injectable transport pipeline.
 
-OpenWA is an independent project, not affiliated with or endorsed by WhatsApp or
+ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or
 Meta.
 
 ```bash
-go get github.com/rmyndharis/OpenWA/sdk/go
+go get github.com/dev-ashir768/zaplink/sdk/go
 ```
 
 Requires Go 1.22+.
@@ -24,11 +24,11 @@ import (
 	"context"
 	"log"
 
-	openwa "github.com/rmyndharis/OpenWA/sdk/go"
+	zaplink "github.com/dev-ashir768/zaplink/sdk/go"
 )
 
 func main() {
-	client, err := openwa.New("http://localhost:2785", "owa_k1_…")
+	client, err := zaplink.New("http://localhost:2785", "owa_k1_…")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func main() {
 	ctx := context.Background()
 	// Sessions are addressed by the UUID that Create returns, not by name. Create a
 	// session once; afterwards, find its ID with Sessions.List and a Name filter.
-	session, err := client.Sessions.Create(ctx, openwa.CreateSessionRequest{Name: "my-session"})
+	session, err := client.Sessions.Create(ctx, zaplink.CreateSessionRequest{Name: "my-session"})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,9 +46,9 @@ func main() {
 
 	// Link the account before sending: scan Sessions.QRCode (or use Sessions.RequestPairingCode for a number with no linked session),
 	// then wait for status "ready". An unlinked session answers the send with 409.
-	res, err := client.Messages.SendText(ctx, session.ID, openwa.SendTextRequest{
+	res, err := client.Messages.SendText(ctx, session.ID, zaplink.SendTextRequest{
 		ChatID: "628123456789@c.us",
-		Text:   "Hello from the OpenWA Go SDK!",
+		Text:   "Hello from the ZapLink Go SDK!",
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -59,7 +59,7 @@ func main() {
 
 ## Design
 
-- **Client entry point** — `openwa.New(baseURL, apiKey, opts...)` returns a
+- **Client entry point** — `zaplink.New(baseURL, apiKey, opts...)` returns a
   `*Client`. Required credentials are positional; everything else is a functional
   Option. The client is safe for concurrent use.
 - **Services by domain** — the API is grouped onto exported fields:
@@ -98,15 +98,15 @@ func main() {
 ```go
 res, err := client.Messages.SendText(ctx, sessionID, req)
 switch {
-case errors.Is(err, openwa.ErrConflict):
+case errors.Is(err, zaplink.ErrConflict):
 	// 409 — a conflicting state, typically a session that is not "ready" yet:
 	// retry once it is. A keyed send can also answer 409 for a pending or
 	// uncertain outcome; APIError.Code tells them apart ("Send idempotency"
 	// below says what to do).
-case errors.Is(err, openwa.ErrNotFound):
+case errors.Is(err, zaplink.ErrNotFound):
 	// 404 — unknown session/resource.
 case err != nil:
-	var apiErr *openwa.APIError
+	var apiErr *zaplink.APIError
 	if errors.As(err, &apiErr) {
 		log.Printf("API %d: %s (body: %v)", apiErr.StatusCode, apiErr.Message, apiErr.Body)
 	}
@@ -130,7 +130,7 @@ from the body: a few seconds when only sends still in flight caused it, the rest
 of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes
 by default) after a run of send failures, otherwise up to the next UTC day.
 `APIError.Header` holds the response headers. A timeout surfaces as
-`*openwa.TimeoutError`, though the gateway may still complete the request: retry
+`*zaplink.TimeoutError`, though the gateway may still complete the request: retry
 a send only with the same `Idempotency-Key`. A 503 does not always prove a write was never carried
 out: when WhatsApp timed out, the change may still have been applied, so re-read
 the state before repeating it. A throttle on a send or a single write was turned
@@ -166,8 +166,8 @@ retries from 200ms) replays a keyed one within about a second and a half; for se
 `MaxRetries`, or retry the throttled send yourself later.
 
 ```go
-client, _ := openwa.New(baseURL, apiKey,
-	openwa.WithRetry(openwa.DefaultRetryPolicy()),
+client, _ := zaplink.New(baseURL, apiKey,
+	zaplink.WithRetry(zaplink.DefaultRetryPolicy()),
 )
 ```
 
@@ -179,12 +179,12 @@ retry layers sit inside yours, so every attempt is authenticated and observable.
 
 ```go
 tracing := func(next http.RoundTripper) http.RoundTripper {
-	return openwa.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+	return zaplink.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		// start span, inject headers…
 		return next.RoundTrip(req)
 	})
 }
-client, _ := openwa.New(baseURL, apiKey, openwa.WithMiddleware(tracing))
+client, _ := zaplink.New(baseURL, apiKey, zaplink.WithMiddleware(tracing))
 ```
 
 ## Dependency injection & testing
@@ -201,7 +201,7 @@ func (mockRT) RoundTrip(r *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-client, _ := openwa.New("https://api.test", "key", openwa.WithTransport(mockRT{}))
+client, _ := zaplink.New("https://api.test", "key", zaplink.WithTransport(mockRT{}))
 ```
 
 ## Escape hatch
@@ -216,24 +216,24 @@ err := client.Do(ctx, "GET", "/api/some/new/path", nil, nil, &out)
 ## Receiving webhooks
 
 A webhook configured with a secret signs each delivery in its
-`X-OpenWA-Signature` header. Check it with `VerifyWebhookSignature` against the
+`X-ZapLink-Signature` header. Check it with `VerifyWebhookSignature` against the
 raw request body, exactly as received, and decode the JSON only after the check
 passes: a re-serialized body can differ byte for byte and will not verify. The
 helper returns `false` for a missing, malformed or non-matching signature.
 `WebhookDelivery` types the decoded body.
 
 ```go
-http.HandleFunc("/openwa/webhook", func(w http.ResponseWriter, r *http.Request) {
+http.HandleFunc("/zaplink/webhook", func(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if !openwa.VerifyWebhookSignature(body, r.Header.Get("X-OpenWA-Signature"), secret) {
+	if !zaplink.VerifyWebhookSignature(body, r.Header.Get("X-ZapLink-Signature"), secret) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	var delivery openwa.WebhookDelivery
+	var delivery zaplink.WebhookDelivery
 	if err := json.Unmarshal(body, &delivery); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -245,7 +245,7 @@ http.HandleFunc("/openwa/webhook", func(w http.ResponseWriter, r *http.Request) 
 
 The signature covers the body only and carries no timestamp, so a captured
 delivery still verifies when it is sent again. Dedupe on
-`delivery.IdempotencyKey` (also the `X-OpenWA-Idempotency-Key` header): the
+`delivery.IdempotencyKey` (also the `X-ZapLink-Idempotency-Key` header): the
 gateway's own retries and an operator's redrive of a failed delivery reuse it, so
 a key you have already handled is the same event arriving again.
 
@@ -288,7 +288,7 @@ The tag must carry the module's directory prefix, because the module lives in a
 subdirectory rather than at the repository root:
 
 ```bash
-# Correct — `sdk/go/` prefix, matching `module github.com/rmyndharis/OpenWA/sdk/go`
+# Correct — `sdk/go/` prefix, matching `module github.com/dev-ashir768/zaplink/sdk/go`
 git tag sdk/go/v0.10.0 && git push origin sdk/go/v0.10.0
 ```
 
@@ -311,13 +311,13 @@ Cutting a release:
 
 ## Send idempotency
 
-The example below requires SDK 0.6.0 or later and OpenWA 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
+The example below requires SDK 0.6.0 or later and ZapLink 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
 
 Supply a unique caller-owned key for one logical send and reuse it when retrying that same call. Keys contain 1-255 visible ASCII characters; unrelated calls must use different keys. The SDK never generates a key; with `WithRetry`, the key is what lets a send answered `503` be retried (see [Retries](#retries)). On the twelve routes below `net/http` may still send a keyed request once more after a dropped keep-alive connection; the gateway deduplicates it, so the call returns the first answer or a `409` `IDEMPOTENCY_KEY_IN_PROGRESS` to retry later with the same key.
 
 ```go
-ctx := openwa.WithIdempotencyKey(context.Background(), "order-123")
-_, err := client.Messages.SendText(ctx, sessionID, openwa.SendTextRequest{ChatID: "628123@c.us", Text: "Hello"})
+ctx := zaplink.WithIdempotencyKey(context.Background(), "order-123")
+_, err := client.Messages.SendText(ctx, sessionID, zaplink.SendTextRequest{ChatID: "628123@c.us", Text: "Hello"})
 ```
 
 The gateway supports text, image, video, audio, document, sticker, location, contact, template, poll, reply and forward sends. Completed calls replay their response; a 409 with the error `code` `IDEMPOTENCY_KEY_IN_PROGRESS` means the first request is still running, so retry with the same key later; a 409 `IDEMPOTENCY_OUTCOME_UNKNOWN` means the message may have been sent, so check the chat and, if it did not arrive, send again with a new key (the `code` tells them apart from the 409 for a session that is not connected). A changed request with the same key returns 422. The gateway retains keys for 24 hours. Bulk, product and button operations have no such guarantee. Omit the key to preserve existing behavior.

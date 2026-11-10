@@ -8,7 +8,7 @@ import { subscriptionCoversEvent } from '../../../common/utils/wildcard-events';
 
 /**
  * Drop operator-supplied custom headers that target the names the system sets (Content-Type,
- * User-Agent or any X-OpenWA-* header, in any spelling) so a webhook config cannot forge the
+ * User-Agent or any X-ZapLink-* header, in any spelling) so a webhook config cannot forge the
  * signature/event/idempotency headers. Dropping, not overriding, is what makes the system value
  * win: the HTTP client joins a case variant with the system one instead of replacing it.
  * Connection-level and framing headers are dropped too: the HTTP client owns them, undici throws on
@@ -18,7 +18,7 @@ export function sanitizeCustomHeaders(custom: Record<string, string> | null | un
   const safe: Record<string, string> = {};
   for (const [key, value] of Object.entries(custom ?? {})) {
     if (
-      !/^(content-type|x-openwa-)/i.test(key) &&
+      !/^(content-type|x-zaplink-)/i.test(key) &&
       !/^(user-agent|connection|content-length|expect|keep-alive|te|trailer|transfer-encoding|upgrade)$/i.test(key)
     ) {
       safe[key] = value;
@@ -71,14 +71,14 @@ export function buildDeliveryHeaders(
   const headers: Record<string, string> = {
     ...sanitizeCustomHeaders(webhook.headers),
     'Content-Type': 'application/json',
-    'User-Agent': 'OpenWA-Webhook/1.0.0',
-    'X-OpenWA-Event': event,
-    'X-OpenWA-Idempotency-Key': idempotencyKey,
-    'X-OpenWA-Delivery-Id': deliveryId,
-    'X-OpenWA-Retry-Count': String(retryCount),
+    'User-Agent': 'ZapLink-Webhook/1.0.0',
+    'X-ZapLink-Event': event,
+    'X-ZapLink-Idempotency-Key': idempotencyKey,
+    'X-ZapLink-Delivery-Id': deliveryId,
+    'X-ZapLink-Retry-Count': String(retryCount),
   };
   if (webhook.secret) {
-    headers['X-OpenWA-Signature'] = generateSignature(body, webhook.secret);
+    headers['X-ZapLink-Signature'] = generateSignature(body, webhook.secret);
   }
   return headers;
 }

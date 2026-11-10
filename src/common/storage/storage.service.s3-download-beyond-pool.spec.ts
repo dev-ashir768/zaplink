@@ -86,7 +86,7 @@ describe('StorageService S3 download once every pooled socket is held by a slow 
     process.env.S3_ENDPOINT = `http://127.0.0.1:${(stub.address() as AddressInfo).port}`;
     process.env.S3_ACCESS_KEY_ID = 'test';
     process.env.S3_SECRET_ACCESS_KEY = 'test';
-    process.env.S3_BUCKET = 'openwa';
+    process.env.S3_BUCKET = 'zaplink';
     const values: Record<string, string> = { 'storage.type': 's3', 'storage.localPath': path.join(dir, 'media') };
     storage = new StorageService({ get: (key: string) => values[key] } as unknown as ConfigService);
     expect(await storage.refreshS3Availability()).toBe(true);

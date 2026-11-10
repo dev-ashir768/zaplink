@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Tests;
+namespace ZapLink\Tests;
 
-use OpenWA\WebhookSignature;
+use ZapLink\WebhookSignature;
 use PHPUnit\Framework\TestCase;
 
 class WebhookSignatureTest extends TestCase

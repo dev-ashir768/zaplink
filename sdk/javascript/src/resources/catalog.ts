@@ -10,7 +10,7 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type {
   CatalogInfo,
   CatalogProduct,
@@ -21,7 +21,7 @@ import type {
 } from '../types.js';
 
 export class CatalogResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /**
    * Get the business catalog info, or `null` when the account has no catalog.

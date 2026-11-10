@@ -103,10 +103,10 @@ describe('Session request forwarding (e2e)', () => {
       .expect(200);
 
     expect(res.body).toEqual({ answeredBy: 'the-peer-owner' });
-    expect(res.headers['x-openwa-served-by']).toBe('peer-node');
+    expect(res.headers['x-zaplink-served-by']).toBe('peer-node');
     expect(ownerSeen).toHaveLength(1);
     expect(ownerSeen[0].url).toBe(`/api/sessions/${session.id}`);
-    expect(ownerSeen[0].headers['x-openwa-forwarded']).toBe('e2e-local-node');
+    expect(ownerSeen[0].headers['x-zaplink-forwarded']).toBe('e2e-local-node');
     expect(ownerSeen[0].headers['x-api-key']).toBe(apiKey);
   });
 
@@ -120,7 +120,7 @@ describe('Session request forwarding (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/api/sessions/${session.id}`)
       .set('X-API-Key', apiKey)
-      .set('x-openwa-forwarded', 'peer-node')
+      .set('x-zaplink-forwarded', 'peer-node')
       .expect(409);
 
     expect(ownerSeen).toHaveLength(0);
@@ -134,7 +134,7 @@ describe('Session request forwarding (e2e)', () => {
     const res = await request(app.getHttpServer())
       .get(`/api/sessions/${session.id}`)
       .set('X-API-Key', apiKey)
-      .set('x-openwa-forwarded', 'peer-node')
+      .set('x-zaplink-forwarded', 'peer-node')
       .expect(200);
 
     expect(ownerSeen).toHaveLength(0);
@@ -165,7 +165,7 @@ describe('Session request forwarding (e2e)', () => {
       .parse(wholeBody as never)
       .expect(200);
 
-    expect(res.headers['x-openwa-served-by']).toBe('peer-node');
+    expect(res.headers['x-zaplink-served-by']).toBe('peer-node');
     expect(res.headers['content-length']).toBe(String(DOWNLOAD_BYTES));
     expect((res.body as Buffer).equals(downloadBytes)).toBe(true);
   });

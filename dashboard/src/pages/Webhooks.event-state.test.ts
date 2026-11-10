@@ -49,7 +49,7 @@ before(async () => {
   const { installJsdomGlobals } = await import('../test-helpers/jsdom.ts');
   await installJsdomGlobals();
   installFetchStub();
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   const mod = await import('../i18n/index.ts');
   await mod.i18nReady;
   i18n = mod.default;

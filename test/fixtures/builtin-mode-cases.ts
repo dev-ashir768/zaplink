@@ -196,11 +196,11 @@ export function pinnedHost(service: ServiceName, pin: PinState): string | undefi
  */
 export const HOST_SPELLINGS: Record<ServiceName, { reach: string[]; elsewhere: string[] }> = {
   database: {
-    reach: ['postgres', 'Postgres', 'postgres.', 'openwa-postgres', ' OPENWA-POSTGRES. '],
-    elsewhere: ['localhost', 'postgres-replica', 'postgres.example.com', 'openwa-postgres-2', ''],
+    reach: ['postgres', 'Postgres', 'postgres.', 'zaplink-postgres', ' ZAPLINK-POSTGRES. '],
+    elsewhere: ['localhost', 'postgres-replica', 'postgres.example.com', 'zaplink-postgres-2', ''],
   },
   redis: {
-    reach: ['redis', 'REDIS', 'redis.', 'openwa-redis'],
+    reach: ['redis', 'REDIS', 'redis.', 'zaplink-redis'],
     elsewhere: ['localhost', 'redis-master', 'myredis', ''],
   },
   storage: {
@@ -208,7 +208,7 @@ export const HOST_SPELLINGS: Record<ServiceName, { reach: string[]; elsewhere: s
       'http://minio:9000',
       'http://MINIO:9000',
       'http://minio:9000/',
-      'http://openwa-minio:9000',
+      'http://zaplink-minio:9000',
       'https://minio.:9000',
     ],
     elsewhere: ['http://localhost:9000', 'http://minio.example.com:9000', 'minio:9000', 'not a url', ''],

@@ -61,7 +61,7 @@ function withCopy(fn) {
       'openapi.json',
       'sdk/README.md',
       'sdk/javascript/src',
-      'sdk/python/openwa',
+      'sdk/python/zaplink',
       'sdk/php/src',
       'sdk/java/src/main',
       'sdk/go',

@@ -18,12 +18,12 @@ export class InfraDatabaseStatusDto {
   @ApiProperty({ description: 'Configured driver.', example: 'postgres' })
   type!: string;
 
-  @ApiProperty({ description: 'Host the app is configured to reach.', example: 'openwa-postgres' })
+  @ApiProperty({ description: 'Host the app is configured to reach.', example: 'zaplink-postgres' })
   host!: string;
 
   @ApiProperty({
     description:
-      "Whether OpenWA's own bundled container is actually running and backing this service, " +
+      "Whether ZapLink's own bundled container is actually running and backing this service, " +
       'detected live from the labelled container rather than read from the saved intent. When Docker is ' +
       "unavailable it falls back to the saved flag (the environment's first) beside a host that reaches the " +
       'bundled container: neither a host name nor the flag alone proves it.',
@@ -33,7 +33,7 @@ export class InfraDatabaseStatusDto {
 
   @ApiPropertyOptional({
     description:
-      'Whether a bundled PostgreSQL container OpenWA created is running, whether or not this service uses it, beside ' +
+      'Whether a bundled PostgreSQL container ZapLink created is running, whether or not this service uses it, beside ' +
       "this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the " +
       'flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.',
     example: false,
@@ -48,18 +48,18 @@ export class InfraRedisStatusDto {
   @ApiProperty({ description: 'Whether a live probe reached it.', example: true })
   connected!: boolean;
 
-  @ApiProperty({ example: 'openwa-redis' })
+  @ApiProperty({ example: 'zaplink-redis' })
   host!: string;
 
   @ApiProperty({ example: 6379 })
   port!: number;
 
-  @ApiProperty({ description: "Whether OpenWA's bundled Redis container is backing this.", example: true })
+  @ApiProperty({ description: "Whether ZapLink's bundled Redis container is backing this.", example: true })
   builtIn!: boolean;
 
   @ApiPropertyOptional({
     description:
-      'Whether a bundled Redis container OpenWA created is running, whether or not this service uses it, beside ' +
+      'Whether a bundled Redis container ZapLink created is running, whether or not this service uses it, beside ' +
       "this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the " +
       'flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.',
     example: false,
@@ -98,7 +98,7 @@ export class InfraStorageStatusDto {
   })
   path?: string;
 
-  @ApiPropertyOptional({ description: 'Bucket name. Present only for `s3`.', example: 'openwa-media' })
+  @ApiPropertyOptional({ description: 'Bucket name. Present only for `s3`.', example: 'zaplink-media' })
   bucket?: string;
 
   @ApiPropertyOptional({
@@ -109,12 +109,12 @@ export class InfraStorageStatusDto {
   })
   endpoint?: string;
 
-  @ApiProperty({ description: "Whether OpenWA's bundled MinIO container is backing this.", example: false })
+  @ApiProperty({ description: "Whether ZapLink's bundled MinIO container is backing this.", example: false })
   builtIn!: boolean;
 
   @ApiPropertyOptional({
     description:
-      'Whether a bundled MinIO container OpenWA created is running, whether or not this service uses it, beside ' +
+      'Whether a bundled MinIO container ZapLink created is running, whether or not this service uses it, beside ' +
       "this instance's built-in flag (the environment's first). False for one Docker Compose created, or with the " +
       'flag not set; absent when Docker is unreachable, where nothing can be seen or stopped.',
     example: false,
@@ -271,7 +271,7 @@ export class InfraUpdateCheckResponseDto {
     type: String,
     nullable: true,
     description: 'Release notes page for `latest`.',
-    example: 'https://github.com/rmyndharis/OpenWA/releases/tag/v0.23.6',
+    example: 'https://github.com/dev-ashir768/zaplink/releases/tag/v0.23.6',
   })
   releaseUrl!: string | null;
 }
@@ -295,16 +295,16 @@ export class InfraConfigDatabaseDto {
   @ApiProperty({ description: BUILT_IN_SET_DESCRIPTION, example: true })
   builtInSet!: boolean;
 
-  @ApiProperty({ example: 'openwa-postgres' })
+  @ApiProperty({ example: 'zaplink-postgres' })
   host!: string;
 
   @ApiProperty({ description: 'Kept as a string: it is echoed back from the saved env verbatim.', example: '5432' })
   port!: string;
 
-  @ApiProperty({ example: 'openwa' })
+  @ApiProperty({ example: 'zaplink' })
   username!: string;
 
-  @ApiProperty({ description: 'Database name under PostgreSQL; empty under SQLite.', example: 'openwa' })
+  @ApiProperty({ description: 'Database name under PostgreSQL; empty under SQLite.', example: 'zaplink' })
   database!: string;
 
   @ApiProperty({ example: 'public' })
@@ -333,7 +333,7 @@ export class InfraConfigRedisDto {
   @ApiProperty({ description: BUILT_IN_SET_DESCRIPTION, example: true })
   builtInSet!: boolean;
 
-  @ApiProperty({ example: 'openwa-redis' })
+  @ApiProperty({ example: 'zaplink-redis' })
   host!: string;
 
   @ApiProperty({ description: 'Echoed from the saved env verbatim.', example: '6379' })

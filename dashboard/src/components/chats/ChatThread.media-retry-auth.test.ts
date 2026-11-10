@@ -27,8 +27,8 @@ before(async () => {
 
 afterEach(() => {
   rtl.cleanup();
-  window.sessionStorage.removeItem('openwa_user_role');
-  window.sessionStorage.removeItem('openwa_api_key');
+  window.sessionStorage.removeItem('zaplink_user_role');
+  window.sessionStorage.removeItem('zaplink_api_key');
 });
 
 const CHAT: Chat = {
@@ -65,7 +65,7 @@ const poolFull = (): Response =>
   });
 
 function renderDocumentThread(): { container: HTMLElement } {
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   const noop = () => {};
   const containerRef = createRef<HTMLDivElement>();
   return rtl.render(
@@ -95,7 +95,7 @@ function renderDocumentThread(): { container: HTMLElement } {
 }
 
 test('a media download waiting to retry after 503 does not send a second request after sign-out or key change', async () => {
-  window.sessionStorage.setItem('openwa_api_key', 'key-a');
+  window.sessionStorage.setItem('zaplink_api_key', 'key-a');
   const fetchOriginal = globalThis.fetch;
   const sentKeys: Array<string | null> = [];
   globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
@@ -114,7 +114,7 @@ test('a media download waiting to retry after 503 does not send a second request
     assert.equal(sentKeys[0], 'key-a');
 
     // Replace the API key while the 1-second Retry-After backoff is still waiting.
-    window.sessionStorage.setItem('openwa_api_key', 'key-b');
+    window.sessionStorage.setItem('zaplink_api_key', 'key-b');
     await new Promise(resolve => setTimeout(resolve, 1_250));
 
     assert.deepEqual(sentKeys, ['key-a'], `retry fired after key change with headers: ${JSON.stringify(sentKeys)}`);
@@ -129,14 +129,14 @@ test('a media download waiting to retry after 503 does not send a second request
 });
 
 test('loadArchivedMedia stops retrying after 429 or 503 when the API key changes during backoff', async () => {
-  window.sessionStorage.setItem('openwa_api_key', 'key-a');
+  window.sessionStorage.setItem('zaplink_api_key', 'key-a');
   let calls = 0;
   await assert.rejects(
     loadArchivedMedia(
       new AbortController().signal,
       async () => {
         calls += 1;
-        window.sessionStorage.setItem('openwa_api_key', 'key-b');
+        window.sessionStorage.setItem('zaplink_api_key', 'key-b');
         throw Object.assign(new Error('HTTP 429'), { status: 429 });
       },
       10,

@@ -23,7 +23,7 @@ before(async () => {
 
 beforeEach(() => {
   navigations.length = 0;
-  sessionStorage.setItem('openwa_api_key', 'stored-key');
+  sessionStorage.setItem('zaplink_api_key', 'stored-key');
 });
 
 function answer(status: number, message: string): void {
@@ -54,7 +54,7 @@ for (const [status, message] of [
     answer(status, message);
     const call = sessionApi.list();
     assert.equal(await settled(call), false, 'the call settled, so its caller would render the failure');
-    assert.equal(sessionStorage.getItem('openwa_api_key'), null);
+    assert.equal(sessionStorage.getItem('zaplink_api_key'), null);
     assert.deepEqual(navigations, ['/']);
   });
 }
@@ -66,7 +66,7 @@ test('a role 403 keeps the key and rejects with the status', async () => {
     assert.equal(err.message, 'Insufficient permissions. Required: operator');
     return true;
   });
-  assert.equal(sessionStorage.getItem('openwa_api_key'), 'stored-key');
+  assert.equal(sessionStorage.getItem('zaplink_api_key'), 'stored-key');
   assert.deepEqual(navigations, []);
 });
 
@@ -122,11 +122,11 @@ for (const [status, message] of keyFailures) {
       const result = call();
       await new Promise(resolve => setImmediate(resolve));
       assert.deepEqual(pending.sentKeys, ['stored-key']);
-      sessionStorage.removeItem('openwa_api_key');
-      sessionStorage.setItem('openwa_api_key', 'next-key');
+      sessionStorage.removeItem('zaplink_api_key');
+      sessionStorage.setItem('zaplink_api_key', 'next-key');
       pending.release();
       await rejectsWithStatus(result, status);
-      assert.equal(sessionStorage.getItem('openwa_api_key'), 'next-key');
+      assert.equal(sessionStorage.getItem('zaplink_api_key'), 'next-key');
       assert.deepEqual(navigations, []);
     });
 
@@ -136,7 +136,7 @@ for (const [status, message] of keyFailures) {
       await new Promise(resolve => setImmediate(resolve));
       pending.release();
       assert.equal(await settled(result), false, 'the call settled, so its caller would render the failure');
-      assert.equal(sessionStorage.getItem('openwa_api_key'), null);
+      assert.equal(sessionStorage.getItem('zaplink_api_key'), null);
       assert.deepEqual(navigations, ['/']);
     });
 
@@ -145,10 +145,10 @@ for (const [status, message] of keyFailures) {
       const result = call();
       await new Promise(resolve => setImmediate(resolve));
       assert.deepEqual(pending.sentKeys, ['stored-key']);
-      sessionStorage.removeItem('openwa_api_key');
+      sessionStorage.removeItem('zaplink_api_key');
       pending.release();
       assert.equal(await settled(result), false, 'the call settled, so its caller would render the failure');
-      assert.equal(sessionStorage.getItem('openwa_api_key'), null);
+      assert.equal(sessionStorage.getItem('zaplink_api_key'), null);
       assert.deepEqual(navigations, []);
     });
   }
@@ -162,30 +162,30 @@ for (const [status, message] of keyFailures) {
     for (const result of results) {
       assert.equal(await settled(result), false, 'the call settled, so its caller would render the failure');
     }
-    assert.equal(sessionStorage.getItem('openwa_api_key'), null);
+    assert.equal(sessionStorage.getItem('zaplink_api_key'), null);
     assert.deepEqual(navigations, ['/']);
   });
 }
 
 test('a 401 for a request sent without a key while none is stored stays silent on the login form', async () => {
-  sessionStorage.removeItem('openwa_api_key');
+  sessionStorage.removeItem('zaplink_api_key');
   answer(401, 'API key is required');
   const result = sessionApi.list();
   assert.equal(await settled(result), false, 'the call settled, so its caller would render the failure');
-  assert.equal(sessionStorage.getItem('openwa_api_key'), null);
+  assert.equal(sessionStorage.getItem('zaplink_api_key'), null);
   assert.deepEqual(navigations, []);
 });
 
 test('a late 401 for a request sent while signed out keeps the key signed in since', stale, async () => {
-  sessionStorage.removeItem('openwa_api_key');
+  sessionStorage.removeItem('zaplink_api_key');
   const pending = deferAnswers(401, 'API key is required');
   const result = sessionApi.list();
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(pending.sentKeys, [undefined]);
-  sessionStorage.setItem('openwa_api_key', 'next-key');
+  sessionStorage.setItem('zaplink_api_key', 'next-key');
   pending.release();
   await rejectsWithStatus(result, 401);
-  assert.equal(sessionStorage.getItem('openwa_api_key'), 'next-key');
+  assert.equal(sessionStorage.getItem('zaplink_api_key'), 'next-key');
   assert.deepEqual(navigations, []);
 });
 
@@ -394,8 +394,8 @@ for (const change of ['replace key', 'sign out', 'abort'] as const) {
       return pending;
     }) as typeof fetch;
     const result = sessionApi.getChats('s1', controller.signal);
-    if (change === 'replace key') sessionStorage.setItem('openwa_api_key', 'next-key');
-    if (change === 'sign out') sessionStorage.removeItem('openwa_api_key');
+    if (change === 'replace key') sessionStorage.setItem('zaplink_api_key', 'next-key');
+    if (change === 'sign out') sessionStorage.removeItem('zaplink_api_key');
     if (change === 'abort') controller.abort();
     release(chatResponse(Array.from({ length: 1000 }, (_, i) => ({ id: `chat-${i}` }))));
     await assert.rejects(result, change === 'abort' ? { name: 'AbortError' } : /Signed out/);

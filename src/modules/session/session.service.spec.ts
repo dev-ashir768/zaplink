@@ -11506,7 +11506,7 @@ describe('SessionService', () => {
     // Chromium start bounded by resolveEngineInitTimeoutMs (>= 60s) with a 2s throttle between
     // sessions. Awaiting the loop here kept the port CLOSED for that whole time, so every probe in
     // the window was a connection refusal, and the chart's startupProbe budget
-    // (charts/openwa/templates/statefulset.yaml) is a fixed number of seconds.
+    // (charts/zaplink/templates/statefulset.yaml) is a fixed number of seconds.
     it('returns without waiting for a launch that has not finished', async () => {
       process.env.AUTO_START_SESSIONS = 'true';
       (repository.find as jest.Mock).mockResolvedValue([{ id: 'a', name: 'A' }]);

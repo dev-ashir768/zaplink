@@ -91,7 +91,7 @@ afterEach(() => {
   updateStatus = 200;
   updateGate = undefined;
   updatePaths.length = 0;
-  window.sessionStorage.removeItem('openwa_api_key');
+  window.sessionStorage.removeItem('zaplink_api_key');
 });
 
 function renderApiKeys(): void {
@@ -532,11 +532,11 @@ test('a refused update keeps the editor open and shows the reason', async () => 
 });
 
 test('editing the key the dashboard is signed in with warns before saving', async () => {
-  window.sessionStorage.setItem('openwa_api_key', 'owa_k1abXXXXYYYYZZZZ');
+  window.sessionStorage.setItem('zaplink_api_key', 'owa_k1abXXXXYYYYZZZZ');
   await openEdit(billingBot);
   rtl.screen.getByText(/This dashboard is signed in with this key/);
   rtl.cleanup();
-  window.sessionStorage.setItem('openwa_api_key', 'owa_k1zzXXXXYYYYZZZZ');
+  window.sessionStorage.setItem('zaplink_api_key', 'owa_k1zzXXXXYYYYZZZZ');
   await openEdit(billingBot);
   assert.equal(rtl.screen.queryByText(/This dashboard is signed in with this key/) === null, true);
 });
@@ -563,7 +563,7 @@ async function openEditOf(list: Record<string, unknown>[], name: string): Promis
 const signedInNote = () => rtl.screen.queryByText(/This dashboard is signed in with this key/);
 
 test('editing the key seeded from API_MASTER_KEY warns when the dashboard is signed in with it', async () => {
-  window.sessionStorage.setItem('openwa_api_key', 'Acme-Prod-Gateway-Master-2026-Q4!');
+  window.sessionStorage.setItem('zaplink_api_key', 'Acme-Prod-Gateway-Master-2026-Q4!');
   await openEditOf([masterKey, billingBot], 'Default Admin Key');
   assert.notEqual(signedInNote(), null);
   rtl.cleanup();
@@ -572,13 +572,13 @@ test('editing the key seeded from API_MASTER_KEY warns when the dashboard is sig
 });
 
 test('the warning also finds a seeded key that looks like a generated one', async () => {
-  window.sessionStorage.setItem('openwa_api_key', `owa_k1_${'ab12'.repeat(16)}`);
+  window.sessionStorage.setItem('zaplink_api_key', `owa_k1_${'ab12'.repeat(16)}`);
   await openEditOf([masterKey, billingBot], 'Default Admin Key');
   assert.notEqual(signedInNote(), null);
 });
 
 test('editing the key seeded from API_MASTER_KEY does not warn when the dashboard is signed in with another key', async () => {
-  window.sessionStorage.setItem('openwa_api_key', 'owa_k1abXXXXYYYYZZZZ');
+  window.sessionStorage.setItem('zaplink_api_key', 'owa_k1abXXXXYYYYZZZZ');
   await openEditOf([masterKey, billingBot], 'Default Admin Key');
   assert.equal(signedInNote(), null);
   rtl.cleanup();

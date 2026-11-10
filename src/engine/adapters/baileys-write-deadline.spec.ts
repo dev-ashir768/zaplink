@@ -12,7 +12,7 @@ import { RecipientUnreachableError } from '../../common/errors/recipient-unreach
  * or never answered — and `query()` catches its own timeout and resolves rather than throwing.
  *
  * There is no value left to inspect, so these pin the only thing that can separate the two: a
- * deadline OpenWA owns. One case per call site, because a missed wrapper is invisible otherwise.
+ * deadline ZapLink owns. One case per call site, because a missed wrapper is invisible otherwise.
  */
 
 const never = (): Promise<never> => new Promise<never>(() => undefined);

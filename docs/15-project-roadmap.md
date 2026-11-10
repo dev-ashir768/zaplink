@@ -4,7 +4,7 @@
 
 ```mermaid
 timeline
-    title OpenWA Release Timeline
+    title ZapLink Release Timeline
 
     section v0.0.1 - MVP
         Month 1-3 : Foundation & Engine
@@ -280,7 +280,7 @@ flowchart TB
 
 ```
 v0.0.1 Release Package:
-├── Docker image (ghcr.io/rmyndharis/openwa:0.0.1)
+├── Docker image (ghcr.io/dev-ashir768/zaplink:0.0.1)
 ├── docker-compose.yml
 ├── Basic API documentation (Swagger)
 ├── README with quick start
@@ -390,7 +390,7 @@ gantt
 
 ```
 v0.0.2 Release Package:
-├── Docker image (ghcr.io/rmyndharis/openwa:0.0.2)
+├── Docker image (ghcr.io/dev-ashir768/zaplink:0.0.2)
 ├── docker-compose.yml (with PostgreSQL & Redis)
 ├── Web Dashboard
 ├── API authentication (API keys)
@@ -495,7 +495,7 @@ gantt
 
 ```
 v0.1.0 Release Package:
-├── Docker image (ghcr.io/rmyndharis/openwa:0.1.0)
+├── Docker image (ghcr.io/dev-ashir768/zaplink:0.1.0)
 ├── docker-compose.yml (production ready)
 ├── Full-featured Web Dashboard
 ├── Complete API documentation (Swagger)
@@ -574,27 +574,27 @@ vars are removed. Ships with a migration guide.
 Delivered additively whenever ready, per SemVer (not gated to one version). Prometheus metrics shipped
 in `0.2.2` and the five client SDKs across `0.7.3`–`0.8.19`; the rest remain open.
 
-| Feature                | Priority | Status                                             | Description                     |
-| ---------------------- | -------- | -------------------------------------------------- | ------------------------------- |
-| JavaScript/Node.js SDK | P1       | ✅ Shipped (`@rmyndharis/openwa`)                  | Official client library         |
-| Python SDK             | P2       | ✅ Shipped (`rmyndharis-openwa`)                   | Python client library           |
-| PHP SDK                | P2       | ✅ Shipped (`rmyndharis/openwa`)                   | PHP client library              |
-| Java SDK               | P2       | ✅ Shipped (`com.rmyndharis:openwa`)               | Java client library             |
-| Go SDK                 | P2       | ✅ Shipped (`github.com/rmyndharis/OpenWA/sdk/go`) | Go client library               |
-| Postman Collection     | P1       | ◐ cURL collection (doc 07); Postman export TBD     | Ready-to-use API collection     |
-| Docs Site              | P1       | ☐ Open                                             | Documentation website           |
-| Video Tutorials        | P2       | ☐ Open                                             | Getting started video series    |
-| Example Projects       | P1       | ◐ A few under `docs/examples/`                     | Real-world integration examples |
+| Feature                | Priority | Status                                                | Description                     |
+| ---------------------- | -------- | ----------------------------------------------------- | ------------------------------- |
+| JavaScript/Node.js SDK | P1       | ✅ Shipped (`@rmyndharis/zaplink`)                    | Official client library         |
+| Python SDK             | P2       | ✅ Shipped (`rmyndharis-zaplink`)                     | Python client library           |
+| PHP SDK                | P2       | ✅ Shipped (`rmyndharis/zaplink`)                     | PHP client library              |
+| Java SDK               | P2       | ✅ Shipped (`com.rmyndharis:zaplink`)                 | Java client library             |
+| Go SDK                 | P2       | ✅ Shipped (`github.com/dev-ashir768/zaplink/sdk/go`) | Go client library               |
+| Postman Collection     | P1       | ◐ cURL collection (doc 07); Postman export TBD        | Ready-to-use API collection     |
+| Docs Site              | P1       | ☐ Open                                                | Documentation website           |
+| Video Tutorials        | P2       | ☐ Open                                                | Getting started video series    |
+| Example Projects       | P1       | ◐ A few under `docs/examples/`                        | Real-world integration examples |
 
 **Performance & Observability**
 
-| Feature                | Priority | Status                                      | Description                      |
-| ---------------------- | -------- | ------------------------------------------- | -------------------------------- |
-| Prometheus Metrics     | P1       | ✅ Shipped (`GET /api/metrics`, `openwa_*`) | /metrics endpoint for monitoring |
-| Grafana Dashboard      | P2       | ☐ Open                                      | Pre-built monitoring dashboard   |
-| OpenTelemetry Tracing  | P2       | ☐ Open                                      | Distributed tracing support      |
-| Performance Benchmarks | P1       | ☐ Open                                      | Documented performance metrics   |
-| Memory Optimization    | P1       | ☐ Open                                      | Reduced memory per session       |
+| Feature                | Priority | Status                                       | Description                      |
+| ---------------------- | -------- | -------------------------------------------- | -------------------------------- |
+| Prometheus Metrics     | P1       | ✅ Shipped (`GET /api/metrics`, `zaplink_*`) | /metrics endpoint for monitoring |
+| Grafana Dashboard      | P2       | ☐ Open                                       | Pre-built monitoring dashboard   |
+| OpenTelemetry Tracing  | P2       | ☐ Open                                       | Distributed tracing support      |
+| Performance Benchmarks | P1       | ☐ Open                                       | Documented performance metrics   |
+| Memory Optimization    | P1       | ☐ Open                                       | Reduced memory per session       |
 
 ### Integration Fabric — inbound integrations for plugins (in progress)
 
@@ -626,7 +626,7 @@ architecture and design rationale):
 > `supabase-otp-hook`, the second official ingress plugin — a different vehicle than the chatbot flow
 > builder this row originally named, but it is what proved the substrate generalizes to an independent
 > consumer. Adapters ship from the
-> [OpenWA-plugins](https://github.com/rmyndharis/OpenWA-plugins) catalog, so consult that repository for
+> [ZapLink-plugins](https://github.com/rmyndharis/OpenWA-plugins) catalog, so consult that repository for
 > each plugin's declared capabilities. P4 remains open: the published SDK reference, a compatibility test
 > suite, and multi-node routing.
 
@@ -663,7 +663,7 @@ PR, and pushing the tag from `main` hands everything else to `.github/workflows/
 - Name the version wherever the text was written before it was known, in a docs commit on `main` ahead of
   the release commit: every `next` in the Release column of the Known Upgrade Hazards table in
   `docs/14-migration-guide.md`, one for each hazard the release added, and every clause that says
-  "after OpenWA <last>", "the release after <last>" or "newer than <last>", such as line 3 of
+  "after ZapLink <last>", "the release after <last>" or "newer than <last>", such as line 3 of
   `sdk/README.md`, `docs/18-sdk-design.md` and the SDK READMEs, which becomes "<version> or later".
   `npm run test:docs` fails on a `next` row once `[Unreleased]` is empty, so a release commit that
   skips this fails its own CI.
@@ -681,7 +681,7 @@ npm version --no-git-tag-version <version>   # package.json + package-lock.json
 npm run openapi:export                        # openapi.json info.version follows package.json
 ```
 
-Then bump `appVersion` in `charts/openwa/Chart.yaml` to the same version — the chart defaults its
+Then bump `appVersion` in `charts/zaplink/Chart.yaml` to the same version — the chart defaults its
 image tag to `appVersion`, so a stale one deploys a tag that does not exist yet. Bump the chart's own
 `version:` by a patch in the same commit: Helm identifies a chart by that field alone, so leaving it
 while the templates change makes two different charts answer to one name in `helm list` and
@@ -727,7 +727,7 @@ Docker), and `docker` waits on `test-postgres`. Run those locally when the relea
 ```bash
 # SECURITY.md and docs/15 only on a MINOR; the chart's own `version:` bumps a patch alongside `appVersion`.
 git switch -c chore/release-<version>
-git add package.json package-lock.json openapi.json CHANGELOG.md charts/openwa/Chart.yaml SECURITY.md docs/15-project-roadmap.md
+git add package.json package-lock.json openapi.json CHANGELOG.md charts/zaplink/Chart.yaml SECURITY.md docs/15-project-roadmap.md
 git commit -m "chore(release): v<version>"
 git push origin chore/release-<version>   # open the PR to main and merge it once CI is green
 
@@ -818,8 +818,8 @@ the change being released:
 ```bash
 gh run list --workflow=release.yml --limit 1
 gh release view v<version>
-docker buildx imagetools inspect ghcr.io/rmyndharis/openwa:<version>
-docker buildx imagetools inspect docker.io/rmyndharis/openwa:latest
+docker buildx imagetools inspect ghcr.io/dev-ashir768/zaplink:<version>
+docker buildx imagetools inspect docker.io/dev-ashir768/zaplink:latest
 ```
 
 Do the registry checks logged **out**. A promotion can look green while the tags are unreachable to
@@ -828,9 +828,9 @@ v0.10.5 published its GitHub Release.
 
 Upgrading a Compose deployment that builds from source is `git pull && docker compose up -d --build`:
 the bundled `docker-compose.yml` **builds** the API service rather than pulling it, so
-`docker compose pull` is a no-op for OpenWA itself. A deployment whose `docker-compose.override.yml`
+`docker compose pull` is a no-op for ZapLink itself. A deployment whose `docker-compose.override.yml`
 sets a published image (see the README) upgrades with `git pull` followed by
-`docker compose pull openwa-api && docker compose up -d --no-build` instead; `--build` there would
+`docker compose pull zaplink-api && docker compose up -d --no-build` instead; `--build` there would
 build from source and tag the result with the published image name.
 
 ## 15.8 Success Metrics

@@ -1,9 +1,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { OpenWAClient, type CatalogInfo, type CatalogProduct } from '../src';
+import { ZapLinkClient, type CatalogInfo, type CatalogProduct } from '../src';
 import { MockTransport } from './helpers';
 
-function client(t: MockTransport): OpenWAClient {
-  return new OpenWAClient({ baseUrl: 'http://localhost:2785', apiKey: 'k', fetch: t.asFetch() });
+function client(t: MockTransport): ZapLinkClient {
+  return new ZapLinkClient({ baseUrl: 'http://localhost:2785', apiKey: 'k', fetch: t.asFetch() });
 }
 
 describe('LabelsResource — exact paths', () => {

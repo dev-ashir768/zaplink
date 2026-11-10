@@ -478,7 +478,7 @@ describe('whatsapp-web.js operations that race a session teardown', () => {
 });
 
 /**
- * Chromium stopped from outside OpenWA's own teardown (a SIGTERM to the browser, a page closed on its own)
+ * Chromium stopped from outside ZapLink's own teardown (a SIGTERM to the browser, a page closed on its own)
  * rejects the call that is pending under it BEFORE the page 'close' and browser 'disconnected' listeners
  * run, so the session still reads READY when the rejection is observed. Nothing has flagged it yet: the
  * operation has to report the death itself before it re-checks readiness, or that check passes and the

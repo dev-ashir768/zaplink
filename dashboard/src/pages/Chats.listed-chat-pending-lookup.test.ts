@@ -82,9 +82,9 @@ beforeEach(() => {
   calls.length = 0;
   answerSecondList = undefined;
   answerNumberCheck = undefined;
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
-  window.sessionStorage.setItem('openwa_engine_type', 'whatsapp-web.js');
-  window.sessionStorage.setItem('openwa_api_key', 'test-key');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_engine_type', 'whatsapp-web.js');
+  window.sessionStorage.setItem('zaplink_api_key', 'test-key');
 });
 
 afterEach(async () => {

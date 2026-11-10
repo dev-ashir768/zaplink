@@ -82,7 +82,7 @@ describe('shutdown time budget', () => {
     ['.env.example', [SHUTDOWN_TEARDOWN_LIMIT_MS, SHUTDOWN_KILL_DEADLINE_MS]],
     ['docs/06-api-specification.md', [SHUTDOWN_TEARDOWN_LIMIT_MS]],
     ['docker-compose.yml', [SHUTDOWN_TEARDOWN_LIMIT_MS, base, clustered]],
-    ['charts/openwa/values.yaml', [SHUTDOWN_TEARDOWN_LIMIT_MS, clustered]],
+    ['charts/zaplink/values.yaml', [SHUTDOWN_TEARDOWN_LIMIT_MS, clustered]],
   ])('quotes the current figures in %s', (file, figures) => {
     const text = readFileSync(join(root, file), 'utf8');
     for (const ms of figures) expect(text).toMatch(new RegExp(`\\b${ms / 1000} ?s\\b`));
@@ -98,7 +98,7 @@ describe('shutdown time budget', () => {
   it('matches the shipped kill deadlines in both compose files and the Helm chart', () => {
     const grace = (file: string) =>
       Number(/^\s+stop_grace_period: (\d+)s$/m.exec(readFileSync(join(root, file), 'utf8'))?.[1]) * 1000;
-    const values = readFileSync(join(root, 'charts/openwa/values.yaml'), 'utf8');
+    const values = readFileSync(join(root, 'charts/zaplink/values.yaml'), 'utf8');
     expect(grace('docker-compose.yml')).toBe(SHUTDOWN_KILL_DEADLINE_MS);
     expect(grace('docker-compose.dev.yml')).toBe(SHUTDOWN_KILL_DEADLINE_MS);
     expect(Number(/^terminationGracePeriodSeconds: (\d+)$/m.exec(values)?.[1]) * 1000).toBe(SHUTDOWN_KILL_DEADLINE_MS);
@@ -111,13 +111,13 @@ describe('shutdown time budget', () => {
     const compose = yaml.load(readFileSync(join(root, file), 'utf8')) as {
       services: Record<string, { container_name?: string; cap_drop?: string[]; cap_add?: string[] }>;
     };
-    const api = Object.values(compose.services).find(service => service.container_name === 'openwa-api');
+    const api = Object.values(compose.services).find(service => service.container_name === 'zaplink-api');
     expect(api?.cap_drop).toContain('ALL');
     expect(api?.cap_add).toContain('KILL');
   });
 
   it('re-adds KILL in the Helm chart and in the Kubernetes example of the scaling guide', () => {
-    const values = yaml.load(readFileSync(join(root, 'charts/openwa/values.yaml'), 'utf8')) as {
+    const values = yaml.load(readFileSync(join(root, 'charts/zaplink/values.yaml'), 'utf8')) as {
       containerSecurityContext: { capabilities: { add: string[] } };
     };
     expect(values.containerSecurityContext.capabilities.add).toContain('KILL');

@@ -1,9 +1,9 @@
-# OpenWA Java SDK
+# ZapLink Java SDK
 
-This document describes SDK 0.10.0. `messages.receipts` requires OpenWA 0.28.0 or later. `contacts.lid` requires OpenWA 0.27.1 or later. `groups.setMemberLabel`, the `match` field of `SearchQuery`, and the `thumbnailUrl` and `thumbnailBase64` components of `CustomLinkPreview` require OpenWA 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require OpenWA 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require OpenWA 0.26.0 or later.
+This document describes SDK 0.10.0. `messages.receipts` requires ZapLink 0.28.0 or later. `contacts.lid` requires ZapLink 0.27.1 or later. `groups.setMemberLabel`, the `match` field of `SearchQuery`, and the `thumbnailUrl` and `thumbnailBase64` components of `CustomLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Official Java client for [OpenWA](https://github.com/rmyndharis/OpenWA), the
-open-source WhatsApp API Gateway. OpenWA is an independent project, not
+Official Java client for [ZapLink](https://github.com/dev-ashir768/zaplink), the
+open-source WhatsApp API Gateway. ZapLink is an independent project, not
 affiliated with or endorsed by WhatsApp or Meta.
 
 Hand-written against the exact API surface (paths, DTOs, response shapes) and
@@ -18,7 +18,7 @@ Java 17+, one runtime dependency ([Gson](https://github.com/google/gson)).
 ```xml
 <dependency>
   <groupId>com.rmyndharis</groupId>
-  <artifactId>openwa</artifactId>
+  <artifactId>zaplink</artifactId>
   <version>0.10.0</version>
 </dependency>
 ```
@@ -26,19 +26,19 @@ Java 17+, one runtime dependency ([Gson](https://github.com/google/gson)).
 **Gradle**
 
 ```groovy
-implementation 'com.rmyndharis:openwa:0.10.0'
+implementation 'com.rmyndharis:zaplink:0.10.0'
 ```
 
 ## Quickstart
 
 ```java
-import com.rmyndharis.openwa.OpenWAClient;
-import com.rmyndharis.openwa.model.CreateSessionRequest;
-import com.rmyndharis.openwa.model.MessageResponse;
-import com.rmyndharis.openwa.model.SendTextRequest;
-import com.rmyndharis.openwa.model.SessionResponse;
+import com.rmyndharis.zaplink.ZapLinkClient;
+import com.rmyndharis.zaplink.model.CreateSessionRequest;
+import com.rmyndharis.zaplink.model.MessageResponse;
+import com.rmyndharis.zaplink.model.SendTextRequest;
+import com.rmyndharis.zaplink.model.SessionResponse;
 
-OpenWAClient client = new OpenWAClient("http://localhost:2785", "owa_k1_…");
+ZapLinkClient client = new ZapLinkClient("http://localhost:2785", "owa_k1_…");
 
 // Sessions are addressed by the UUID that create() returns, not by name. Create a session once;
 // afterwards, find its id with client.sessions.list(ListSessionsQuery.builder().name("my-session").build()).
@@ -50,7 +50,7 @@ client.sessions.start(session.id());
 MessageResponse result = client.messages.sendText(session.id(),
     SendTextRequest.builder()
         .chatId("628123456789@c.us")
-        .text("Hello from the OpenWA Java SDK!")
+        .text("Hello from the ZapLink Java SDK!")
         .build());
 
 System.out.println(result.messageId());
@@ -60,17 +60,17 @@ For full control over configuration (timeout, default headers, a custom
 transport), build a `ClientConfig`:
 
 ```java
-import com.rmyndharis.openwa.ClientConfig;
+import com.rmyndharis.zaplink.ClientConfig;
 import java.time.Duration;
 
-OpenWAClient client = new OpenWAClient(ClientConfig.builder()
+ZapLinkClient client = new ZapLinkClient(ClientConfig.builder()
     .baseUrl("https://wa.example.com")
     .apiKey("owa_k1_…")
     .timeout(Duration.ofSeconds(15))
     .build());
 ```
 
-An `OpenWAClient` keeps no per-call state, so one instance can serve every thread
+An `ZapLinkClient` keeps no per-call state, so one instance can serve every thread
 when its transport can (the default one can): build one per base URL and API key
 and reuse it. Each client starts its own `HttpClient`, with a selector thread and
 a connection pool, so a client per request costs a thread and loses connection
@@ -108,52 +108,52 @@ Errors are a typed, unchecked hierarchy — branch with `instanceof` or on
 `.status()`:
 
 ```java
-import com.rmyndharis.openwa.errors.OpenWAConflictError;
-import com.rmyndharis.openwa.errors.OpenWANotFoundError;
+import com.rmyndharis.zaplink.errors.ZapLinkConflictError;
+import com.rmyndharis.zaplink.errors.ZapLinkNotFoundError;
 
 try {
     client.messages.sendText(sessionId, body);
-} catch (OpenWAConflictError e) {
+} catch (ZapLinkConflictError e) {
     // 409 — a conflicting state: typically the engine is not ready, or a keyed send is pending or uncertain;
     // e.code() tells them apart (see Send idempotency)
-} catch (OpenWANotFoundError e) {
+} catch (ZapLinkNotFoundError e) {
     // 404 — session or chat not found
 }
 ```
 
-| Class                           | HTTP | Meaning                                                                                 |
-| ------------------------------- | ---- | --------------------------------------------------------------------------------------- |
-| `OpenWAAuthError`               | 401  | Missing or invalid API key                                                              |
-| `OpenWAForbiddenError`          | 403  | API key role or scope, or WhatsApp itself, refuses the call                             |
-| `OpenWANotFoundError`           | 404  | Resource not found                                                                      |
-| `OpenWAConflictError`           | 409  | Conflicting state, typically engine not ready, or an idempotency outcome (see `code()`) |
-| `OpenWARateLimitError`          | 429  | Rate limited                                                                            |
-| `OpenWANotImplementedError`     | 501  | Active engine does not support the call                                                 |
-| `OpenWAServiceUnavailableError` | 503  | Could not complete now: transport failure, draining, or WhatsApp throttle or timeout    |
-| `OpenWAApiError`                | —    | Any other non-2xx (carries `.status()`)                                                 |
-| `OpenWATimeoutError`            | —    | Request exceeded the configured timeout; the gateway may still complete the request     |
+| Class                            | HTTP | Meaning                                                                                 |
+| -------------------------------- | ---- | --------------------------------------------------------------------------------------- |
+| `ZapLinkAuthError`               | 401  | Missing or invalid API key                                                              |
+| `ZapLinkForbiddenError`          | 403  | API key role or scope, or WhatsApp itself, refuses the call                             |
+| `ZapLinkNotFoundError`           | 404  | Resource not found                                                                      |
+| `ZapLinkConflictError`           | 409  | Conflicting state, typically engine not ready, or an idempotency outcome (see `code()`) |
+| `ZapLinkRateLimitError`          | 429  | Rate limited                                                                            |
+| `ZapLinkNotImplementedError`     | 501  | Active engine does not support the call                                                 |
+| `ZapLinkServiceUnavailableError` | 503  | Could not complete now: transport failure, draining, or WhatsApp throttle or timeout    |
+| `ZapLinkApiError`                | —    | Any other non-2xx (carries `.status()`)                                                 |
+| `ZapLinkTimeoutError`            | —    | Request exceeded the configured timeout; the gateway may still complete the request     |
 
-All extend `OpenWAError` (a `RuntimeException`). 503 means the gateway could not complete the request right now: the path to WhatsApp failed, the gateway is draining or short of a dependency, or, on Baileys, WhatsApp throttled (code 429) or timed out (code 408) the request. Back off and retry later instead of at once, because repeating a throttled request straight away prolongs the throttle; a catalog 503 can persist because WhatsApp may never answer that query, so bound any retry. A 429 from the global rate limiter lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `retryAfterSeconds()` carries its `Retry-After` header. A 429 whose `code()` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `retryAfterSeconds()`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. `headers()` returns the response headers. A 503 does not always prove a write was never carried out: when WhatsApp timed out, the change may still have been applied, so re-read the state before repeating it. A throttle on a send or a single write was turned away before it ran, so nothing was sent or applied; a send also sent nothing when its recipient lookup failed, its connection closed before the message was written, or its media or preview image URL could not be fetched through the session's proxy. Each of these frees a keyed send's `Idempotency-Key`. A group settings update with several fields applies them one at a time, so a 503 on a later field, a throttle included, leaves the earlier ones applied; its message lists them after `already applied:`, so re-read the settings before retrying, or send one field per request. In a routed deployment a forward that fails before reaching the owner node answers 503, one that fails after the request reached it answers 502 or 504, and a 503 from the owner itself is relayed unchanged.
+All extend `ZapLinkError` (a `RuntimeException`). 503 means the gateway could not complete the request right now: the path to WhatsApp failed, the gateway is draining or short of a dependency, or, on Baileys, WhatsApp throttled (code 429) or timed out (code 408) the request. Back off and retry later instead of at once, because repeating a throttled request straight away prolongs the throttle; a catalog 503 can persist because WhatsApp may never answer that query, so bound any retry. A 429 from the global rate limiter lifts when its window expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and `retryAfterSeconds()` carries its `Retry-After` header. A 429 whose `code()` is `"SEND_PACING_LIMITED"` is usually not transient: do not retry it before `retryAfterSeconds()`, which then comes from the body: a few seconds when only sends still in flight caused it, the rest of the failure breaker's cooldown (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise up to the next UTC day. `headers()` returns the response headers. A 503 does not always prove a write was never carried out: when WhatsApp timed out, the change may still have been applied, so re-read the state before repeating it. A throttle on a send or a single write was turned away before it ran, so nothing was sent or applied; a send also sent nothing when its recipient lookup failed, its connection closed before the message was written, or its media or preview image URL could not be fetched through the session's proxy. Each of these frees a keyed send's `Idempotency-Key`. A group settings update with several fields applies them one at a time, so a 503 on a later field, a throttle included, leaves the earlier ones applied; its message lists them after `already applied:`, so re-read the settings before retrying, or send one field per request. In a routed deployment a forward that fails before reaching the owner node answers 503, one that fails after the request reached it answers 502 or 504, and a 503 from the owner itself is relayed unchanged.
 
 ## Receiving webhooks
 
 A webhook configured with a secret signs each delivery in its
-`X-OpenWA-Signature` header. Check it with `WebhookSignature.verify` against
+`X-ZapLink-Signature` header. Check it with `WebhookSignature.verify` against
 the raw request body, exactly as received (a `byte[]`, or a `String` read as
 UTF-8), and parse the JSON only after the check passes: a re-serialized body can
 differ byte for byte and will not verify. The helper returns `false` (never
 throws) for a missing, malformed or non-matching signature.
-`com.rmyndharis.openwa.model.WebhookDelivery` types the parsed body.
+`com.rmyndharis.zaplink.model.WebhookDelivery` types the parsed body.
 
 ```java
 import com.google.gson.Gson;
-import com.rmyndharis.openwa.WebhookSignature;
-import com.rmyndharis.openwa.model.WebhookDelivery;
+import com.rmyndharis.zaplink.WebhookSignature;
+import com.rmyndharis.zaplink.model.WebhookDelivery;
 import java.nio.charset.StandardCharsets;
 
 // In a servlet's doPost(request, response):
 byte[] rawBody = request.getInputStream().readAllBytes();
-if (!WebhookSignature.verify(rawBody, request.getHeader("X-OpenWA-Signature"), secret)) {
+if (!WebhookSignature.verify(rawBody, request.getHeader("X-ZapLink-Signature"), secret)) {
     response.setStatus(401);
     return;
 }
@@ -164,7 +164,7 @@ WebhookDelivery delivery =
 
 The signature covers the body only and carries no timestamp, so a captured
 delivery still verifies when it is sent again. Dedupe on
-`delivery.idempotencyKey()` (also the `X-OpenWA-Idempotency-Key` header): the
+`delivery.idempotencyKey()` (also the `X-ZapLink-Idempotency-Key` header): the
 gateway's own retries and an operator's redrive of a failed delivery reuse it, so
 a key you have already handled is the same event arriving again.
 
@@ -176,7 +176,7 @@ a key you have already handled is the same event arriving again.
 - **No automatic retries.** A failed request throws immediately; wrap calls in
   your own backoff if you need retries (especially for `429`). Inject a custom
   `HttpTransport` for retry or observability middleware.
-- **Redirects are never followed.** A `3xx` surfaces as an `OpenWAApiError`
+- **Redirects are never followed.** A `3xx` surfaces as an `ZapLinkApiError`
   rather than being followed, so the API key is never re-sent to a redirect
   target.
 - **Default per-request timeout** is 30 s (configurable). It bounds the whole
@@ -237,7 +237,7 @@ Cutting a release:
 
 ## Send idempotency
 
-The example below requires SDK 0.6.0 or later and OpenWA 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
+The example below requires SDK 0.6.0 or later and ZapLink 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
 
 Supply a unique caller-owned key for one logical send and reuse it when retrying that same call. Keys contain 1-255 visible ASCII characters; unrelated calls must use different keys. The SDK forwards the key without changing its retry policy or generating one automatically.
 

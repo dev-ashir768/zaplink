@@ -212,7 +212,7 @@ describe('governance docs match the repository', () => {
   // The override keeps the service's `build:` section, so `--build` would tag a source build with the
   // published image name. The README, the release guide and the migration guide give one upgrade command.
   it('gives the published-image override one upgrade command in the README, docs/14 and docs/15', () => {
-    const command = 'docker compose pull openwa-api && docker compose up -d --no-build';
+    const command = 'docker compose pull zaplink-api && docker compose up -d --no-build';
     const readme = between(read('README.md'), 'To run a published image', '\n## ');
     expect(readme).toContain(command);
     expect(readme).not.toMatch(/still builds from source/);
@@ -228,14 +228,14 @@ describe('governance docs match the repository', () => {
   // `docker compose run` has no --no-build, so the runbook confirms the pull landed before step 7.
   it('keeps the runbook published-image upgrade from building after a failed pull', () => {
     const note = between(read('docs/11-operational-runbooks.md'), '> If you deploy the published image', '\n\n');
-    expect(note).toContain('`docker compose pull openwa-api`');
-    expect(note).toContain('`docker image inspect ghcr.io/rmyndharis/openwa:<tag>`');
+    expect(note).toContain('`docker compose pull zaplink-api`');
+    expect(note).toContain('`docker image inspect ghcr.io/dev-ashir768/zaplink:<tag>`');
     expect(note).toContain('`docker compose up -d --no-build`');
   });
 
   // Compose hands `./.env`'s PLUGINS_DIR to the container, where `./data/plugins` is in the volume,
-  // so the backup scripts read it, like the ./data defaults, under OPENWA_DATA_DIR.
-  it('tells a host-mount backup that ./data paths in ./.env follow OPENWA_DATA_DIR', () => {
+  // so the backup scripts read it, like the ./data defaults, under ZAPLINK_DATA_DIR.
+  it('tells a host-mount backup that ./data paths in ./.env follow ZAPLINK_DATA_DIR', () => {
     expect(read('.env.example')).toMatch(/^PLUGINS_DIR=\.\/data\/plugins\b/m);
     expect(read('docker-compose.yml')).toContain('- PLUGINS_DIR=${PLUGINS_DIR:-');
     const note = between(read('docs/11-operational-runbooks.md'), '> The scripts resolve every other path', '\n>\n')
@@ -243,10 +243,10 @@ describe('governance docs match the repository', () => {
       .replace(/\s+/g, ' ');
     expect(note).toContain('A relative `./data/...` path in `./.env` or `.env.generated`');
     expect(note).toContain('`PLUGINS_DIR=./data/plugins`');
-    expect(note).toContain('is read under `OPENWA_DATA_DIR`, as are the `./data` database and state defaults');
+    expect(note).toContain('is read under `ZAPLINK_DATA_DIR`, as are the `./data` database and state defaults');
   });
 
-  // docs/20 section 20.4: the project runs no real-time chat server, and the `openwa` name is shared.
+  // docs/20 section 20.4: the project runs no real-time chat server, and the `zaplink` name is shared.
   it('links no chat server the project does not run', () => {
     const docs = readdirSync(join(root, 'docs'))
       .filter(name => name.endsWith('.md'))
@@ -272,12 +272,12 @@ describe('governance docs match the repository', () => {
     ];
     for (const description of descriptions) {
       expect(description).toMatch(
-        /^Official .+ SDK for OpenWA, the open-source WhatsApp API Gateway \(not affiliated with WhatsApp or Meta\)$/,
+        /^Official .+ SDK for ZapLink, the open-source WhatsApp API Gateway \(not affiliated with WhatsApp or Meta\)$/,
       );
     }
     // Go has no registry manifest: pkg.go.dev shows the package comment's first sentence instead.
     expect(read('sdk/go/client.go')).toMatch(
-      /^\/\/ Package openwa is the official Go client for OpenWA, the open-source WhatsApp API Gateway \(not\n\/\/ affiliated with WhatsApp or Meta\)\./,
+      /^\/\/ Package zaplink is the official Go client for ZapLink, the open-source WhatsApp API Gateway \(not\n\/\/ affiliated with WhatsApp or Meta\)\./,
     );
   });
 
@@ -363,20 +363,20 @@ describe('governance docs match the repository', () => {
     expect(caps).toContain('`STORAGE_IMPORT_MAX_ENTRIES` files (default `100000`)');
     expect(caps).toContain("Step 1's `sizeBytes` or `count`");
     // The import buffers each file whole, so a raised per-entry cap must fit the container's memory.
-    expect(caps).toContain('`OPENWA_MEM_LIMIT` (default `2g`)');
+    expect(caps).toContain('`ZAPLINK_MEM_LIMIT` (default `2g`)');
     const step1 = between(guide, '# Step 1: Check current storage file count', '# Step 2').replace(/\s+/g, ' ');
     expect(step1).toContain('sizeBytes with STORAGE_IMPORT_MAX_TOTAL_BYTES');
     expect(step1).toContain('count with STORAGE_IMPORT_MAX_ENTRIES');
     // Step 1 cannot show the largest file, so the export warning is the only early per-file signal.
     const step2 = between(guide, '# Step 2: Export all files as tar.gz', '# Step 3').replace(/\s+/g, ' ');
-    expect(step2).toContain('docker compose logs openwa-api');
+    expect(step2).toContain('docker compose logs zaplink-api');
     expect(step2).toContain('STORAGE_IMPORT_MAX_BYTES');
   });
 
   // The Java transport waits on the whole exchange with the client timeout, so a slow media download
   // can time out where it once finished. Callers size the timeout from these two descriptions.
   it('says the Java SDK timeout also bounds the response body', () => {
-    const java = 'sdk/java/src/main/java/com/rmyndharis/openwa';
+    const java = 'sdk/java/src/main/java/com/rmyndharis/zaplink';
     expect(read(java, 'http/DefaultHttpTransport.java')).toMatch(/future\.get\(timeoutMs, TimeUnit\.MILLISECONDS\)/);
     const readme = between(read('sdk/java/README.md'), '- **Default per-request timeout**', '\n- **');
     expect(readme.replace(/\s+/g, ' ')).toMatch(/bounds the whole exchange, response body included/);
@@ -410,18 +410,18 @@ describe('governance docs match the repository', () => {
   it('gives the admin key recovery its Helm commands and the bootstrap key caveat', () => {
     const security = read('docs/04-security-design.md');
     const recovery = between(security, '### Recovering a lost admin key', '\n## ');
-    expect(read('charts/openwa/templates/NOTES.txt')).toContain('default "/app/data/.api-key"');
-    expect(recovery).toContain('`kubectl exec openwa-0 -- cat /app/data/.api-key`');
+    expect(read('charts/zaplink/templates/NOTES.txt')).toContain('default "/app/data/.api-key"');
+    expect(recovery).toContain('`kubectl exec zaplink-0 -- cat /app/data/.api-key`');
     expect(recovery).toMatch(/demoted from `admin`[\s\S]+go on to step 2 or 3/);
     expect(recovery).toMatch(/given any `allowedSessions` or `allowedChats`, or given `allowedIps` that exclude/);
     expect(recovery).toMatch(/`allowedIps` \(when set\) admits/);
-    expect(recovery).toContain('`kubectl exec openwa-0 -- node -e "$GEN"`');
-    expect(recovery).toContain('`kubectl exec openwa-restore --`');
+    expect(recovery).toContain('`kubectl exec zaplink-0 -- node -e "$GEN"`');
+    expect(recovery).toContain('`kubectl exec zaplink-restore --`');
     const restore = between(read('docs/11-operational-runbooks.md'), '### Runbook: Restore from Backup', '\n### ');
-    expect(restore).toContain('name: openwa-restore');
-    expect(restore).toContain('claimName: data-openwa-0');
+    expect(restore).toContain('name: zaplink-restore');
+    expect(restore).toContain('claimName: data-zaplink-0');
     const pepper = between(security, '**Setting or changing `API_KEY_PEPPER`', '\n\n');
-    expect(pepper).toContain('`kubectl exec openwa-restore -- sqlite3 /app/data/main.sqlite "DELETE FROM api_keys"`');
+    expect(pepper).toContain('`kubectl exec zaplink-restore -- sqlite3 /app/data/main.sqlite "DELETE FROM api_keys"`');
     const faq = between(read('docs/12-troubleshooting-faq.md'), '**Q: I lost the admin API key.', '\n\n### ');
     expect(faq).not.toMatch(/first started with/);
     expect(faq).toMatch(/last seeded, which still works while that key is an active, unscoped ADMIN key/);

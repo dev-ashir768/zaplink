@@ -187,9 +187,9 @@ describe('A session deleted on one node while a peer shares the database', () =>
         type: 'postgres',
         host: process.env.DATABASE_HOST || 'localhost',
         port: Number(process.env.DATABASE_PORT || 5432),
-        username: process.env.DATABASE_USERNAME || 'openwa',
-        password: process.env.DATABASE_PASSWORD || 'openwa',
-        database: process.env.DATABASE_NAME || 'openwa',
+        username: process.env.DATABASE_USERNAME || 'zaplink',
+        password: process.env.DATABASE_PASSWORD || 'zaplink',
+        database: process.env.DATABASE_NAME || 'zaplink',
         schema: `session_delete_claim_${randomUUID().replace(/-/g, '')}`,
         entities,
         extra: postgresUtcExtra(),
@@ -199,7 +199,7 @@ describe('A session deleted on one node while a peer shares the database', () =>
       await setup.synchronize();
       await setup.destroy();
     } else {
-      dir = mkdtempSync(join(tmpdir(), 'openwa-delete-claim-'));
+      dir = mkdtempSync(join(tmpdir(), 'zaplink-delete-claim-'));
       options = { type: 'better-sqlite3', database: join(dir, 'data.sqlite'), entities };
       await (await new DataSource({ ...options, synchronize: true }).initialize()).destroy();
     }

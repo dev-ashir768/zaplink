@@ -102,7 +102,7 @@ afterEach(() => {
 after(() => rtl.cleanup());
 
 test('the theme button can return to following the system', () => {
-  localStorage.removeItem('openwa_theme');
+  localStorage.removeItem('zaplink_theme');
   const { container } = renderLayout();
   const button = container.querySelector<HTMLButtonElement>('.appearance-menu .theme-toggle-btn')!;
   const seen = [button.textContent];
@@ -115,7 +115,7 @@ test('the theme button can return to following the system', () => {
     assert.equal(announced, `${shown}, Switch to ${button.textContent}`);
   }
   assert.deepEqual(seen, ['System', 'Light', 'Dark', 'System']);
-  assert.equal(localStorage.getItem('openwa_theme'), 'system');
+  assert.equal(localStorage.getItem('zaplink_theme'), 'system');
 });
 
 // Collapsing is a desktop preference: the phone drawer has no collapse control, so a flag left over from a wider

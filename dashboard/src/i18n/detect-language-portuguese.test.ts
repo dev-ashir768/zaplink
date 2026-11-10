@@ -24,7 +24,7 @@ before(async () => {
 
 test('a Portuguese visitor outside Brazil gets the Portuguese catalogue, not English', () => {
   assert.equal(i18n.language, 'pt-BR');
-  assert.equal(localStorage.getItem('openwa_language'), 'pt-BR');
+  assert.equal(localStorage.getItem('zaplink_language'), 'pt-BR');
 });
 
 test('every Portuguese tag resolves to the one Portuguese catalogue', () => {

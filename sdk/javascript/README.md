@@ -1,15 +1,15 @@
-# @rmyndharis/openwa
+# @rmyndharis/zaplink
 
-This document describes SDK 0.10.0. `messages.receipts` requires OpenWA 0.28.0 or later. `contacts.lid` requires OpenWA 0.27.1 or later. `groups.setMemberLabel`, the `match` key of the search query, and the `thumbnailUrl` and `thumbnailBase64` fields of `customLinkPreview` require OpenWA 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require OpenWA 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require OpenWA 0.26.0 or later.
+This document describes SDK 0.10.0. `messages.receipts` requires ZapLink 0.28.0 or later. `contacts.lid` requires ZapLink 0.27.1 or later. `groups.setMemberLabel`, the `match` key of the search query, and the `thumbnailUrl` and `thumbnailBase64` fields of `customLinkPreview` require ZapLink 0.27.0 or later. Send idempotency, webhook failure redrive, message-window filters, poll choices, last-message types, and the `event.response` webhook event name require ZapLink 0.25.0 or later. The `message.receipt` and `poll.vote` webhook event names require ZapLink 0.26.0 or later.
 
-Official JavaScript/TypeScript SDK for [OpenWA](https://github.com/rmyndharis/OpenWA), the open-source WhatsApp API Gateway. OpenWA is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
+Official JavaScript/TypeScript SDK for [ZapLink](https://github.com/dev-ashir768/zaplink), the open-source WhatsApp API Gateway. ZapLink is an independent project, not affiliated with or endorsed by WhatsApp or Meta.
 
 Ships dual CJS + ESM builds with bundled type declarations.
 
 ## Install
 
 ```bash
-npm install @rmyndharis/openwa
+npm install @rmyndharis/zaplink
 ```
 
 Requires Node.js >= 18 (relies on the global `fetch`).
@@ -17,9 +17,9 @@ Requires Node.js >= 18 (relies on the global `fetch`).
 ## Usage
 
 ```typescript
-import { OpenWAClient } from '@rmyndharis/openwa';
+import { ZapLinkClient } from '@rmyndharis/zaplink';
 
-const client = new OpenWAClient({
+const client = new ZapLinkClient({
   baseUrl: 'https://your-gateway.example.com',
   apiKey: 'owa_k1_…',
 });
@@ -33,12 +33,12 @@ await client.sessions.start(session.id);
 // then wait for status 'ready'. An unlinked session answers the send with 409.
 const result = await client.messages.sendText(session.id, {
   chatId: '628123456789@c.us',
-  text: 'Hello from the OpenWA SDK!',
+  text: 'Hello from the ZapLink SDK!',
 });
 console.log(result.messageId);
 ```
 
-CommonJS consumers use `require('@rmyndharis/openwa')` identically.
+CommonJS consumers use `require('@rmyndharis/zaplink')` identically.
 
 For an endpoint the SDK does not wrap, call `client.request({ method, path, query, body })`, which
 takes an `Idempotency-Key` as its second argument, or `client.requestBytes(...)` for a binary response body. A
@@ -52,11 +52,11 @@ slashes, such as `../x`, is refused the same way.
 
 ## Errors
 
-Non-2xx responses throw a typed `OpenWAApiError` subclass (`OpenWAAuthError`,
-`OpenWAForbiddenError`, `OpenWANotFoundError`, `OpenWAConflictError`,
-`OpenWARateLimitError`, `OpenWANotImplementedError`,
-`OpenWAServiceUnavailableError` for 503), each carrying `.status` and the parsed
-`.body`. Timeouts throw `OpenWATimeoutError`, though the gateway may still
+Non-2xx responses throw a typed `ZapLinkApiError` subclass (`ZapLinkAuthError`,
+`ZapLinkForbiddenError`, `ZapLinkNotFoundError`, `ZapLinkConflictError`,
+`ZapLinkRateLimitError`, `ZapLinkNotImplementedError`,
+`ZapLinkServiceUnavailableError` for 503), each carrying `.status` and the parsed
+`.body`. Timeouts throw `ZapLinkTimeoutError`, though the gateway may still
 complete the request: retry a send only with the same `Idempotency-Key`. The SDK
 does **not** retry — wrap calls with your own backoff if needed. 503 means the gateway could not complete
 the request right now: the path to WhatsApp failed, the gateway is draining or
@@ -90,7 +90,7 @@ answers 502 or 504, and a 503 from the owner itself is relayed unchanged.
 ## Receiving webhooks
 
 A webhook configured with a secret signs each delivery in its
-`X-OpenWA-Signature` header. Check it with `verifyWebhookSignature` against the
+`X-ZapLink-Signature` header. Check it with `verifyWebhookSignature` against the
 raw request body, exactly as received, and parse the JSON only after the check
 passes: a re-serialized body can differ byte for byte and will not verify. The
 helper resolves `false` (never throws) for a missing, malformed or non-matching
@@ -98,12 +98,12 @@ signature. `WebhookDelivery` types the parsed body.
 
 ```typescript
 import express from 'express';
-import { verifyWebhookSignature, type WebhookDelivery } from '@rmyndharis/openwa';
+import { verifyWebhookSignature, type WebhookDelivery } from '@rmyndharis/zaplink';
 
 const app = express();
 
-app.post('/openwa/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!(await verifyWebhookSignature(req.body, req.get('X-OpenWA-Signature'), secret))) {
+app.post('/zaplink/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!(await verifyWebhookSignature(req.body, req.get('X-ZapLink-Signature'), secret))) {
     return res.status(401).send('Invalid signature');
   }
   const delivery = JSON.parse(req.body.toString('utf8')) as WebhookDelivery;
@@ -114,7 +114,7 @@ app.post('/openwa/webhook', express.raw({ type: 'application/json' }), async (re
 
 The signature covers the body only and carries no timestamp, so a captured
 delivery still verifies when it is sent again. Dedupe on
-`delivery.idempotencyKey` (also the `X-OpenWA-Idempotency-Key` header): the
+`delivery.idempotencyKey` (also the `X-ZapLink-Idempotency-Key` header): the
 gateway's own retries and an operator's redrive of a failed delivery reuse it, so
 a key you have already handled is the same event arriving again.
 
@@ -129,11 +129,11 @@ automatically. Nothing long-lived exists to leak, expire, or migrate when
 2FA-bypass tokens lose direct publish in January 2027.
 
 One-time setup, required **before** the first tag — on npmjs.com, open the
-package settings for `@rmyndharis/openwa` and add a Trusted Publisher:
+package settings for `@rmyndharis/zaplink` and add a Trusted Publisher:
 
 - Provider: **GitHub Actions**
 - Organization: `rmyndharis`
-- Repository: `OpenWA`
+- Repository: `ZapLink`
 - Workflow filename: `js-sdk-release.yml` (the extension is part of the value)
 
 There are no repository secrets to add. Until the trusted publisher exists npm
@@ -156,7 +156,7 @@ Cutting a release:
 
 ## Send idempotency
 
-The example below requires SDK 0.6.0 or later and OpenWA 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
+The example below requires SDK 0.6.0 or later and ZapLink 0.25.0 or later. SDK 0.5.1 does not expose this per-send key argument.
 
 Supply a unique caller-owned key for one logical send and reuse it when retrying that same call. Keys contain 1-255 visible ASCII characters; unrelated calls must use different keys. The SDK forwards the key without changing its retry policy or generating one automatically.
 

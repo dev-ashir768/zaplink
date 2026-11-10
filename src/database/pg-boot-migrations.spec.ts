@@ -21,9 +21,9 @@ const PG_OPTIONS: DataSourceOptions = {
   type: 'postgres',
   host: 'db',
   port: 5432,
-  username: 'openwa',
+  username: 'zaplink',
   password: 'secret',
-  database: 'openwa',
+  database: 'zaplink',
   // The app config still carries this; the factory takes over execution and must neutralize it.
   migrationsRun: true,
   migrationsTransactionMode: 'all',
@@ -203,9 +203,9 @@ describe('createBootDataSource (postgres boot migrations)', () => {
       expect.objectContaining({
         host: 'db',
         port: 5432,
-        user: 'openwa',
+        user: 'zaplink',
         password: 'secret',
-        database: 'openwa',
+        database: 'zaplink',
         connectionTimeoutMillis: 10000,
       }),
       expect.any(Function),
@@ -234,8 +234,8 @@ describe('createBootDataSource (postgres boot migrations)', () => {
     const { deps } = makeFakes();
     const custom: DataSourceOptions = {
       ...PG_OPTIONS,
-      schema: 'openwa',
-      extra: { statement_timeout: 30000, connectionTimeoutMillis: 10000, options: '-c search_path=openwa,public' },
+      schema: 'zaplink',
+      extra: { statement_timeout: 30000, connectionTimeoutMillis: 10000, options: '-c search_path=zaplink,public' },
     };
 
     await createBootDataSource(custom, deps);
@@ -244,15 +244,15 @@ describe('createBootDataSource (postgres boot migrations)', () => {
     expect(migrator.extra).not.toHaveProperty('options');
     expect(runtime.extra).not.toHaveProperty('options');
     expect(await connectStatements(migrator)).toEqual([
-      "SET TIME ZONE 'UTC'; SELECT set_config('search_path', 'openwa,public', false)",
+      "SET TIME ZONE 'UTC'; SELECT set_config('search_path', 'zaplink,public', false)",
     ]);
     expect(await connectStatements(runtime)).toEqual([
-      "SET TIME ZONE 'UTC'; SET statement_timeout = 30000; SELECT set_config('search_path', 'openwa,public', false)",
+      "SET TIME ZONE 'UTC'; SET statement_timeout = 30000; SELECT set_config('search_path', 'zaplink,public', false)",
     ]);
     expect(custom.extra).toEqual({
       statement_timeout: 30000,
       connectionTimeoutMillis: 10000,
-      options: '-c search_path=openwa,public',
+      options: '-c search_path=zaplink,public',
     });
   });
 
@@ -324,7 +324,7 @@ describe('createBootDataSource (postgres boot migrations)', () => {
   });
 
   it('keeps the default @nestjs/typeorm path for non-postgres options (no lock, no initialize)', async () => {
-    const sqliteOptions: DataSourceOptions = { type: 'better-sqlite3', database: './data/openwa.sqlite' };
+    const sqliteOptions: DataSourceOptions = { type: 'better-sqlite3', database: './data/zaplink.sqlite' };
     const dataSource = {
       initialize: jest.fn(() => Promise.resolve()),
       runMigrations: jest.fn(() => Promise.resolve()),
@@ -488,7 +488,7 @@ describe('createBootDataSource (postgres boot migrations)', () => {
       expect(returned.options.migrationsRun).toBe(false);
       // The real Client constructor received the same lock-client config the fakes assert above.
       expect(clientCtor).toHaveBeenCalledWith(
-        expect.objectContaining({ host: 'db', user: 'openwa', database: 'openwa' }),
+        expect.objectContaining({ host: 'db', user: 'zaplink', database: 'zaplink' }),
       );
       expect(clientCtor.mock.calls[0][0]).not.toHaveProperty('options');
       expect(lockClient.query).toHaveBeenNthCalledWith(3, 'SELECT pg_advisory_lock($1, $2)', [

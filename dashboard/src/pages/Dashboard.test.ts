@@ -84,7 +84,7 @@ before(async () => {
     disconnect(): void {}
   };
   installFetchStub();
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
   const { i18nReady } = await import('../i18n/index.ts');
   await i18nReady;
   rtl = await import('@testing-library/react');
@@ -106,8 +106,8 @@ afterEach(() => {
   holdWebhooks = false;
   statsReadable = false;
   requested.length = 0;
-  window.sessionStorage.setItem('openwa_user_role', 'viewer');
-  window.sessionStorage.removeItem('openwa_key_scoped');
+  window.sessionStorage.setItem('zaplink_user_role', 'viewer');
+  window.sessionStorage.removeItem('zaplink_key_scoped');
 });
 
 function renderDashboard(): void {
@@ -173,7 +173,7 @@ test('a refused read of the sessions or their statistics is not polled again', a
 
 test('a refused webhook read shows the unavailable placeholder, not zero webhooks', async () => {
   webhooksStatus = 403;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderDashboard();
   await rtl.screen.findByText('Webhooks Configured');
   // The overview card is not read for an operator, so its placeholder is the one the webhook card must match.
@@ -184,7 +184,7 @@ test('a refused webhook read shows the unavailable placeholder, not zero webhook
 test('a failed background refetch keeps counting the cached webhooks', async () => {
   webhooksStatus = 200;
   webhookList = [{ id: 'w1', url: 'https://example.test/hook', events: [] }];
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderDashboard();
   await rtl.screen.findByText('Webhooks Configured');
   await rtl.waitFor(() => assert.equal(statValue('Webhooks Configured'), '1'));
@@ -197,7 +197,7 @@ test('a failed background refetch keeps counting the cached webhooks', async () 
 
 test('a successful empty webhook read still counts zero', async () => {
   webhooksStatus = 200;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderDashboard();
   await rtl.screen.findByText('Webhooks Configured');
   await rtl.waitFor(() => assert.equal(queryClient!.getQueryState(['webhooks'])?.status, 'success'));
@@ -206,7 +206,7 @@ test('a successful empty webhook read still counts zero', async () => {
 
 test('a webhook read still in flight shows the placeholder, not zero webhooks', async () => {
   holdWebhooks = true;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderDashboard();
   await rtl.screen.findByText('Webhooks Configured');
   await rtl.waitFor(() => assert.ok(requested.includes('/api/webhooks')));
@@ -253,7 +253,7 @@ test('a failed stop is reported, not swallowed', async () => {
   webhooksStatus = 200;
   sessionList = [READY_SESSION];
   stopStatus = 400;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderDashboard();
   const disconnect = await rtl.screen.findByRole('button', { name: 'Disconnect' });
   // The session changed on the server even though the stop answered an error: the list is re-read.
@@ -271,7 +271,7 @@ test('a failed stop is reported, not swallowed', async () => {
 // reconnecting with its engine from a stopped one.
 test('Disconnect is offered exactly where the gateway holds an engine', async () => {
   webhooksStatus = 200;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   sessionList = [{ ...READY_SESSION, status: 'disconnected', engineLoaded: true }];
   renderDashboard();
   await rtl.screen.findByRole('button', { name: 'Disconnect' });
@@ -306,7 +306,7 @@ test('a failed first read of the sessions still shows the error', async () => {
 
 test('a non-admin key never loads the chart section', async () => {
   for (const role of ['viewer', 'operator']) {
-    window.sessionStorage.setItem('openwa_user_role', role);
+    window.sessionStorage.setItem('zaplink_user_role', role);
     renderDashboard();
     await rtl.waitFor(() => assert.ok(requested.includes('/api/sessions')));
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -333,15 +333,15 @@ test('a viewer is not sent the webhook read and its card shows the placeholder',
 });
 
 test('an admin key loads the chart section', async () => {
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
   renderDashboard();
   await rtl.waitFor(() => assert.ok(requested.some(p => p.startsWith('/api/stats/messages'))));
 });
 
 test('a session-scoped admin key never loads the cross-session statistics', async () => {
   // GET /stats/overview and /stats/messages refuse a key restricted to selected sessions, whatever its role.
-  window.sessionStorage.setItem('openwa_user_role', 'admin');
-  window.sessionStorage.setItem('openwa_key_scoped', 'true');
+  window.sessionStorage.setItem('zaplink_user_role', 'admin');
+  window.sessionStorage.setItem('zaplink_key_scoped', 'true');
   renderDashboard();
   await rtl.waitFor(() => assert.ok(requested.includes('/api/sessions')));
   await new Promise(resolve => setTimeout(resolve, 50));

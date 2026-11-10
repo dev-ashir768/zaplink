@@ -28,5 +28,5 @@ export function namesBundledContainer(profile: string, value: string | undefined
     }
   }
   host = host.toLowerCase().replace(/\.$/, '');
-  return host === profile || host === `openwa-${profile}`;
+  return host === profile || host === `zaplink-${profile}`;
 }

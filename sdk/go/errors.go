@@ -1,4 +1,4 @@
-package openwa
+package zaplink
 
 import (
 	"encoding/json"
@@ -10,28 +10,28 @@ import (
 
 // Sentinel errors for the common failure modes. Match them with errors.Is:
 //
-//	if errors.Is(err, openwa.ErrNotFound) { ... }
+//	if errors.Is(err, zaplink.ErrNotFound) { ... }
 //
 // They are matched against an *APIError by its HTTP status code, so you never
 // need to inspect the status yourself for the common cases. For everything else
 // (or to read the response body), unwrap the concrete type with errors.As:
 //
-//	var apiErr *openwa.APIError
+//	var apiErr *zaplink.APIError
 //	if errors.As(err, &apiErr) { log.Println(apiErr.StatusCode, apiErr.Body) }
 var (
 	// ErrBadRequest is returned for a 400 (invalid request payload).
-	ErrBadRequest = errors.New("openwa: bad request")
+	ErrBadRequest = errors.New("zaplink: bad request")
 	// ErrUnauthorized is returned for a 401 (missing or invalid API key).
-	ErrUnauthorized = errors.New("openwa: unauthorized")
+	ErrUnauthorized = errors.New("zaplink: unauthorized")
 	// ErrForbidden is returned for a 403: the API key's role or scope (session,
 	// IP or chat allow-list) refuses the call, or WhatsApp itself refused the
 	// operation (for example, missing group admin rights).
-	ErrForbidden = errors.New("openwa: forbidden")
+	ErrForbidden = errors.New("zaplink: forbidden")
 	// ErrNotFound is returned for a 404.
-	ErrNotFound = errors.New("openwa: not found")
+	ErrNotFound = errors.New("zaplink: not found")
 	// ErrConflict is returned for a 409: a conflicting state, typically a session that is not ready for the
 	// operation, or a keyed send that is pending or may already have been sent (see the error code).
-	ErrConflict = errors.New("openwa: conflict")
+	ErrConflict = errors.New("zaplink: conflict")
 	// ErrRateLimited is returned for a 429 (too many requests). The global rate
 	// limiter's 429 lifts when its window expires (seconds for the per-second
 	// tier, up to an hour for the hourly tier by default); APIError.RetryAfter
@@ -41,10 +41,10 @@ var (
 	// only sends still in flight caused it, the rest of the failure breaker's
 	// cooldown (SEND_PACING_BREAKER_COOLDOWN_MS, 15 minutes by default) after a
 	// run of send failures, otherwise up to the next UTC day.
-	ErrRateLimited = errors.New("openwa: rate limited")
+	ErrRateLimited = errors.New("zaplink: rate limited")
 	// ErrNotImplemented is returned for a 501 (the active engine does not
 	// support this operation).
-	ErrNotImplemented = errors.New("openwa: not implemented")
+	ErrNotImplemented = errors.New("zaplink: not implemented")
 	// ErrServiceUnavailable is returned for a 503: the gateway could not
 	// complete the request right now. The path to WhatsApp failed (WhatsApp
 	// never replied, the socket was down, or the request budget ran out), the
@@ -74,7 +74,7 @@ var (
 	// after the request was sent answers 502 or 504 instead: the owner may
 	// already have carried it out, so do not repeat a non-idempotent send on
 	// those unchecked.
-	ErrServiceUnavailable = errors.New("openwa: service unavailable")
+	ErrServiceUnavailable = errors.New("zaplink: service unavailable")
 )
 
 // APIError is returned when the API responds with a non-2xx status. A 3xx also
@@ -109,7 +109,7 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
-	return fmt.Sprintf("openwa: API %d — %s: %s", e.StatusCode, e.Context, e.Message)
+	return fmt.Sprintf("zaplink: API %d — %s: %s", e.StatusCode, e.Context, e.Message)
 }
 
 // Is bridges the concrete APIError to the sentinel errors above so callers can
@@ -150,9 +150,9 @@ type TimeoutError struct {
 
 func (e *TimeoutError) Error() string {
 	if e.Timeout > 0 {
-		return fmt.Sprintf("openwa: request timed out after %s", e.Timeout)
+		return fmt.Sprintf("zaplink: request timed out after %s", e.Timeout)
 	}
-	return "openwa: request timed out"
+	return "zaplink: request timed out"
 }
 
 func (e *TimeoutError) Unwrap() error { return e.Err }

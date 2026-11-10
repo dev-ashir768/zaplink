@@ -43,7 +43,7 @@ describe('BaileysLifecycle unlink cleanup', () => {
     const fenceStoredWrites = jest.fn();
     const messageStore = { clearSession: jest.fn().mockResolvedValue(undefined) };
     const host = {
-      authPath: '/nonexistent/openwa-lifecycle-spec/session-sess-1',
+      authPath: '/nonexistent/zaplink-lifecycle-spec/session-sess-1',
       logger: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
       config: { sessionId: 'sess-1', dbSessionId: 'db-1', messageStore },
       liveCalls: new Map(),
@@ -181,7 +181,7 @@ describe('BaileysLifecycle proxy fetch dispatcher', () => {
   function lifecycle() {
     const noCallback = (): undefined => undefined;
     const host = {
-      authPath: '/nonexistent/openwa-lifecycle-spec/session-sess-1',
+      authPath: '/nonexistent/zaplink-lifecycle-spec/session-sess-1',
       logger: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
       config: {
         sessionId: 'sess-1',

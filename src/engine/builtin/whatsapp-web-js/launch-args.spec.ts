@@ -50,7 +50,7 @@ describe('whatsapp-web.js launch args', () => {
       '--disable-dev-shm-usage',
       '--disable-gpu',
       `--lang=${PINNED_BROWSER_LOCALE}`,
-      `--openwa-session=${SESSION_ID}`,
+      `--zaplink-session=${SESSION_ID}`,
     ]);
     expect(DEFAULT_PUPPETEER_ARGS).toEqual([
       '--no-sandbox',
@@ -66,7 +66,7 @@ describe('whatsapp-web.js launch args', () => {
     expect(await launchedArgs({ puppeteer: { args } })).toEqual([
       '--no-sandbox',
       '--lang=de-DE',
-      `--openwa-session=${SESSION_ID}`,
+      `--zaplink-session=${SESSION_ID}`,
     ]);
     expect(args).toEqual(['--no-sandbox', '--lang=de-DE']);
   });

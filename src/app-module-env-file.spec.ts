@@ -7,13 +7,13 @@ import { join } from 'path';
 // test/setup-e2e.ts. Evaluating AppModule must not read the working directory's `.env` behind that
 // environment's back: a developer's file would otherwise decide how those suites boot.
 describe('AppModule evaluation', () => {
-  const probe = 'OPENWA_ENV_FILE_PROBE';
+  const probe = 'ZAPLINK_ENV_FILE_PROBE';
   let dir: string;
   let cwd: string;
 
   beforeEach(() => {
     cwd = process.cwd();
-    dir = mkdtempSync(join(tmpdir(), 'openwa-env-file-'));
+    dir = mkdtempSync(join(tmpdir(), 'zaplink-env-file-'));
     writeFileSync(join(dir, '.env'), `${probe}=from-the-working-directory\n`);
     delete process.env[probe];
   });

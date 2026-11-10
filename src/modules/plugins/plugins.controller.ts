@@ -43,7 +43,7 @@ const UNINSTALLING_CONFLICT = 'The plugin is being uninstalled; nothing was chan
 
 @ApiTags('plugins')
 @Controller('plugins')
-// Plugin installation and lifecycle are deployment-global and execute plugin code as the OpenWA
+// Plugin installation and lifecycle are deployment-global and execute plugin code as the ZapLink
 // process user, so session-restricted keys are fenced off route by route below. The fence is NOT
 // applied at class level because @RequireUnscopedKey takes no argument and cannot be opted out of:
 // `updateSessions` is fenced too (it overwrites the ENTIRE active set, so a scoped key could delete

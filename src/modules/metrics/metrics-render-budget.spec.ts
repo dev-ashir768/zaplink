@@ -48,12 +48,12 @@ const observe = (pending: Promise<string>) => {
 function degraded(result: { text?: string; error?: unknown }) {
   expect(result.error).toBeUndefined();
   expect(result.text).toBeDefined();
-  expect(result.text).toContain('openwa_up 1');
-  expect(result.text).toContain('openwa_stats_available 0');
-  expect(result.text).toContain('openwa_process_resident_memory_bytes');
-  expect(result.text).toContain('openwa_webhook_delivery_failures_total');
-  expect(result.text).not.toContain('openwa_sessions_active');
-  expect(result.text).not.toContain('openwa_messages_total');
+  expect(result.text).toContain('zaplink_up 1');
+  expect(result.text).toContain('zaplink_stats_available 0');
+  expect(result.text).toContain('zaplink_process_resident_memory_bytes');
+  expect(result.text).toContain('zaplink_webhook_delivery_failures_total');
+  expect(result.text).not.toContain('zaplink_sessions_active');
+  expect(result.text).not.toContain('zaplink_messages_total');
 }
 
 describe('MetricsService bounded degraded renders', () => {
@@ -123,7 +123,7 @@ describe('MetricsService bounded degraded renders', () => {
       calls.push(newer);
       await jest.advanceTimersByTimeAsync(STATS_BUDGET_MS);
       degraded(newer.result);
-      expect(newer.result.text).toContain('openwa_process_uptime_seconds 200');
+      expect(newer.result.text).toContain('zaplink_process_uptime_seconds 200');
       expect(f.stats.getOverview).toHaveBeenCalledTimes(1);
       if (outcome === 'resolve') held.resolve(overview);
       else held.reject(new Error('late stats failure'));
@@ -152,7 +152,7 @@ describe('MetricsService bounded degraded renders', () => {
       await jest.advanceTimersByTimeAsync(STATS_STALE_MAX_MS);
       const second = await f.scrape();
       expect(f.stats.getOverview).toHaveBeenCalledTimes(2);
-      expect(second).toContain('openwa_sessions_active 7');
+      expect(second).toContain('zaplink_sessions_active 7');
 
       abandoned.resolve(overview);
       await jest.advanceTimersByTimeAsync(METRICS_RENDER_TTL_MS + 1);
@@ -160,8 +160,8 @@ describe('MetricsService bounded degraded renders', () => {
       calls.push(third);
       await jest.advanceTimersByTimeAsync(STATS_BUDGET_MS);
       expect(f.stats.getOverview).toHaveBeenCalledTimes(3);
-      expect(third.result.text).toContain('openwa_stats_available 1');
-      expect(third.result.text).toContain('openwa_sessions_active 7');
+      expect(third.result.text).toContain('zaplink_stats_available 1');
+      expect(third.result.text).toContain('zaplink_sessions_active 7');
     } finally {
       abandoned.resolve(overview);
       hung.resolve(overview);
@@ -172,8 +172,8 @@ describe('MetricsService bounded degraded renders', () => {
   it('retains healthy values and serves the completed render from cache', async () => {
     const f = fixture(() => Promise.resolve(overview));
     const first = await f.scrape();
-    expect(first).toContain('openwa_stats_available 1');
-    expect(first).toContain('openwa_sessions_active 2');
+    expect(first).toContain('zaplink_stats_available 1');
+    expect(first).toContain('zaplink_sessions_active 2');
     expect(await f.scrape()).toBe(first);
     expect(f.stats.getOverview).toHaveBeenCalledTimes(1);
   });
@@ -202,8 +202,8 @@ describe('MetricsService bounded degraded renders', () => {
       expect(await f.scrape()).toBe(call.result.text);
       await jest.advanceTimersByTimeAsync(METRICS_RENDER_TTL_MS + 1);
       const recovered = await f.scrape();
-      expect(recovered).toContain('openwa_stats_available 1');
-      expect(recovered).toContain('openwa_sessions_active 2');
+      expect(recovered).toContain('zaplink_stats_available 1');
+      expect(recovered).toContain('zaplink_sessions_active 2');
       expect(f.stats.getOverview).toHaveBeenCalledTimes(2);
       expect(jest.getTimerCount()).toBe(samplerTimers);
     } finally {
@@ -302,39 +302,39 @@ describe('MetricsService statistics slower than its budget, with the real stats 
     const texts: string[] = [];
     for (let i = 0; i < 6; i++) texts.push(await scrapeAfter(db.scrape, interval));
 
-    expect(texts[0]).toContain('openwa_stats_available 0');
+    expect(texts[0]).toContain('zaplink_stats_available 0');
     for (const text of texts.slice(1)) {
-      expect(text).toContain('openwa_stats_available 1');
-      expect(text).toContain('openwa_sessions_active');
-      expect(text).toContain('openwa_messages_total{direction="outgoing"} 4');
+      expect(text).toContain('zaplink_stats_available 1');
+      expect(text).toContain('zaplink_sessions_active');
+      expect(text).toContain('zaplink_messages_total{direction="outgoing"} 4');
     }
   });
 
   it('stops serving the kept result 5 minutes after its read started while a read hangs, then recovers', async () => {
     const db = slowDatabase();
     db.state.delay = 0;
-    expect(await scrapeAfter(db.scrape, 60_000)).toContain('openwa_stats_available 1');
+    expect(await scrapeAfter(db.scrape, 60_000)).toContain('zaplink_stats_available 1');
     db.hold();
 
     const flags: string[] = [];
     // Scrapes at 60 s steps from the good read: ages 62 s to 242 s are served from the kept result.
     for (let i = 0; i < 4; i++) flags.push(await scrapeAfter(db.scrape, 60_000));
     for (const text of flags) {
-      expect(text).toContain('openwa_stats_available 1');
-      expect(text).toContain('openwa_messages_total{direction="outgoing"} 4');
+      expect(text).toContain('zaplink_stats_available 1');
+      expect(text).toContain('zaplink_messages_total{direction="outgoing"} 4');
     }
     // At 5 minutes the kept result is too old, and so is the read: it is given up on and a new one starts.
     for (let i = 0; i < 2; i++) {
       const text = await scrapeAfter(db.scrape, 60_000);
-      expect(text).toContain('openwa_stats_available 0');
-      expect(text).not.toContain('openwa_sessions_active');
+      expect(text).toContain('zaplink_stats_available 0');
+      expect(text).not.toContain('zaplink_sessions_active');
     }
 
     db.state.hang!.release();
     await jest.advanceTimersByTimeAsync(METRICS_RENDER_TTL_MS + 1);
     const recovered = await scrapeAfter(db.scrape, 1);
-    expect(recovered).toContain('openwa_stats_available 1');
-    expect(recovered).toContain('openwa_messages_total{direction="outgoing"} 4');
+    expect(recovered).toContain('zaplink_stats_available 1');
+    expect(recovered).toContain('zaplink_messages_total{direction="outgoing"} 4');
   });
 
   it('does not serve numbers from before a failed read when a later read is late', async () => {
@@ -343,14 +343,14 @@ describe('MetricsService statistics slower than its budget, with the real stats 
     await scrapeAfter(db.scrape, 60_000);
     db.state.fail = true;
     const failed = await scrapeAfter(db.scrape, 60_000);
-    expect(failed).toContain('openwa_stats_available 0');
+    expect(failed).toContain('zaplink_stats_available 0');
     db.state.fail = false;
     db.state.delay = SCAN_MS;
     const late = await scrapeAfter(db.scrape, 60_000);
-    expect(late).toContain('openwa_stats_available 0');
-    expect(late).not.toContain('openwa_sessions_active');
+    expect(late).toContain('zaplink_stats_available 0');
+    expect(late).not.toContain('zaplink_sessions_active');
     // The late read completed, so it is what the next late read falls back to.
     const next = await scrapeAfter(db.scrape, 60_000);
-    expect(next).toContain('openwa_stats_available 1');
+    expect(next).toContain('zaplink_stats_available 1');
   });
 });

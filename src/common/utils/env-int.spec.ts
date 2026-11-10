@@ -1,7 +1,7 @@
 import { positiveIntFromEnv, positiveIntOrDefault } from './env-int';
 
 describe('positiveIntFromEnv', () => {
-  const KEY = 'OPENWA_TEST_POSITIVE_INT';
+  const KEY = 'ZAPLINK_TEST_POSITIVE_INT';
 
   afterEach(() => {
     delete process.env[KEY];

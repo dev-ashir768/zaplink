@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Tests;
+namespace ZapLink\Tests;
 
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
-use OpenWA\Client as OpenWAClient;
+use ZapLink\Client as ZapLinkClient;
 use Psr\Http\Message\RequestInterface;
 
 /**
@@ -72,9 +72,9 @@ class MockBackend
         return new GuzzleClient(['handler' => HandlerStack::create($recorder)]);
     }
 
-    public function makeClient(string $baseUrl = 'http://localhost:2785', string $apiKey = 'owa_k1_test'): OpenWAClient
+    public function makeClient(string $baseUrl = 'http://localhost:2785', string $apiKey = 'owa_k1_test'): ZapLinkClient
     {
-        return new OpenWAClient([
+        return new ZapLinkClient([
             'baseUrl' => $baseUrl,
             'apiKey' => $apiKey,
             'httpClient' => $this->httpClient(),

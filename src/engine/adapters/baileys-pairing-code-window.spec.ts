@@ -14,9 +14,9 @@ function qrStage() {
   const noCallback = (): undefined => undefined;
   const onReconnecting = jest.fn();
   const host = {
-    authPath: '/nonexistent/openwa-pairing-window-spec/session-1',
+    authPath: '/nonexistent/zaplink-pairing-window-spec/session-1',
     logger: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
-    config: { sessionId: 'session-1', dbSessionId: 'session-1', authDir: '/nonexistent/openwa-pairing-window-spec' },
+    config: { sessionId: 'session-1', dbSessionId: 'session-1', authDir: '/nonexistent/zaplink-pairing-window-spec' },
     liveCalls: new Map(),
     extractPhone: (id?: string) => (id ? id.split(':')[0].split('@')[0] : null),
     getOnQRCode: noCallback,

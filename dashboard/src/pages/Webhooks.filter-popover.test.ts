@@ -40,7 +40,7 @@ before(async () => {
     if (path === '/api/webhooks') return Promise.resolve(jsonResponse([webhook]));
     return Promise.resolve(jsonResponse([]));
   }) as typeof fetch;
-  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('zaplink_user_role', 'operator');
   const { i18nReady } = await import('../i18n/index.ts');
   await i18nReady;
   rtl = await import('@testing-library/react');

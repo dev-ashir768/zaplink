@@ -14,7 +14,7 @@ describe('LOG_FORMAT the logger cannot use', () => {
   let written: string[];
 
   const bootWith = (dotenv: string): void => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-logformat-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-logformat-'));
     tempDirs.push(dir);
     fs.writeFileSync(path.join(dir, '.env'), dotenv);
     fs.mkdirSync(path.join(dir, 'data'));

@@ -180,7 +180,7 @@ test('an unanswered or rejected phone query is a transport failure before sendin
   }
 });
 
-test('a stalled phone query stops at the OpenWA deadline', async t => {
+test('a stalled phone query stops at the ZapLink deadline', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const { messaging, sock } = build(t, { budget: 20 });
   sock.onWhatsApp.mock.mockImplementation(() => new Promise(noop));
@@ -258,7 +258,7 @@ function loggedOutSocket(t) {
     sent.push(node);
     return Promise.resolve({ tag: 'iq', attrs: { type: 'result' } });
   };
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-engine-real-logout-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-engine-real-logout-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const authPath = path.join(dir, 's1');
   fs.mkdirSync(authPath);

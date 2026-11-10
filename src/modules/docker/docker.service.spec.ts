@@ -28,7 +28,7 @@ describe('DockerService.getRunningBuiltinServices', () => {
     name,
     state,
     status: state,
-    labels: { 'com.openwa.service': service, 'com.openwa.builtin': 'true', ...labels },
+    labels: { 'com.zaplink.service': service, 'com.zaplink.builtin': 'true', ...labels },
   });
 
   it('reports a service built-in only when its labeled container is actually running', async () => {
@@ -36,11 +36,11 @@ describe('DockerService.getRunningBuiltinServices', () => {
     jest
       .spyOn(service, 'listContainers')
       .mockResolvedValue([
-        container('openwa-postgres', 'database', 'running'),
-        container('openwa-redis', 'cache', 'exited'),
+        container('zaplink-postgres', 'database', 'running'),
+        container('zaplink-redis', 'cache', 'exited'),
       ]);
 
-    expect(await service.getRunningBuiltinServices()).toEqual({ database: 'openwa', cache: false, storage: false });
+    expect(await service.getRunningBuiltinServices()).toEqual({ database: 'zaplink', cache: false, storage: false });
   });
 
   it('names a running container Docker Compose created, by its project label', async () => {
@@ -48,12 +48,16 @@ describe('DockerService.getRunningBuiltinServices', () => {
     jest
       .spyOn(service, 'listContainers')
       .mockResolvedValue([
-        container('openwa-postgres', 'database', 'running', { 'com.docker.compose.project': 'openwa' }),
-        container('openwa-redis', 'cache', 'running'),
-        container('openwa-minio', 'storage', 'exited', { 'com.docker.compose.project': 'openwa' }),
+        container('zaplink-postgres', 'database', 'running', { 'com.docker.compose.project': 'zaplink' }),
+        container('zaplink-redis', 'cache', 'running'),
+        container('zaplink-minio', 'storage', 'exited', { 'com.docker.compose.project': 'zaplink' }),
       ]);
 
-    expect(await service.getRunningBuiltinServices()).toEqual({ database: 'compose', cache: 'openwa', storage: false });
+    expect(await service.getRunningBuiltinServices()).toEqual({
+      database: 'compose',
+      cache: 'zaplink',
+      storage: false,
+    });
   });
 
   it('reports all false when a live inventory contains no bundled containers', async () => {
@@ -163,7 +167,7 @@ describe('DockerService.stopManagedService (stop-only teardown)', () => {
 
 describe('DockerService.getContainerByService exact-name fallback', () => {
   // Label lookup returns nothing → exercises the name fallback. The fallback must match the exact
-  // OpenWA-managed container name, never a substring (a substring — and especially the empty string —
+  // ZapLink-managed container name, never a substring (a substring — and especially the empty string —
   // would let an arbitrary container be resolved and torn down).
   function withFakeDocker(containers: Array<{ Id: string; Names: string[] }>) {
     const service = new DockerService();
@@ -180,22 +184,22 @@ describe('DockerService.getContainerByService exact-name fallback', () => {
   }
 
   it('does not resolve any container for an empty service name', async () => {
-    const { service, getContainer } = withFakeDocker([{ Id: 'abc', Names: ['/openwa-postgres'] }]);
+    const { service, getContainer } = withFakeDocker([{ Id: 'abc', Names: ['/zaplink-postgres'] }]);
     expect(await service.getContainerByService('')).toBeNull();
     expect(getContainer).not.toHaveBeenCalled();
   });
 
   it('does not resolve a container by substring of its name', async () => {
-    const { service, getContainer } = withFakeDocker([{ Id: 'abc', Names: ['/openwa-postgres-primary'] }]);
-    // 'postgres' is a substring of 'openwa-postgres-primary' but not the exact managed name.
+    const { service, getContainer } = withFakeDocker([{ Id: 'abc', Names: ['/zaplink-postgres-primary'] }]);
+    // 'postgres' is a substring of 'zaplink-postgres-primary' but not the exact managed name.
     expect(await service.getContainerByService('postgres')).toBeNull();
     expect(getContainer).not.toHaveBeenCalled();
   });
 
-  it('resolves the exact openwa-<service> container', async () => {
+  it('resolves the exact zaplink-<service> container', async () => {
     const { service, getContainer } = withFakeDocker([
-      { Id: 'p', Names: ['/openwa-postgres'] },
-      { Id: 'r', Names: ['/openwa-redis'] },
+      { Id: 'p', Names: ['/zaplink-postgres'] },
+      { Id: 'r', Names: ['/zaplink-redis'] },
     ]);
     const result = await service.getContainerByService('redis');
     expect(getContainer).toHaveBeenCalledWith('r');
@@ -270,7 +274,7 @@ describe('DockerService.onModuleInit', () => {
     await expect(service.onModuleInit()).resolves.toBeUndefined();
 
     expect(service.isDockerAvailable()).toBe(true);
-    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: 'openwa-redis' }));
+    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: 'zaplink-redis' }));
   });
 
   it('logs a warning but still resolves when bootstrap orchestration fails', async () => {
@@ -296,14 +300,14 @@ describe('DockerService.onModuleInit', () => {
   // local storage or a Redis nothing reaches would otherwise run a container on every boot that nothing dials.
   // Redis is reached by the queue and the cache as well as by REDIS_ENABLED.
   describe.each([
-    ['openwa-postgres', 'POSTGRES_BUILTIN', [{ DATABASE_TYPE: 'postgres' }], [{}, { DATABASE_TYPE: 'sqlite' }]],
+    ['zaplink-postgres', 'POSTGRES_BUILTIN', [{ DATABASE_TYPE: 'postgres' }], [{}, { DATABASE_TYPE: 'sqlite' }]],
     [
-      'openwa-redis',
+      'zaplink-redis',
       'REDIS_BUILTIN',
       [{ REDIS_ENABLED: 'true' }, { QUEUE_ENABLED: 'true' }, { CACHE_ENABLED: 'true' }],
       [{}, { REDIS_ENABLED: 'false', QUEUE_ENABLED: 'false', CACHE_ENABLED: 'false' }],
     ],
-    ['openwa-minio', 'MINIO_BUILTIN', [{ STORAGE_TYPE: 's3' }], [{}, { STORAGE_TYPE: 'local' }]],
+    ['zaplink-minio', 'MINIO_BUILTIN', [{ STORAGE_TYPE: 's3' }], [{}, { STORAGE_TYPE: 'local' }]],
   ] as const)('%s', (container, flag, used, unused) => {
     const started = async (env: Record<string, string>): Promise<boolean> => {
       Object.assign(process.env, { [flag]: 'true' }, env);
@@ -326,9 +330,9 @@ describe('DockerService.onModuleInit', () => {
   // elsewhere would run with nothing dialling it. A pinned host that reaches the container in any spelling still starts
   // it: the next boot dials it.
   describe.each([
-    ['openwa-postgres', 'POSTGRES_BUILTIN', { DATABASE_TYPE: 'postgres' }, 'DATABASE_HOST', 'database'],
-    ['openwa-redis', 'REDIS_BUILTIN', { REDIS_ENABLED: 'true' }, 'REDIS_HOST', 'redis'],
-    ['openwa-minio', 'MINIO_BUILTIN', { STORAGE_TYPE: 's3' }, 'S3_ENDPOINT', 'storage'],
+    ['zaplink-postgres', 'POSTGRES_BUILTIN', { DATABASE_TYPE: 'postgres' }, 'DATABASE_HOST', 'database'],
+    ['zaplink-redis', 'REDIS_BUILTIN', { REDIS_ENABLED: 'true' }, 'REDIS_HOST', 'redis'],
+    ['zaplink-minio', 'MINIO_BUILTIN', { STORAGE_TYPE: 's3' }, 'S3_ENDPOINT', 'storage'],
   ] as const)('%s with its host pinned', (container, flag, use, hostKey, service) => {
     it.each([
       ...HOST_SPELLINGS[service].reach.map(host => [host, true] as const),
@@ -367,7 +371,7 @@ describe('prestartBuiltinDatabase', () => {
 
     expect(docker.listContainers).toHaveBeenCalledWith({
       all: true,
-      filters: { label: ['com.openwa.service=database'] },
+      filters: { label: ['com.zaplink.service=database'] },
       abortSignal: expect.any(AbortSignal) as unknown,
     });
     expect(container.start).toHaveBeenCalledTimes(1);
@@ -470,19 +474,19 @@ describe('DockerService.listContainers', () => {
     expect(await new DockerService().listContainers()).toBeNull();
   });
 
-  it('maps only OpenWA containers (label or /openwa- name) to ContainerInfo', async () => {
+  it('maps only ZapLink containers (label or /zaplink- name) to ContainerInfo', async () => {
     const service = makeService(
       jest.fn().mockResolvedValue([
         {
           Id: 'aabbccddeeff00112233',
-          Names: ['/openwa-postgres'],
+          Names: ['/zaplink-postgres'],
           State: 'running',
           Status: 'Up 2 hours',
-          Labels: { 'com.openwa.service': 'database', 'com.openwa.builtin': 'true' },
+          Labels: { 'com.zaplink.service': 'database', 'com.zaplink.builtin': 'true' },
         },
-        { Id: '11223344556677889900', Names: ['/openwa-redis'], State: 'exited', Status: 'Exited (0) yesterday' },
+        { Id: '11223344556677889900', Names: ['/zaplink-redis'], State: 'exited', Status: 'Exited (0) yesterday' },
         // Label-only match with sparse fields: falls back to 'unknown' placeholders.
-        { Id: 'ffee0011223344556677', Labels: { 'com.openwa.service': 'cache' } },
+        { Id: 'ffee0011223344556677', Labels: { 'com.zaplink.service': 'cache' } },
         { Id: 'deadbeef0011', Names: ['/unrelated'], State: 'running', Status: 'Up', Labels: {} },
       ]),
     );
@@ -490,18 +494,18 @@ describe('DockerService.listContainers', () => {
     expect(await service.listContainers()).toEqual([
       {
         id: 'aabbccddeeff',
-        name: 'openwa-postgres',
+        name: 'zaplink-postgres',
         state: 'running',
         status: 'Up 2 hours',
-        labels: { 'com.openwa.service': 'database', 'com.openwa.builtin': 'true' },
+        labels: { 'com.zaplink.service': 'database', 'com.zaplink.builtin': 'true' },
       },
-      { id: '112233445566', name: 'openwa-redis', state: 'exited', status: 'Exited (0) yesterday', labels: {} },
+      { id: '112233445566', name: 'zaplink-redis', state: 'exited', status: 'Exited (0) yesterday', labels: {} },
       {
         id: 'ffee00112233',
         name: 'unknown',
         state: 'unknown',
         status: 'unknown',
-        labels: { 'com.openwa.service': 'cache' },
+        labels: { 'com.zaplink.service': 'cache' },
       },
     ]);
   });
@@ -517,9 +521,9 @@ describe('DockerService.getContainerByService label match and guard rails', () =
     expect(await new DockerService().getContainerByService('database')).toBeNull();
   });
 
-  it('resolves the container by its com.openwa.service label', async () => {
+  it('resolves the container by its com.zaplink.service label', async () => {
     const service = new DockerService();
-    const listContainers = jest.fn().mockResolvedValue([{ Id: 'label-hit-1', Names: ['/openwa-postgres'] }]);
+    const listContainers = jest.fn().mockResolvedValue([{ Id: 'label-hit-1', Names: ['/zaplink-postgres'] }]);
     const getContainer = jest.fn((id: string) => ({ id }));
     Object.assign(service as unknown as Record<string, unknown>, {
       docker: { listContainers, getContainer },
@@ -530,7 +534,7 @@ describe('DockerService.getContainerByService label match and guard rails', () =
 
     expect(listContainers).toHaveBeenCalledWith({
       all: true,
-      filters: { label: ['com.openwa.service=database'] },
+      filters: { label: ['com.zaplink.service=database'] },
       abortSignal: expect.any(AbortSignal) as unknown,
     });
     expect(getContainer).toHaveBeenCalledWith('label-hit-1');
@@ -598,9 +602,9 @@ describe('DockerService.createService', () => {
 
     await expect(service.createService('redis')).resolves.toBe(true);
 
-    expect(docker.createVolume).toHaveBeenCalledWith({ Name: 'openwa_redis-data' });
+    expect(docker.createVolume).toHaveBeenCalledWith({ Name: 'zaplink_redis-data' });
     expect(docker.createContainer).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'openwa-redis', Image: 'redis:7-alpine' }),
+      expect.objectContaining({ name: 'zaplink-redis', Image: 'redis:7-alpine' }),
     );
     expect(start).toHaveBeenCalledTimes(1);
   });
@@ -726,7 +730,7 @@ describe('DockerService image drift warning', () => {
     (service as unknown as { getContainerSpec(p: string): { image: string } }).getContainerSpec(profile).image;
   const retained = (running: boolean, image?: string) => ({
     inspect: jest.fn().mockResolvedValue({
-      Name: '/openwa-minio',
+      Name: '/zaplink-minio',
       State: { Running: running },
       ...(image ? { Config: { Image: image } } : {}),
     }),
@@ -750,17 +754,17 @@ describe('DockerService image drift warning', () => {
     expect(container.start).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String((warn.mock.calls[0] as unknown[])[0]);
-    expect(message).toContain('openwa-minio');
+    expect(message).toContain('zaplink-minio');
     expect(message).toContain(OLD_IMAGE);
     expect(message).toContain(pinOf(service, 'minio'));
-    expect(message).toContain('docker rm -f openwa-minio');
+    expect(message).toContain('docker rm -f zaplink-minio');
     expect(message).not.toContain('data migration');
   });
 
   it('adds the data-migration caveat for a drifted PostgreSQL container', async () => {
     const container = {
       inspect: jest.fn().mockResolvedValue({
-        Name: '/openwa-postgres',
+        Name: '/zaplink-postgres',
         State: { Running: false },
         Config: { Image: 'postgres:15-alpine' },
       }),
@@ -771,7 +775,7 @@ describe('DockerService image drift warning', () => {
     await expect(service.startService('database')).resolves.toBe(true);
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String((warn.mock.calls[0] as unknown[])[0]);
-    expect(message).toContain('docker rm -f openwa-postgres');
+    expect(message).toContain('docker rm -f zaplink-postgres');
     expect(message).toContain('major version change needs a data migration');
   });
 
@@ -968,9 +972,9 @@ describe('DockerService availability recovery', () => {
   });
 
   it.each([
-    [{ REDIS_ENABLED: 'true' }, false, ['openwa-redis']],
-    [{ QUEUE_ENABLED: 'true' }, false, ['openwa-redis']],
-    [{ CACHE_ENABLED: 'true' }, false, ['openwa-redis']],
+    [{ REDIS_ENABLED: 'true' }, false, ['zaplink-redis']],
+    [{ QUEUE_ENABLED: 'true' }, false, ['zaplink-redis']],
+    [{ CACHE_ENABLED: 'true' }, false, ['zaplink-redis']],
     [{ REDIS_ENABLED: 'true' }, true, []],
     [{}, false, []],
   ] as const)(

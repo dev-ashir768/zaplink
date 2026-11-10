@@ -1,10 +1,10 @@
 # Session Phone-Number Pairing
 
-OpenWA supports linking an existing WhatsApp account to a session by phone number as an alternative to scanning a QR code.
+ZapLink supports linking an existing WhatsApp account to a session by phone number as an alternative to scanning a QR code.
 
 This flow returns an 8-character pairing code that the user enters in WhatsApp on their phone.
 
-> This does **not** create or register a new WhatsApp account. It only links an existing WhatsApp account as a companion device for an OpenWA session.
+> This does **not** create or register a new WhatsApp account. It only links an existing WhatsApp account as a companion device for an ZapLink session.
 
 > **On the whatsapp-web.js engine, request a code only for a number you are prepared to re-link.** A pairing request for a number that already has a linked session has been observed to end with WhatsApp revoking that device: within about a minute the linked session logs `WhatsApp unlinked this device (LOGOUT)`, its stored credentials are deleted, and it returns to `qr_ready` with no phone. The request runs inside the shared WhatsApp Web page and resets its linking mode before it asks for a code, so the blast radius is the account, not the session. The gateway answers `409` for a number that is the stored phone of another of its sessions, but it cannot see a link made on another gateway or only on the phone. Baileys has no such page, was not affected in the same tests and is not refused. If a session of that number must stay up, link the new one by QR.
 
@@ -89,16 +89,16 @@ On the phone that owns the WhatsApp account:
 2. Go to **Settings**.
 3. Open **Linked Devices**.
 4. Choose **Link with phone number**.
-5. Enter the pairing code returned by OpenWA.
+5. Enter the pairing code returned by ZapLink.
 
-After the code is accepted, the OpenWA session should move to a connected/ready state.
+After the code is accepted, the ZapLink session should move to a connected/ready state.
 
 ## Troubleshooting
 
-- If OpenWA returns `Session is not started`, call `POST /api/sessions/{sessionId}/start` first.
-- If OpenWA returns `Session is already authenticated`, the account is already linked and no pairing code is needed. On whatsapp-web.js a request whose number is the stored phone of a DIFFERENT session of this gateway answers `409`: log that session out or delete it first. Nothing refuses a number linked to a device outside this gateway, or only on the phone, and on whatsapp-web.js that is the request that can unlink it; see the warning at the top.
-- If OpenWA returns 409 `Session is not waiting to be linked`, the engine is still connecting (or reconnecting after a drop). Wait for `status` to read `qr_ready` and request again. After a code was accepted the same 409 is answered until the session is `ready`; do not request another code then. On Baileys the same 409 can also answer while `status` already reads `qr_ready`, for as long as the WebSocket takes to finish closing (up to 30 s on a silently dropped connection); retry rather than treating it as a bad state.
+- If ZapLink returns `Session is not started`, call `POST /api/sessions/{sessionId}/start` first.
+- If ZapLink returns `Session is already authenticated`, the account is already linked and no pairing code is needed. On whatsapp-web.js a request whose number is the stored phone of a DIFFERENT session of this gateway answers `409`: log that session out or delete it first. Nothing refuses a number linked to a device outside this gateway, or only on the phone, and on whatsapp-web.js that is the request that can unlink it; see the warning at the top.
+- If ZapLink returns 409 `Session is not waiting to be linked`, the engine is still connecting (or reconnecting after a drop). Wait for `status` to read `qr_ready` and request again. After a code was accepted the same 409 is answered until the session is `ready`; do not request another code then. On Baileys the same 409 can also answer while `status` already reads `qr_ready`, for as long as the WebSocket takes to finish closing (up to 30 s on a silently dropped connection); retry rather than treating it as a bad state.
 - On Baileys a code not entered within 5 minutes of the latest request stops working: the session registers again with a new QR, and a repeat request starts the 5 minutes over. From 60 s after the latest request until that new QR, `GET /api/sessions/{sessionId}/qr` answers `400`, because the QR shown before the request can no longer link either.
 - If the phone number is rejected, send digits only in international format, without `+`, spaces, or punctuation.
-- On the Baileys engine, if pairing keeps failing with a generic "check the phone number" rejection even though the number is correct and in the right format, WhatsApp is refusing the linked-device identity for that account rather than the number itself. The device name is carried into the pairing request, and some accounts reject a non-standard one. The default is `Ubuntu`; if `BAILEYS_BROWSER_NAME` was set to a custom brand, set it back to `Ubuntu` (or another standard OS name), restart OpenWA itself (the name is read at boot, so stopping and starting the session is not enough), and request a fresh code. whatsapp-web.js does not send this device name and never reads `BAILEYS_BROWSER_NAME`, so the variable has no effect there.
-- If you want to create a brand-new WhatsApp account programmatically, that is outside OpenWA's scope. OpenWA only links an existing WhatsApp account.
+- On the Baileys engine, if pairing keeps failing with a generic "check the phone number" rejection even though the number is correct and in the right format, WhatsApp is refusing the linked-device identity for that account rather than the number itself. The device name is carried into the pairing request, and some accounts reject a non-standard one. The default is `Ubuntu`; if `BAILEYS_BROWSER_NAME` was set to a custom brand, set it back to `Ubuntu` (or another standard OS name), restart ZapLink itself (the name is read at boot, so stopping and starting the session is not enough), and request a fresh code. whatsapp-web.js does not send this device name and never reads `BAILEYS_BROWSER_NAME`, so the variable has no effect there.
+- If you want to create a brand-new WhatsApp account programmatically, that is outside ZapLink's scope. ZapLink only links an existing WhatsApp account.

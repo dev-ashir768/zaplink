@@ -4,7 +4,7 @@
 
 > **Current Status: ✅ Implemented — opt-in, off by default**
 >
-> OpenWA can expose a curated set of its capabilities to AI agents over the
+> ZapLink can expose a curated set of its capabilities to AI agents over the
 > [Model Context Protocol](https://modelcontextprotocol.io). The server is **off by
 > default** and **purely additive**: when disabled, the MCP module and the MCP SDK
 > are not loaded and every REST route behaves exactly as before. The protocol-neutral tool
@@ -35,7 +35,7 @@
 ## 24.1 Overview
 
 MCP lets AI agents (Claude, Cursor, and other MCP clients) call external capabilities
-as first-class tools. OpenWA's MCP integration exposes a **focused, curated** slice of
+as first-class tools. ZapLink's MCP integration exposes a **focused, curated** slice of
 its functionality — listing sessions, sending messages, reading chats/contacts, basic
 group management — so an agent can drive WhatsApp through the same business logic the
 REST API uses.
@@ -73,7 +73,7 @@ flowchart TB
 2. **No vendor lock-in.** Core never imports the MCP SDK. The `@modelcontextprotocol/sdk`
    dependency lives in exactly one place (`src/modules/mcp/`) and is loaded only when MCP
    is enabled.
-3. **Curated surface.** Rather than reflecting every REST route, OpenWA exposes an
+3. **Curated surface.** Rather than reflecting every REST route, ZapLink exposes an
    intentional, named, read/write-tiered set of tools. A focused surface keeps agents from
    getting overwhelmed and keeps destructive/privileged operations off the agent path.
 4. **Reuse the pipeline.** Each tool runs through the **existing services** and the
@@ -307,7 +307,7 @@ needs, `VIEWER` for a read-only agent and `OPERATOR` at most, as
 ```json
 {
   "mcpServers": {
-    "openwa": {
+    "zaplink": {
       "type": "http",
       "url": "http://localhost:2785/mcp",
       "headers": { "Authorization": "Bearer YOUR_API_KEY" }

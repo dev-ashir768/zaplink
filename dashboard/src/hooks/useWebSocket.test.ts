@@ -16,7 +16,7 @@ before(async () => {
   const { installJsdomGlobals } = await import('../test-helpers/jsdom.ts');
   await installJsdomGlobals();
   // The hook opens no socket without a key.
-  window.sessionStorage.setItem('openwa_api_key', 'test-key');
+  window.sessionStorage.setItem('zaplink_api_key', 'test-key');
   rtl = await import('@testing-library/react');
   ({ useWebSocket } = await import('./useWebSocket.ts'));
 });
@@ -50,12 +50,12 @@ test('the handshake carries the API key in auth and in a header, never in the UR
 });
 
 test('no socket is opened without a key', () => {
-  window.sessionStorage.removeItem('openwa_api_key');
+  window.sessionStorage.removeItem('zaplink_api_key');
   try {
     rtl.renderHook(() => useWebSocket());
     assert.equal(lastIoCall(), null);
   } finally {
-    window.sessionStorage.setItem('openwa_api_key', 'test-key');
+    window.sessionStorage.setItem('zaplink_api_key', 'test-key');
   }
 });
 

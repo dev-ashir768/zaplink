@@ -200,7 +200,7 @@ describe('BuiltInFtsProvider match=contains terms (postgres)', () => {
     return { provider: new BuiltInFtsProvider(ds, new ConfigService({ search: { containsEnabled: true } })), query };
   };
 
-  // As show_trgm(openwa_unaccent(term)) reads them on PostgreSQL 16, with glibc and with musl: a Hangul
+  // As show_trgm(zaplink_unaccent(term)) reads them on PostgreSQL 16, with glibc and with musl: a Hangul
   // word of two syllables, a modifier letter unaccent turns into an apostrophe and superscript digits
   // give pg_trgm no trigram to look up, so the search would read every row.
   it.each(['안녕', '\u02bc'.repeat(3), '¹²³'])('refuses %j alone, which pg_trgm cannot look up', async q => {

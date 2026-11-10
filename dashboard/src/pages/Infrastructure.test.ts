@@ -47,8 +47,8 @@ const SAVED_CONFIG: SavedConfig = {
     builtInSet: true,
     host: 'shared-db-host',
     port: '6543',
-    username: 'openwa_admin',
-    database: 'openwa_prod',
+    username: 'zaplink_admin',
+    database: 'zaplink_prod',
     schema: 'appschema',
     poolSize: 7,
     sslEnabled: false,
@@ -371,8 +371,8 @@ test('Infrastructure renders and the config form hydrates from /status and /conf
     assert.equal((dbRadios[1] as HTMLInputElement).checked, true, 'expected the Postgres radio to be selected');
 
     // Only /config carries these fields, so they pin /config hydration specifically.
-    assert.equal(fieldInput(container, 'Username').value, 'openwa_admin');
-    assert.equal(fieldInput(container, 'Database Name').value, 'openwa_prod');
+    assert.equal(fieldInput(container, 'Username').value, 'zaplink_admin');
+    assert.equal(fieldInput(container, 'Database Name').value, 'zaplink_prod');
     assert.equal(fieldInput(container, 'Schema').value, 'appschema');
     assert.equal(fieldInput(container, 'Pool Size').value, '7');
 
@@ -475,7 +475,7 @@ test('editing a database field and saving PUTs the edited value in the request b
 
   await screen.findByText('Database Configuration');
   // Wait for the postgres detail form (and its Host field) to actually be present before editing it.
-  await waitFor(() => assert.equal(fieldInput(container, 'Username').value, 'openwa_admin'));
+  await waitFor(() => assert.equal(fieldInput(container, 'Username').value, 'zaplink_admin'));
 
   const hostInput = fieldInput(container, 'Host');
   fireEvent.change(hostInput, { target: { value: 'edited-host.example.com' } });
@@ -537,7 +537,7 @@ test('a password typed before switching to a built-in container is not saved', a
   const { container } = renderInfrastructure();
 
   await screen.findByText('Database Configuration');
-  await waitFor(() => assert.equal(fieldInput(container, 'Username').value, 'openwa_admin'));
+  await waitFor(() => assert.equal(fieldInput(container, 'Username').value, 'zaplink_admin'));
 
   // Typed while external, then the field is hidden by the built-in toggle but its state survives.
   fireEvent.change(container.querySelector('#infra-4')!, { target: { value: 'typed-db-secret' } });
@@ -612,7 +612,7 @@ test('an external Postgres on the default host, port and name does not warn of a
   const { screen, fireEvent, within } = rtl;
   resetFetchCalls();
   // Nothing saved for the three keys (the environment supplies them, or they are left at the defaults):
-  // /config reports '', while the form shows the host from /status and the defaults 5432 and openwa.
+  // /config reports '', while the form shows the host from /status and the defaults 5432 and zaplink.
   overrides = {
     saved: { ...SAVED_CONFIG, database: { ...SAVED_CONFIG.database, host: '', port: '', database: '' } },
   };
@@ -667,7 +667,7 @@ function engineRadios(container: HTMLElement): HTMLInputElement[] {
 // purpose: the engine detail fields render only for whatsapp-web.js, so waiting on one of those would
 // vanish the moment a test seeds the radio to baileys.
 async function awaitConfigHydrated(container: HTMLElement): Promise<void> {
-  await rtl.waitFor(() => assert.equal(fieldInput(container, 'Username').value, 'openwa_admin'));
+  await rtl.waitFor(() => assert.equal(fieldInput(container, 'Username').value, 'zaplink_admin'));
 }
 
 test('the engine radio seeds from the saved engine even when nothing pins ENGINE_TYPE', async () => {
@@ -853,7 +853,7 @@ const RUNNING_BUNDLED: InfraStatus = {
   redis: { enabled: true, connected: true, host: 'redis', port: 6379, builtIn: true, running: true },
   storage: {
     type: 's3',
-    bucket: 'openwa',
+    bucket: 'zaplink',
     endpoint: 'http://minio:9000',
     builtIn: true,
     running: true,
@@ -925,7 +925,7 @@ test('a switch from bundled to external services is warned of and stops the bund
 });
 
 const STOPS_SENTENCE = 'The restart also stops these built-in containers, which keep their data and are not deleted:';
-const ALL_THREE = ['openwa-postgres', 'openwa-redis', 'openwa-minio'];
+const ALL_THREE = ['zaplink-postgres', 'zaplink-redis', 'zaplink-minio'];
 
 // The containers the restart dialog names, one chip each.
 function stopNames(dialog: HTMLElement): string[] {
@@ -1108,7 +1108,7 @@ test('no built-in note for a storage the saved config keeps local, once S3 is ch
   const { screen, fireEvent } = rtl;
   resetFetchCalls();
   overrides = {
-    status: { ...INFRA_STATUS, storage: { type: 's3', bucket: 'openwa', builtIn: true, s3Available: true } },
+    status: { ...INFRA_STATUS, storage: { type: 's3', bucket: 'zaplink', builtIn: true, s3Available: true } },
     saved: { ...SAVED_CONFIG, storage: { ...SAVED_CONFIG.storage, type: 'local', builtIn: false, builtInSet: true } },
   };
   const { container } = renderInfrastructure();
@@ -1174,7 +1174,7 @@ test('the built-in notes are hidden while a save is in flight and back once it s
 const RUNNING_STOPPED: InfraStatus = {
   ...INFRA_STATUS,
   database: { connected: false, type: 'postgres', host: 'postgres', builtIn: false },
-  storage: { type: 's3', bucket: 'openwa', endpoint: 'http://minio:9000', builtIn: false, s3Available: false },
+  storage: { type: 's3', bucket: 'zaplink', endpoint: 'http://minio:9000', builtIn: false, s3Available: false },
 };
 const SAVED_BUNDLED_HOSTS: SavedConfig = {
   ...SAVED_CONFIG,
@@ -1184,7 +1184,7 @@ const SAVED_BUNDLED_HOSTS: SavedConfig = {
     type: 's3',
     builtIn: true,
     builtInSet: true,
-    s3Bucket: 'openwa',
+    s3Bucket: 'zaplink',
     s3Endpoint: 'http://minio:9000',
   },
 };
@@ -1301,7 +1301,7 @@ test('pointing an external PostgreSQL at another database name warns of the swit
 
   await screen.findByText('Database Configuration');
   await awaitConfigHydrated(container);
-  fireEvent.change(fieldInput(container, 'Database Name'), { target: { value: 'openwa_other' } });
+  fireEvent.change(fieldInput(container, 'Database Name'), { target: { value: 'zaplink_other' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   within(await screen.findByRole('dialog')).getByText(DB_SWITCH_WARNING, { exact: false });
@@ -1371,10 +1371,10 @@ test('an unrelated save beside a pinned bundled endpoint warns of no storage swi
 });
 
 // A pinned external host outranks the toggle, so turning Use Built-in on moves nothing but the database name the
-// built-in save writes, openwa: with that name already in use nothing moves, with one of its own the database does.
+// built-in save writes, zaplink: with that name already in use nothing moves, with one of its own the database does.
 for (const { name, moves } of [
-  { name: 'openwa', moves: false },
-  { name: 'openwa_prod', moves: true },
+  { name: 'zaplink', moves: false },
+  { name: 'zaplink_prod', moves: true },
 ]) {
   test(`turning Use Built-in on under a pinned external host over database ${name} ${moves ? 'warns of the database' : 'warns of no switch'}`, async () => {
     const { screen, fireEvent, within } = rtl;
@@ -1383,7 +1383,7 @@ for (const { name, moves } of [
       status: {
         ...INFRA_STATUS,
         database: { connected: true, type: 'postgres', host: 'db.external.example', builtIn: false },
-        storage: { type: 's3', bucket: 'openwa', endpoint: 'https://s3.example', builtIn: false, s3Available: true },
+        storage: { type: 's3', bucket: 'zaplink', endpoint: 'https://s3.example', builtIn: false, s3Available: true },
         envPinned: ['DATABASE_HOST', 'S3_ENDPOINT'],
       },
       saved: {
@@ -1400,7 +1400,7 @@ for (const { name, moves } of [
           type: 's3',
           builtIn: false,
           builtInSet: false,
-          s3Bucket: 'openwa',
+          s3Bucket: 'zaplink',
           s3Endpoint: 'https://s3.example',
         },
       },
@@ -1517,7 +1517,7 @@ const savedHost = (service: ServiceName, c: Combo) =>
 // to the saved one otherwise.
 const nextHost = (service: ServiceName, c: Combo) =>
   c.pin === 'none' && shownMode(c) ? SERVICES[service].bundledHost : savedHost(service, c);
-const bucketFor = (service: ServiceName, host: string) => (host === SERVICES[service].bundledHost ? 'openwa' : 'media');
+const bucketFor = (service: ServiceName, host: string) => (host === SERVICES[service].bundledHost ? 'zaplink' : 'media');
 
 /** The notes rendered right under a toggle row, in order. */
 function notesUnderToggle(container: HTMLElement, labelText: string): string[] {
@@ -2114,7 +2114,7 @@ test('saving while the selections are pinned leaves them out so the stored choic
     storage: Record<string, unknown>;
   };
   assert.deepEqual(['type' in body.database, 'enabled' in body.redis, 'type' in body.storage], [false, false, false]);
-  assert.equal(body.database.username, 'openwa_admin', 'the rest of the section still goes out');
+  assert.equal(body.database.username, 'zaplink_admin', 'the rest of the section still goes out');
 });
 
 // The compose .env route: the type is pinned and the file holds the first-boot SQLite. A PostgreSQL field edited on
@@ -2282,7 +2282,7 @@ test('turning a running built-in Redis off asks the restart to stop its containe
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   const dialog = await screen.findByRole('dialog');
-  assert.deepEqual(stopNames(dialog), ['openwa-redis']);
+  assert.deepEqual(stopNames(dialog), ['zaplink-redis']);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
 
   await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart'), 'expected the restart POST'));
@@ -2313,7 +2313,7 @@ test('with Docker unreachable the restart dialog names no container to stop', as
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   const dialog = await screen.findByRole('dialog');
-  assert.doesNotMatch(dialog.textContent ?? '', /openwa-/);
+  assert.doesNotMatch(dialog.textContent ?? '', /zaplink-/);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
   await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart'), 'expected the restart POST'));
   assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, { profiles: [], profilesToRemove: ['redis'] });
@@ -2348,7 +2348,7 @@ test('a built-in Redis switched off but left on the bundled host is neither stop
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   const dialog = await screen.findByRole('dialog');
-  assert.doesNotMatch(dialog.textContent ?? '', /openwa-/);
+  assert.doesNotMatch(dialog.textContent ?? '', /zaplink-/);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
   await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart'), 'expected the restart POST'));
   assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, { profiles: [], profilesToRemove: [] });
@@ -2378,7 +2378,7 @@ test('a built-in Redis left on the bundled host is neither stopped nor named whe
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   const dialog = await screen.findByRole('dialog');
-  assert.doesNotMatch(dialog.textContent ?? '', /openwa-/);
+  assert.doesNotMatch(dialog.textContent ?? '', /zaplink-/);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
   await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart'), 'expected the restart POST'));
   assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, { profiles: [], profilesToRemove: [] });
@@ -2398,7 +2398,7 @@ test('bundled containers the pinned hosts reach are neither stopped nor named wh
         type: 's3',
         builtIn: true,
         builtInSet: false,
-        s3Bucket: 'openwa',
+        s3Bucket: 'zaplink',
         s3Endpoint: 'http://minio:9000',
       },
     },
@@ -2408,7 +2408,7 @@ test('bundled containers the pinned hosts reach are neither stopped nor named wh
   const { dialogText, names, body } = await saveAndRestart();
 
   assert.deepEqual(names, []);
-  assert.doesNotMatch(dialogText, /openwa-/);
+  assert.doesNotMatch(dialogText, /zaplink-/);
   assert.deepEqual(body, { profiles: [], profilesToRemove: [] });
 });
 
@@ -2423,7 +2423,7 @@ const READBACK_SAVED: SavedConfig = {
     ...SAVED_CONFIG.storage,
     type: 's3',
     builtIn: true,
-    s3Bucket: 'openwa',
+    s3Bucket: 'zaplink',
     s3Endpoint: 'http://minio:9000',
   },
 };
@@ -2433,9 +2433,9 @@ const BUILT_IN_SWITCHES = [
   ['storage', 'minio', 'Use Built-in MinIO Container', 'Storage Configuration', 'Custom Endpoint (optional)'],
 ] as const;
 const CONTAINER_NAMES: Record<string, string> = {
-  postgres: 'openwa-postgres',
-  redis: 'openwa-redis',
-  minio: 'openwa-minio',
+  postgres: 'zaplink-postgres',
+  redis: 'zaplink-redis',
+  minio: 'zaplink-minio',
 };
 
 // `kept` is what the save answers with: the profiles of the built-in services left on.
@@ -2485,7 +2485,7 @@ test('a built-in database and storage switched to SQLite and local are stopped w
     fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="storageType"]')[0]);
   });
 
-  assert.deepEqual(names, ['openwa-postgres', 'openwa-minio']);
+  assert.deepEqual(names, ['zaplink-postgres', 'zaplink-minio']);
   assert.deepEqual(body, { profiles: ['redis'], profilesToRemove: ['postgres', 'minio'] });
 });
 
@@ -2496,7 +2496,7 @@ test('a built-in Redis switched off is stopped when the read-back fails', async 
     fireEvent.click(toggleInput(container, 'Enable Redis'));
   });
 
-  assert.deepEqual(names, ['openwa-redis']);
+  assert.deepEqual(names, ['zaplink-redis']);
   assert.deepEqual(body, { profiles: ['postgres', 'minio'], profilesToRemove: ['redis'] });
 });
 
@@ -2549,7 +2549,7 @@ for (const key of ['REDIS_ENABLED', 'QUEUE_ENABLED'] as const) {
         saveProfiles: ['postgres', 'minio'],
       };
       const { names, body } = await saveAndRestart();
-      assert.deepEqual(names, enabled ? [] : ['openwa-redis']);
+      assert.deepEqual(names, enabled ? [] : ['zaplink-redis']);
       assert.deepEqual(body, { profiles: ['postgres', 'minio'], profilesToRemove: enabled ? [] : ['redis'] });
     });
   }
@@ -2581,7 +2581,7 @@ test('bundled containers the environment pins the hosts to are neither stopped n
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   const dialog = await screen.findByRole('dialog');
-  assert.doesNotMatch(dialog.textContent ?? '', /openwa-/);
+  assert.doesNotMatch(dialog.textContent ?? '', /zaplink-/);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
   await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart'), 'expected the restart POST'));
   assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, { profiles: [], profilesToRemove: [] });
@@ -2639,7 +2639,7 @@ async function saveAndRestart(): Promise<{ dialogText: string; names: string[]; 
   return { dialogText, names, body: findFetchCall('POST', '/api/infra/restart')!.body };
 }
 
-test('a bundled container OpenWA created whose host the environment pins elsewhere is stopped and named', async () => {
+test('a bundled container ZapLink created whose host the environment pins elsewhere is stopped and named', async () => {
   resetFetchCalls();
   overrides = { status: PINNED_AWAY, saved: PINNED_AWAY_SAVED, saveProfiles: ['postgres', 'redis', 'minio'] };
 
@@ -2680,19 +2680,19 @@ test('a bundled container Docker Compose created is left alone under a host pinn
   const { dialogText, names, body } = await saveAndRestart();
 
   assert.deepEqual(names, []);
-  assert.doesNotMatch(dialogText, /openwa-/);
+  assert.doesNotMatch(dialogText, /zaplink-/);
   assert.deepEqual(body, { profiles: ['postgres', 'redis', 'minio'], profilesToRemove: [] });
 });
 
 test('a host pinned to the container name still reaches the container, which is kept', async () => {
   resetFetchCalls();
-  const status = { ...PINNED_AWAY, database: { ...PINNED_AWAY.database, host: 'OpenWA-Postgres' } };
-  const saved = { ...PINNED_AWAY_SAVED, database: { ...PINNED_AWAY_SAVED.database, host: 'OpenWA-Postgres' } };
+  const status = { ...PINNED_AWAY, database: { ...PINNED_AWAY.database, host: 'ZapLink-Postgres' } };
+  const saved = { ...PINNED_AWAY_SAVED, database: { ...PINNED_AWAY_SAVED.database, host: 'ZapLink-Postgres' } };
   overrides = { status, saved, saveProfiles: ['postgres', 'redis', 'minio'] };
 
   const { names, body } = await saveAndRestart();
 
-  assert.deepEqual(names, ['openwa-redis', 'openwa-minio']);
+  assert.deepEqual(names, ['zaplink-redis', 'zaplink-minio']);
   assert.deepEqual(body, { profiles: ['postgres'], profilesToRemove: ['redis', 'minio'] });
 });
 
@@ -2708,26 +2708,26 @@ for (let round = 0; round < spellingRounds; round++) {
   const s3 = spelling('storage', round);
 
   // A pin that still reaches the container: the server keeps it, so the page neither asks for nor names its stop.
-  test(`hosts pinned to ${JSON.stringify([db, redisHost, s3])} keep the containers OpenWA created`, async () => {
+  test(`hosts pinned to ${JSON.stringify([db, redisHost, s3])} keep the containers ZapLink created`, async () => {
     resetFetchCalls();
     const status: InfraStatus = {
       ...PINNED_AWAY,
       database: { ...PINNED_AWAY.database, host: db, builtIn: true },
       redis: { ...PINNED_AWAY.redis, host: redisHost, builtIn: true },
-      storage: { ...PINNED_AWAY.storage, endpoint: s3, bucket: 'openwa', builtIn: true },
+      storage: { ...PINNED_AWAY.storage, endpoint: s3, bucket: 'zaplink', builtIn: true },
     };
     const saved: SavedConfig = {
       ...PINNED_AWAY_SAVED,
       database: { ...PINNED_AWAY_SAVED.database, host: db, builtIn: true },
       redis: { ...PINNED_AWAY_SAVED.redis, host: redisHost, builtIn: true },
-      storage: { ...PINNED_AWAY_SAVED.storage, s3Endpoint: s3, s3Bucket: 'openwa', builtIn: true },
+      storage: { ...PINNED_AWAY_SAVED.storage, s3Endpoint: s3, s3Bucket: 'zaplink', builtIn: true },
     };
     overrides = { status, saved, saveProfiles: ['postgres', 'redis', 'minio'] };
 
     const { dialogText, names, body } = await saveAndRestart();
 
     assert.deepEqual(names, []);
-    assert.doesNotMatch(dialogText, /openwa-/);
+    assert.doesNotMatch(dialogText, /zaplink-/);
     assert.deepEqual(body, { profiles: ['postgres', 'redis', 'minio'], profilesToRemove: [] });
   });
 
@@ -2773,7 +2773,7 @@ for (let round = 0; round < spellingRounds; round++) {
       saved: {
         ...SAVED_BUNDLED,
         database: { ...SAVED_BUNDLED.database, host: db, builtInSet: true },
-        storage: { ...SAVED_BUNDLED.storage, s3Endpoint: s3, s3Bucket: 'openwa', builtInSet: true },
+        storage: { ...SAVED_BUNDLED.storage, s3Endpoint: s3, s3Bucket: 'zaplink', builtInSet: true },
       },
     };
     const { container } = renderInfrastructure();
@@ -2881,7 +2881,7 @@ test('a bucket typed and then hidden by Use Built-in on the bundled MinIO is no 
   overrides = {
     status: {
       ...INFRA_STATUS,
-      storage: { type: 's3', bucket: 'media', endpoint: 'http://openwa-minio:9000', builtIn: true, s3Available: true },
+      storage: { type: 's3', bucket: 'media', endpoint: 'http://zaplink-minio:9000', builtIn: true, s3Available: true },
     },
     saved: {
       ...SAVED_CONFIG,
@@ -2891,7 +2891,7 @@ test('a bucket typed and then hidden by Use Built-in on the bundled MinIO is no 
         builtIn: true,
         builtInSet: false,
         s3Bucket: 'media',
-        s3Endpoint: 'http://openwa-minio:9000',
+        s3Endpoint: 'http://zaplink-minio:9000',
       },
     },
   };
@@ -2948,14 +2948,14 @@ test('typed external fields beside a host pinned elsewhere are sent with the fla
 // database on the bundled host itself, which the next boot then dials.
 const RUNNING_OWN_BUNDLED: InfraStatus = {
   ...INFRA_STATUS,
-  database: { connected: true, type: 'postgres', host: 'openwa-postgres', builtIn: true, running: false },
-  storage: { type: 's3', bucket: 'media', endpoint: 'http://openwa-minio:9000', builtIn: true, s3Available: true },
+  database: { connected: true, type: 'postgres', host: 'zaplink-postgres', builtIn: true, running: false },
+  storage: { type: 's3', bucket: 'media', endpoint: 'http://zaplink-minio:9000', builtIn: true, s3Available: true },
 };
 const SAVED_OWN_BUNDLED: SavedConfig = {
   ...SAVED_CONFIG,
   database: {
     ...SAVED_CONFIG.database,
-    host: 'openwa-postgres',
+    host: 'zaplink-postgres',
     port: '5432',
     username: 'app',
     database: 'appdb',
@@ -2970,7 +2970,7 @@ const SAVED_OWN_BUNDLED: SavedConfig = {
     builtInSet: false,
     s3Bucket: 'media',
     s3Region: 'eu-west-1',
-    s3Endpoint: 'http://openwa-minio:9000',
+    s3Endpoint: 'http://zaplink-minio:9000',
   },
 };
 for (const { label, toggle, field, value, after, warning, warnsBack } of [
@@ -3290,7 +3290,7 @@ test('disabled database and storage are stopped beneath bundled host pins', asyn
   fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="storageType"]')[0]);
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
   const dialog = await screen.findByRole('dialog');
-  assert.deepEqual(stopNames(dialog), ['openwa-postgres', 'openwa-minio']);
+  assert.deepEqual(stopNames(dialog), ['zaplink-postgres', 'zaplink-minio']);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
   await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart')));
   assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, {
@@ -3320,7 +3320,7 @@ for (const cacheUsesRedis of [false, true]) {
     fireEvent.click(toggleInput(container, 'Enable Redis'));
     fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
     const dialog = await screen.findByRole('dialog');
-    assert.deepEqual(stopNames(dialog), cacheUsesRedis ? [] : ['openwa-redis']);
+    assert.deepEqual(stopNames(dialog), cacheUsesRedis ? [] : ['zaplink-redis']);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
     await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart')));
     assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, {

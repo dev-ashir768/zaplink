@@ -1,4 +1,4 @@
-package openwa
+package zaplink
 
 // SetProfileNameRequest sets the account display name (WhatsApp limit: 25
 // chars).

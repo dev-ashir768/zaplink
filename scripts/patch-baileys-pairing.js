@@ -57,7 +57,7 @@ const QR_FIND = String.raw`    // QR gen
         genPairQR();
     });
 `;
-const QR_REPLACE = String.raw`    // OpenWA: Baileys #2765 companion registration refresh (rc14 backport).
+const QR_REPLACE = String.raw`    // ZapLink: Baileys #2765 companion registration refresh (rc14 backport).
     let refreshPairingQR;
     ws.on('CB:iq,type:set,pair-device', async (stanza) => {
         await sendNode({tag: 'iq', attrs: {to: S_WHATSAPP_NET, type: 'result', id: stanza.attrs.id}});

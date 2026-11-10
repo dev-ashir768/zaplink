@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Tests;
+namespace ZapLink\Tests;
 
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\Handler\CurlHandler;
 use GuzzleHttp\Handler\StreamHandler;
 use GuzzleHttp\HandlerStack;
-use OpenWA\Client;
+use ZapLink\Client;
 use PHPUnit\Framework\TestCase;
 
 /**

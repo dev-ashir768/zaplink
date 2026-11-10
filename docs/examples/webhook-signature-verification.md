@@ -1,18 +1,18 @@
 # Webhook Signature Verification
 
-OpenWA signs webhook deliveries when a webhook is configured with a secret. Receivers should verify the signature before processing the event.
+ZapLink signs webhook deliveries when a webhook is configured with a secret. Receivers should verify the signature before processing the event.
 
 ## Headers
 
-OpenWA sends these system headers with webhook deliveries:
+ZapLink sends these system headers with webhook deliveries:
 
-| Header                     | Description                                                        |
-| -------------------------- | ------------------------------------------------------------------ |
-| `X-OpenWA-Signature`       | HMAC-SHA256 signature, present only when the webhook has a secret  |
-| `X-OpenWA-Event`           | Event name, for example `message.received`                         |
-| `X-OpenWA-Idempotency-Key` | Stable key for duplicate detection                                 |
-| `X-OpenWA-Delivery-Id`     | Unique identifier for this delivery (stable across retry attempts) |
-| `X-OpenWA-Retry-Count`     | Retry count for the current delivery                               |
+| Header                      | Description                                                        |
+| --------------------------- | ------------------------------------------------------------------ |
+| `X-ZapLink-Signature`       | HMAC-SHA256 signature, present only when the webhook has a secret  |
+| `X-ZapLink-Event`           | Event name, for example `message.received`                         |
+| `X-ZapLink-Idempotency-Key` | Stable key for duplicate detection                                 |
+| `X-ZapLink-Delivery-Id`     | Unique identifier for this delivery (stable across retry attempts) |
+| `X-ZapLink-Retry-Count`     | Retry count for the current delivery                               |
 
 The signature format is:
 
@@ -22,15 +22,15 @@ sha256=<hex digest>
 
 The digest is computed over the exact raw request body bytes using the webhook secret.
 
-## With an OpenWA SDK
+## With an ZapLink SDK
 
-Since SDK 0.5.1, each SDK ships this check. Pass the raw body, the `X-OpenWA-Signature` header value and the secret; the helper returns false for a missing, malformed or wrong signature and compares in constant time.
+Since SDK 0.5.1, each SDK ships this check. Pass the raw body, the `X-ZapLink-Signature` header value and the secret; the helper returns false for a missing, malformed or wrong signature and compares in constant time.
 
 | SDK        | Call                                                    |
 | ---------- | ------------------------------------------------------- |
 | JavaScript | `await verifyWebhookSignature(rawBody, header, secret)` |
 | Python     | `verify_webhook_signature(raw_body, header, secret)`    |
-| Go         | `openwa.VerifyWebhookSignature(body, header, secret)`   |
+| Go         | `zaplink.VerifyWebhookSignature(body, header, secret)`  |
 | Java       | `WebhookSignature.verify(body, header, secret)`         |
 | PHP        | `WebhookSignature::verify($rawBody, $header, $secret)`  |
 
@@ -45,9 +45,9 @@ const crypto = require('crypto');
 const express = require('express');
 
 const app = express();
-const WEBHOOK_SECRET = process.env.OPENWA_WEBHOOK_SECRET;
+const WEBHOOK_SECRET = process.env.ZAPLINK_WEBHOOK_SECRET;
 
-function verifyOpenWASignature(rawBody, signature, secret) {
+function verifyZapLinkSignature(rawBody, signature, secret) {
   if (!signature || !secret) return false;
 
   const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -60,10 +60,10 @@ function verifyOpenWASignature(rawBody, signature, secret) {
   return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
 }
 
-app.post('/openwa/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-  const signature = req.header('X-OpenWA-Signature');
+app.post('/zaplink/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const signature = req.header('X-ZapLink-Signature');
 
-  if (!verifyOpenWASignature(req.body, signature, WEBHOOK_SECRET)) {
+  if (!verifyZapLinkSignature(req.body, signature, WEBHOOK_SECRET)) {
     return res.status(401).send('Invalid signature');
   }
 
@@ -86,10 +86,10 @@ import os
 from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
-WEBHOOK_SECRET = os.environ["OPENWA_WEBHOOK_SECRET"]
+WEBHOOK_SECRET = os.environ["ZAPLINK_WEBHOOK_SECRET"]
 
 
-def verify_openwa_signature(raw_body: bytes, signature: str | None, secret: str) -> bool:
+def verify_zaplink_signature(raw_body: bytes, signature: str | None, secret: str) -> bool:
     if not signature:
         return False
 
@@ -100,12 +100,12 @@ def verify_openwa_signature(raw_body: bytes, signature: str | None, secret: str)
     return hmac.compare_digest(signature, expected)
 
 
-@app.post("/openwa/webhook")
-async def openwa_webhook(request: Request):
+@app.post("/zaplink/webhook")
+async def zaplink_webhook(request: Request):
     raw_body = await request.body()
-    signature = request.headers.get("x-openwa-signature")
+    signature = request.headers.get("x-zaplink-signature")
 
-    if not verify_openwa_signature(raw_body, signature, WEBHOOK_SECRET):
+    if not verify_zaplink_signature(raw_body, signature, WEBHOOK_SECRET):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     event = await request.json()
@@ -116,9 +116,9 @@ async def openwa_webhook(request: Request):
 
 ## Processing Checklist
 
-- Verify `X-OpenWA-Signature` before trusting or parsing the event.
+- Verify `X-ZapLink-Signature` before trusting or parsing the event.
 - Use the exact raw request body received by your HTTP server.
 - Use a constant-time comparison function.
 - Return `401` for invalid signatures.
-- Use `X-OpenWA-Idempotency-Key` to avoid duplicate processing on retries.
+- Use `X-ZapLink-Idempotency-Key` to avoid duplicate processing on retries.
 - Return a `2xx` response only after the event is accepted for processing.

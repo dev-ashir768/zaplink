@@ -1,4 +1,4 @@
-// A plugin whose package is on disk but fails the load validation (here: it needs a newer OpenWA) is
+// A plugin whose package is on disk but fails the load validation (here: it needs a newer ZapLink) is
 // logged as plugin_load_failed with the reason. The boot must not also report it as a plugin whose code
 // is missing and tell the operator to reinstall it: the code is there, and a reinstall is refused for the
 // same reason.
@@ -35,7 +35,7 @@ describe('boot scan of a plugin package that fails its load validation', () => {
         version: '1.0.0',
         type: 'extension',
         main: 'index.js',
-        minOpenWAVersion: '99.0.0',
+        minZapLinkVersion: '99.0.0',
       }),
     );
     fs.writeFileSync(path.join(dir, 'index.js'), 'module.exports = class {};');

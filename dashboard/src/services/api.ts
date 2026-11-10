@@ -1,4 +1,4 @@
-// API Service Layer for OpenWA Dashboard
+// API Service Layer for ZapLink Dashboard
 // Centralized API client with TypeScript types
 
 import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
@@ -633,9 +633,9 @@ export interface UpdateCheck {
 }
 
 export interface InfraStatus {
-  // `builtIn` = OpenWA's own bundled container is actually running and backing this service (live),
+  // `builtIn` = ZapLink's own bundled container is actually running and backing this service (live),
   // not just the saved intent; falls back to the saved flag (the environment's first) beside a host that reaches the
-  // bundled container when Docker is unavailable. (#488) `running` = a bundled container OpenWA created is up,
+  // bundled container when Docker is unavailable. (#488) `running` = a bundled container ZapLink created is up,
   // whether or not the service uses it, beside this instance's own built-in flag (the environment's first, else the
   // saved one); false for one Docker Compose created and with that flag not true, absent while Docker is unreachable,
   // and from an older gateway.
@@ -818,9 +818,9 @@ async function handleErrorResponse<T>(response: Response, sentKey: string | null
   // rather than statusText: the toast folds an exact `HTTP 502`/`HTTP 503` into its connection-lost
   // toast (a 504 keeps its own), and statusText is empty over HTTP/2 anyway.
   const error = await response.json().catch(() => ({}));
-  const storedKey = sessionStorage.getItem('openwa_api_key');
+  const storedKey = sessionStorage.getItem('zaplink_api_key');
   if (isKeyUnusable(response.status, error.message) && (storedKey === sentKey || storedKey === null)) {
-    sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('zaplink_api_key');
     if (typeof window !== 'undefined') {
       if (sentKey !== null && storedKey === sentKey) window.location.assign('/');
       return new Promise<T>(() => {});
@@ -849,7 +849,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const url = `${API_BASE_URL}${endpoint}`;
 
   // Get API key from sessionStorage for authentication
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = sessionStorage.getItem('zaplink_api_key');
 
   // For FormData (file uploads) let the browser set multipart/form-data + boundary itself.
   const isFormData = options.body instanceof FormData;
@@ -874,7 +874,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 /** Like {@link request} but returns the raw response text — e.g. a plugin's HTML config-UI bundle. */
 async function requestText(endpoint: string): Promise<string> {
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = sessionStorage.getItem('zaplink_api_key');
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
   });
@@ -891,7 +891,7 @@ async function requestBlob(endpoint: string, signal?: AbortSignal): Promise<Blob
   const url = `${API_BASE_URL}${endpoint}`;
 
   // Get API key from sessionStorage for authentication
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = sessionStorage.getItem('zaplink_api_key');
 
   const headers: HeadersInit = {
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),
@@ -1553,8 +1553,8 @@ export interface CatalogPlugin {
   author?: string;
   license?: string;
   keywords?: string[];
-  minOpenWAVersion?: string;
-  testedOpenWAVersion?: string;
+  minZapLinkVersion?: string;
+  testedZapLinkVersion?: string;
   homepage?: string;
   download?: string;
   installed: boolean;

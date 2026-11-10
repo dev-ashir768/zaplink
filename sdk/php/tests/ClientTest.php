@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Tests;
+namespace ZapLink\Tests;
 
-use OpenWA\Exceptions\OpenWAApiException;
-use OpenWA\Exceptions\OpenWAAuthException;
-use OpenWA\Exceptions\OpenWAConflictException;
-use OpenWA\Exceptions\OpenWAForbiddenException;
-use OpenWA\Exceptions\OpenWANotFoundException;
-use OpenWA\Exceptions\OpenWANotImplementedException;
-use OpenWA\Exceptions\OpenWARateLimitException;
-use OpenWA\Exceptions\OpenWAServiceUnavailableException;
-use OpenWA\Exceptions\OpenWATimeoutException;
+use ZapLink\Exceptions\ZapLinkApiException;
+use ZapLink\Exceptions\ZapLinkAuthException;
+use ZapLink\Exceptions\ZapLinkConflictException;
+use ZapLink\Exceptions\ZapLinkForbiddenException;
+use ZapLink\Exceptions\ZapLinkNotFoundException;
+use ZapLink\Exceptions\ZapLinkNotImplementedException;
+use ZapLink\Exceptions\ZapLinkRateLimitException;
+use ZapLink\Exceptions\ZapLinkServiceUnavailableException;
+use ZapLink\Exceptions\ZapLinkTimeoutException;
 use PHPUnit\Framework\TestCase;
 
 class ClientTest extends TestCase
@@ -27,12 +27,12 @@ class ClientTest extends TestCase
             try {
                 (new MockBackend())->makeClient('http://localhost:2785', $bad);
                 $this->fail('Expected an exception for an illegal key');
-            } catch (\OpenWA\Exceptions\OpenWAException $e) {
+            } catch (\ZapLink\Exceptions\ZapLinkException $e) {
                 $this->assertStringContainsString('apiKey', $e->getMessage());
                 $this->assertStringNotContainsString($bad, $e->getMessage());
             }
         }
-        $this->expectException(\OpenWA\Exceptions\OpenWAException::class);
+        $this->expectException(\ZapLink\Exceptions\ZapLinkException::class);
         $this->expectExceptionMessage('apiKey is required');
         (new MockBackend())->makeClient('http://localhost:2785', "  \n");
     }
@@ -50,22 +50,22 @@ class ClientTest extends TestCase
         $cases = [['CF-Access-Client-Secret', "s3cret-token\n"], ['X-Trace', "caf\u{e9}"], ['X-Trace', "a\0b"]];
         foreach ($cases as [$name, $value]) {
             try {
-                new \OpenWA\Client(['baseUrl' => 'http://localhost:2785', 'apiKey' => 'k', 'defaultHeaders' => [$name => $value]]);
+                new \ZapLink\Client(['baseUrl' => 'http://localhost:2785', 'apiKey' => 'k', 'defaultHeaders' => [$name => $value]]);
                 $this->fail('Expected an exception for an illegal header value');
-            } catch (\OpenWA\Exceptions\OpenWAException $e) {
+            } catch (\ZapLink\Exceptions\ZapLinkException $e) {
                 $this->assertStringContainsString($name, $e->getMessage());
                 $this->assertStringNotContainsString(trim($value), $e->getMessage());
             }
         }
         try {
-            new \OpenWA\Client(['baseUrl' => 'http://localhost:2785', 'apiKey' => 'k', 'defaultHeaders' => ['X Bad' => 'v']]);
+            new \ZapLink\Client(['baseUrl' => 'http://localhost:2785', 'apiKey' => 'k', 'defaultHeaders' => ['X Bad' => 'v']]);
             $this->fail('Expected an exception for an illegal header name');
-        } catch (\OpenWA\Exceptions\OpenWAException $e) {
+        } catch (\ZapLink\Exceptions\ZapLinkException $e) {
             $this->assertStringContainsString('header name', $e->getMessage());
         }
         // A tab and plain printable ASCII are fine.
         $backend = (new MockBackend())->on(200, []);
-        (new \OpenWA\Client([
+        (new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'k',
             'httpClient' => $backend->httpClient(),
@@ -78,7 +78,7 @@ class ClientTest extends TestCase
     {
         $mock = new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response(200)]);
         $httpClient = new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]);
-        (new \OpenWA\Client([
+        (new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'k',
             'httpClient' => $httpClient,
@@ -109,14 +109,14 @@ class ClientTest extends TestCase
             'headers' => ['X-Proxy-Credential' => 'private-default'],
         ]);
         try {
-            (new \OpenWA\Client([
+            (new \ZapLink\Client([
                 'baseUrl' => 'http://localhost:2785',
                 'apiKey' => 'k',
                 'httpClient' => $httpClient,
                 'defaultHeaders' => ['X-Proxy-Credential' => []],
             ]))->request('GET', '/api/anything');
             $this->fail('Expected an exception for an empty header list');
-        } catch (\OpenWA\Exceptions\OpenWAException $e) {
+        } catch (\ZapLink\Exceptions\ZapLinkException $e) {
             $this->assertStringContainsString('X-Proxy-Credential', $e->getMessage());
             $this->assertStringNotContainsString('private-default', $e->getMessage());
         }
@@ -127,9 +127,9 @@ class ClientTest extends TestCase
     {
         foreach ([new \stdClass(), [['nested']]] as $value) {
             try {
-                new \OpenWA\Client(['baseUrl' => 'http://localhost:2785', 'apiKey' => 'k', 'defaultHeaders' => ['X-Bad' => $value]]);
+                new \ZapLink\Client(['baseUrl' => 'http://localhost:2785', 'apiKey' => 'k', 'defaultHeaders' => ['X-Bad' => $value]]);
                 $this->fail('Expected an exception for a header value that is not text');
-            } catch (\OpenWA\Exceptions\OpenWAException $e) {
+            } catch (\ZapLink\Exceptions\ZapLinkException $e) {
                 $this->assertStringContainsString('X-Bad', $e->getMessage());
                 $this->assertStringContainsString('must be text', $e->getMessage());
             }
@@ -145,9 +145,9 @@ class ClientTest extends TestCase
         // setting is read when the exception is created, so it is switched off around the call.
         $previous = ini_set('zend.exception_ignore_args', '0');
         try {
-            new \OpenWA\Client(['baseUrl' => 'https://wa.example.com', 'apiKey' => $key, 'defaultHeaders' => ['X-Proxy' => "tok\n"]]);
+            new \ZapLink\Client(['baseUrl' => 'https://wa.example.com', 'apiKey' => $key, 'defaultHeaders' => ['X-Proxy' => "tok\n"]]);
             $this->fail('Expected an exception for an illegal header value');
-        } catch (\OpenWA\Exceptions\OpenWAException $e) {
+        } catch (\ZapLink\Exceptions\ZapLinkException $e) {
             $this->assertStringNotContainsString(substr($key, 0, 10), $e->getTraceAsString());
             // From PHP 8.2 the frames carry no argument values at all: the refused value is not in one.
             if (PHP_VERSION_ID >= 80200) {
@@ -162,31 +162,31 @@ class ClientTest extends TestCase
 
     public function testRequiresBaseUrlAndApiKey(): void
     {
-        $this->expectException(\OpenWA\Exceptions\OpenWAException::class);
-        new \OpenWA\Client(['baseUrl' => '', 'apiKey' => 'k']);
+        $this->expectException(\ZapLink\Exceptions\ZapLinkException::class);
+        new \ZapLink\Client(['baseUrl' => '', 'apiKey' => 'k']);
     }
 
     public function testRequiresApiKey(): void
     {
-        $this->expectException(\OpenWA\Exceptions\OpenWAException::class);
-        new \OpenWA\Client(['baseUrl' => 'https://x', 'apiKey' => '']);
+        $this->expectException(\ZapLink\Exceptions\ZapLinkException::class);
+        new \ZapLink\Client(['baseUrl' => 'https://x', 'apiKey' => '']);
     }
 
     public function testInsecureHttpBaseUrlLogsInsteadOfRaisingAPhpError(): void
     {
         // Laravel, Symfony and PHPUnit's failOnWarning turn an E_USER_WARNING into an exception, so a
         // raised warning left the client unbuildable for an http:// host on a private network.
-        $log = (string) tempnam(sys_get_temp_dir(), 'openwa');
+        $log = (string) tempnam(sys_get_temp_dir(), 'zaplink');
         $previousLog = ini_set('error_log', $log);
         set_error_handler(static function (int $errno, string $errstr): bool {
             throw new \ErrorException($errstr, 0, $errno);
         });
         try {
-            new \OpenWA\Client(['baseUrl' => 'http://openwa:2785', 'apiKey' => 'k']);
+            new \ZapLink\Client(['baseUrl' => 'http://zaplink:2785', 'apiKey' => 'k']);
             $this->assertStringContainsString('insecure http://', (string) file_get_contents($log));
 
             file_put_contents($log, '');
-            new \OpenWA\Client(['baseUrl' => 'http://openwa:2785', 'apiKey' => 'k', 'allowInsecureHttp' => true]);
+            new \ZapLink\Client(['baseUrl' => 'http://zaplink:2785', 'apiKey' => 'k', 'allowInsecureHttp' => true]);
             $this->assertSame('', file_get_contents($log));
         } finally {
             restore_error_handler();
@@ -199,14 +199,14 @@ class ClientTest extends TestCase
     {
         // parse_url returns the scheme and host as written, so a baseUrl in capitals must still warn
         // for a remote host and stay quiet for localhost.
-        $log = (string) tempnam(sys_get_temp_dir(), 'openwa');
+        $log = (string) tempnam(sys_get_temp_dir(), 'zaplink');
         $previousLog = ini_set('error_log', $log);
         try {
-            new \OpenWA\Client(['baseUrl' => 'HTTP://openwa:2785', 'apiKey' => 'k']);
+            new \ZapLink\Client(['baseUrl' => 'HTTP://zaplink:2785', 'apiKey' => 'k']);
             $this->assertStringContainsString('insecure http://', (string) file_get_contents($log));
 
             file_put_contents($log, '');
-            new \OpenWA\Client(['baseUrl' => 'http://LOCALHOST:2785', 'apiKey' => 'k']);
+            new \ZapLink\Client(['baseUrl' => 'http://LOCALHOST:2785', 'apiKey' => 'k']);
             $this->assertSame('', file_get_contents($log));
         } finally {
             ini_set('error_log', (string) $previousLog);
@@ -227,7 +227,7 @@ class ClientTest extends TestCase
     public function testDefaultHeadersApplledUnderAuth(): void
     {
         $backend = (new MockBackend())->on(200, []);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'https://x',
             'apiKey' => 'REAL_KEY',
             'httpClient' => $backend->httpClient(),
@@ -244,7 +244,7 @@ class ClientTest extends TestCase
         // PSR-7 folds header names case-insensitively and keeps every value, so a lowercase copy
         // would be sent ahead of ours: "x-api-key: EVIL, REAL_KEY".
         $backend = (new MockBackend())->on(200, []);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'https://x',
             'apiKey' => 'REAL_KEY',
             'httpClient' => $backend->httpClient(),
@@ -345,7 +345,7 @@ class ClientTest extends TestCase
         try {
             $client->request('get', '/api/missing');
             $this->fail('Expected exception');
-        } catch (OpenWANotFoundException $e) {
+        } catch (ZapLinkNotFoundException $e) {
             $this->assertStringContainsString('GET /api/missing', $e->getMessage());
         }
     }
@@ -370,7 +370,7 @@ class ClientTest extends TestCase
         $threw = false;
         try {
             $backend->makeClient()->sessions->list();
-        } catch (OpenWAApiException $e) {
+        } catch (ZapLinkApiException $e) {
             $threw = true;
         }
         $this->assertTrue($threw, 'an unfollowed 3xx must surface as an API error');
@@ -391,7 +391,7 @@ class ClientTest extends TestCase
             try {
                 $request();
                 $this->fail('Expected an API exception for final HTTP ' . $status);
-            } catch (OpenWAApiException $error) {
+            } catch (ZapLinkApiException $error) {
                 $this->assertSame($status, $error->getStatus());
             }
         } elseif ($binary) {
@@ -430,7 +430,7 @@ class ClientTest extends TestCase
             'message' => 'Session not found',
             'error' => 'Not Found',
         ]);
-        $this->expectException(OpenWANotFoundException::class);
+        $this->expectException(ZapLinkNotFoundException::class);
         $backend->makeClient()->sessions->get('missing');
     }
 
@@ -441,7 +441,7 @@ class ClientTest extends TestCase
             'message' => 'Unauthorized',
             'error' => 'Unauthorized',
         ]);
-        $this->expectException(OpenWAAuthException::class);
+        $this->expectException(ZapLinkAuthException::class);
         $backend->makeClient()->sessions->list();
     }
 
@@ -452,8 +452,8 @@ class ClientTest extends TestCase
         try {
             $backend->makeClient()->sessions->list();
             $this->fail('Expected exception');
-        } catch (OpenWAApiException $e) {
-            // The exact class, not instanceof: every one of them is also an OpenWAApiException.
+        } catch (ZapLinkApiException $e) {
+            // The exact class, not instanceof: every one of them is also an ZapLinkApiException.
             $this->assertSame($class, $e::class);
             $this->assertSame($status, $e->getStatus());
         }
@@ -462,16 +462,16 @@ class ClientTest extends TestCase
     public static function statusClasses(): array
     {
         return [
-            '401' => [401, OpenWAAuthException::class],
-            '403' => [403, OpenWAForbiddenException::class],
-            '404' => [404, OpenWANotFoundException::class],
-            '409' => [409, OpenWAConflictException::class],
-            '429' => [429, OpenWARateLimitException::class],
-            '501' => [501, OpenWANotImplementedException::class],
-            '503' => [503, OpenWAServiceUnavailableException::class],
-            '400' => [400, OpenWAApiException::class],
-            '500' => [500, OpenWAApiException::class],
-            '502' => [502, OpenWAApiException::class],
+            '401' => [401, ZapLinkAuthException::class],
+            '403' => [403, ZapLinkForbiddenException::class],
+            '404' => [404, ZapLinkNotFoundException::class],
+            '409' => [409, ZapLinkConflictException::class],
+            '429' => [429, ZapLinkRateLimitException::class],
+            '501' => [501, ZapLinkNotImplementedException::class],
+            '503' => [503, ZapLinkServiceUnavailableException::class],
+            '400' => [400, ZapLinkApiException::class],
+            '500' => [500, ZapLinkApiException::class],
+            '502' => [502, ZapLinkApiException::class],
         ];
     }
 
@@ -493,7 +493,7 @@ class ClientTest extends TestCase
         try {
             $backend->makeClient()->sessions->get('x');
             $this->fail('Expected exception');
-        } catch (OpenWAApiException $e) {
+        } catch (ZapLinkApiException $e) {
             $this->assertSame(502, $e->getStatus());
             $this->assertNull($e->getErrorKind());
             $this->assertStringContainsString('upstream failed', $e->getMessage());
@@ -510,7 +510,7 @@ class ClientTest extends TestCase
         try {
             $backend->makeClient()->sessions->get('x');
             $this->fail('Expected exception');
-        } catch (OpenWANotFoundException $e) {
+        } catch (ZapLinkNotFoundException $e) {
             $this->assertSame(404, $e->getStatus());
             $this->assertSame('Not Found', $e->getErrorKind());
             $this->assertIsArray($e->getBody());
@@ -519,12 +519,12 @@ class ClientTest extends TestCase
 
     public function testErrorCarriesCodeRetryAfterAndHeaders(): void
     {
-        $fail = function (int $status, $body = null, array $headers = [], ?string $raw = null): OpenWAApiException {
+        $fail = function (int $status, $body = null, array $headers = [], ?string $raw = null): ZapLinkApiException {
             $backend = new MockBackend();
             $raw === null ? $backend->on($status, $body, $headers) : $backend->onRaw($status, $raw, $headers);
             try {
                 $backend->makeClient()->sessions->list();
-            } catch (OpenWAApiException $e) {
+            } catch (ZapLinkApiException $e) {
                 return $e;
             }
             $this->fail('Expected exception');
@@ -533,7 +533,7 @@ class ClientTest extends TestCase
         $throttled = $fail(429, ['statusCode' => 429, 'message' => 'ThrottlerException: Too Many Requests'], [
             'retry-after' => '7',
         ]);
-        $this->assertInstanceOf(OpenWARateLimitException::class, $throttled);
+        $this->assertInstanceOf(ZapLinkRateLimitException::class, $throttled);
         $this->assertSame(7, $throttled->getRetryAfterSeconds());
         $this->assertNull($throttled->getErrorCode());
         $this->assertSame(['7'], $throttled->getHeaders()['retry-after']);
@@ -565,7 +565,7 @@ class ClientTest extends TestCase
         $this->assertNull($plain->getRetryAfterSeconds());
 
         // The four-argument constructor still works and has no headers.
-        $this->assertSame([], (new OpenWARateLimitException('m', 429))->getHeaders());
+        $this->assertSame([], (new ZapLinkRateLimitException('m', 429))->getHeaders());
     }
 
     public function testAnOversizedRetryAfterBodyDoesNotWrapAround(): void
@@ -575,7 +575,7 @@ class ClientTest extends TestCase
             try {
                 $backend->makeClient()->sessions->list();
                 $this->fail('Expected exception');
-            } catch (OpenWARateLimitException $e) {
+            } catch (ZapLinkRateLimitException $e) {
                 $this->assertSame(PHP_INT_MAX, $e->getRetryAfterSeconds(), "retryAfterSeconds {$seconds}");
             }
         }
@@ -598,7 +598,7 @@ class ClientTest extends TestCase
             try {
                 $backend->makeClient()->sessions->list();
                 $this->fail('Expected exception');
-            } catch (OpenWAApiException $e) {
+            } catch (ZapLinkApiException $e) {
                 $this->assertSame($expected, $e->getRetryAfterSeconds(), 'Retry-After of ' . strlen($header) . ' characters');
             }
         }
@@ -611,7 +611,7 @@ class ClientTest extends TestCase
         // with the ctype functions disabled.
         $autoload = var_export(dirname(__DIR__) . '/vendor/autoload.php', true);
         $script = "require {$autoload};"
-            . "\$e = \\OpenWA\\Exceptions\\OpenWAApiException::classify(429, 'm', null, null, ['Retry-After' => '7']);"
+            . "\$e = \\ZapLink\\Exceptions\\ZapLinkApiException::classify(429, 'm', null, null, ['Retry-After' => '7']);"
             . "echo get_class(\$e), ' ', var_export(\$e->getRetryAfterSeconds(), true);";
         $ctype = 'ctype_alnum,ctype_alpha,ctype_cntrl,ctype_digit,ctype_graph,'
             . 'ctype_lower,ctype_print,ctype_punct,ctype_space,ctype_upper,ctype_xdigit';
@@ -620,7 +620,7 @@ class ClientTest extends TestCase
         exec($command, $output, $exitCode);
 
         $this->assertSame(0, $exitCode, implode("\n", $output));
-        $this->assertSame(OpenWARateLimitException::class . ' 7', implode("\n", $output));
+        $this->assertSame(ZapLinkRateLimitException::class . ' 7', implode("\n", $output));
     }
 
     public function testNonEnvelopeErrorBodyMapsToTypedException(): void
@@ -634,7 +634,7 @@ class ClientTest extends TestCase
         try {
             $backend->makeClient()->health->ready();
             $this->fail('Expected exception');
-        } catch (OpenWAServiceUnavailableException $e) {
+        } catch (ZapLinkServiceUnavailableException $e) {
             $this->assertSame(503, $e->getStatus());
             $this->assertStringContainsString('{"mainDatabase":{"status":"down"}}', $e->getMessage());
         }
@@ -666,8 +666,8 @@ class ClientTest extends TestCase
         foreach ($calls as $call) {
             try {
                 $call();
-                $this->fail('Expected an OpenWAException for a body that is not JSON');
-            } catch (\OpenWA\Exceptions\OpenWAException $e) {
+                $this->fail('Expected an ZapLinkException for a body that is not JSON');
+            } catch (\ZapLink\Exceptions\ZapLinkException $e) {
                 $this->assertStringContainsString('non-JSON response for', $e->getMessage());
             }
         }
@@ -682,7 +682,7 @@ class ClientTest extends TestCase
         try {
             $client->request('GET', '/api/anything');
             $this->fail('Expected exception');
-        } catch (OpenWAApiException $e) {
+        } catch (ZapLinkApiException $e) {
             $this->assertSame(502, $e->getStatus());
             $this->assertSame('<html>Bad Gateway</html>', $e->getBody());
             $this->assertStringContainsString('<html>Bad Gateway</html>', $e->getMessage());
@@ -693,7 +693,7 @@ class ClientTest extends TestCase
         try {
             $client->request('GET', '/api/anything');
             $this->fail('Expected exception');
-        } catch (OpenWAApiException $e) {
+        } catch (ZapLinkApiException $e) {
             $this->assertNull($e->getBody());
             $this->assertStringContainsString('Internal Server Error', $e->getMessage());
         }
@@ -704,7 +704,7 @@ class ClientTest extends TestCase
     {
         $mock = new \GuzzleHttp\Handler\MockHandler([$failure]);
         $httpClient = new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'k',
             'timeout' => 1.25,
@@ -714,7 +714,7 @@ class ClientTest extends TestCase
         try {
             $binary ? $client->status->media('s', 'status') : $client->sessions->list();
             $this->fail('Expected a timeout exception');
-        } catch (OpenWATimeoutException $e) {
+        } catch (ZapLinkTimeoutException $e) {
             $this->assertSame(1.25, $e->getTimeout());
         }
     }
@@ -747,7 +747,7 @@ class ClientTest extends TestCase
         // Guzzle 7 reads the option differently (0 and fractions end reads at once), so it is left out there.
         foreach ([100.0, 1.25, 0.0] as $timeout) {
             $mock = new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response(200)]);
-            $client = new \OpenWA\Client([
+            $client = new \ZapLink\Client([
                 'baseUrl' => 'http://localhost:2785',
                 'apiKey' => 'k',
                 'timeout' => $timeout,
@@ -779,7 +779,7 @@ class ClientTest extends TestCase
         try {
             $binary ? $client->status->media('s', 'status') : $client->sessions->list();
             $this->fail('Expected a timeout exception');
-        } catch (OpenWATimeoutException $e) {
+        } catch (ZapLinkTimeoutException $e) {
             $this->assertSame(0.05, $e->getTimeout());
         }
     }
@@ -849,12 +849,12 @@ class ClientTest extends TestCase
      */
     public function testTheElapsedTimeCheckTakesAnIntOrAFloatStart(): void
     {
-        $executor = new \OpenWA\Http\HttpExecutor('http://localhost:2785', 'k', 1.0);
+        $executor = new \ZapLink\Http\HttpExecutor('http://localhost:2785', 'k', 1.0);
         $failure = new \GuzzleHttp\Exception\ConnectException('Connection refused', new \GuzzleHttp\Psr7\Request('GET', '/api/sessions'));
         $failedAfterTimeout = \Closure::bind(
             fn (int|float $startedNs): bool => $this->failedAfterTimeout($failure, $startedNs),
             $executor,
-            \OpenWA\Http\HttpExecutor::class
+            \ZapLink\Http\HttpExecutor::class
         );
 
         $now = hrtime(true);
@@ -867,12 +867,12 @@ class ClientTest extends TestCase
     /** @dataProvider responseBodyKinds */
     public function testAnInjectedStreamingClientClassifiesBodyTimeouts(string $kind): void
     {
-        $this->withNativeResponse($kind, false, function (\OpenWA\Client $client) use ($kind): void {
+        $this->withNativeResponse($kind, false, function (\ZapLink\Client $client) use ($kind): void {
             if ($kind === 'error') {
                 try {
                     $client->request('GET', '/api/anything');
                     $this->fail('Expected the complete 503 response');
-                } catch (OpenWAServiceUnavailableException $error) {
+                } catch (ZapLinkServiceUnavailableException $error) {
                     $this->assertSame(503, $error->getStatus());
                     $this->assertSame('fixture failure', $error->getBody()['message']);
                 }
@@ -886,11 +886,11 @@ class ClientTest extends TestCase
             }
         });
 
-        $this->withNativeResponse($kind, true, function (\OpenWA\Client $client) use ($kind): void {
+        $this->withNativeResponse($kind, true, function (\ZapLink\Client $client) use ($kind): void {
             try {
                 $kind === 'binary' ? $client->status->media('s', 'item') : $client->request('GET', '/api/anything');
                 $this->fail('Expected a body timeout, not partial response data');
-            } catch (OpenWATimeoutException $error) {
+            } catch (ZapLinkTimeoutException $error) {
                 $this->assertSame(0.1, $error->getTimeout());
             }
         });
@@ -956,7 +956,7 @@ PHP;
                 'handler' => \GuzzleHttp\HandlerStack::create(new \GuzzleHttp\Handler\StreamHandler()),
                 'stream' => true,
             ]);
-            $check(new \OpenWA\Client([
+            $check(new \ZapLink\Client([
                 'baseUrl' => 'http://' . trim($address),
                 'apiKey' => 'fixture-key',
                 'timeout' => $stall ? 0.1 : 1.0,
@@ -983,14 +983,14 @@ PHP;
         $this->assertSame('', $serverError);
     }
 
-    private static function clientWhoseHandlerFails(\Throwable $failure, float $timeout, float $afterSeconds): \OpenWA\Client
+    private static function clientWhoseHandlerFails(\Throwable $failure, float $timeout, float $afterSeconds): \ZapLink\Client
     {
         $handler = static function () use ($failure, $afterSeconds) {
             usleep((int) ($afterSeconds * 1e6));
             return \GuzzleHttp\Promise\Create::rejectionFor($failure);
         };
 
-        return new \OpenWA\Client([
+        return new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'k',
             'timeout' => $timeout,
@@ -1008,13 +1008,13 @@ PHP;
         );
         $mock = new \GuzzleHttp\Handler\MockHandler([$timeoutRequest]);
         $httpClient = new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'k',
             'httpClient' => $httpClient,
         ]);
 
-        $this->expectException(OpenWATimeoutException::class);
+        $this->expectException(ZapLinkTimeoutException::class);
         $client->sessions->list();
     }
 
@@ -1027,7 +1027,7 @@ PHP;
         );
         $mock = new \GuzzleHttp\Handler\MockHandler([$refused]);
         $httpClient = new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'k',
             'httpClient' => $httpClient,

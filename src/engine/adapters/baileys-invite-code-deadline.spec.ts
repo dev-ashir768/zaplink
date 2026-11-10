@@ -5,7 +5,7 @@ import { BAILEYS_QUERY_BUDGET_MS } from './baileys-query-deadline';
 
 /**
  * Baileys' query() waits 60 s (defaultQueryTimeoutMs) for an IQ answer and then RESOLVES undefined. Every
- * other group read and write here answers within OpenWA's own budget, which exists to stay under that
+ * other group read and write here answers within ZapLink's own budget, which exists to stay under that
  * clock and under session.proxyTimeoutMs (60 s by default); the invite-code read and its revocation
  * have to as well.
  */

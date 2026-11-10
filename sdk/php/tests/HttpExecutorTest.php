@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Tests;
+namespace ZapLink\Tests;
 
 use PHPUnit\Framework\TestCase;
 
@@ -82,7 +82,7 @@ class HttpExecutorTest extends TestCase
     {
         $secret = 'PROXYSECRET';
         $backend = (new MockBackend())->on(200, []);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'http://localhost:2785',
             'apiKey' => 'owa_k1_test',
             'httpClient' => $backend->httpClient(),
@@ -132,7 +132,7 @@ class HttpExecutorTest extends TestCase
         string $expectedFragment
     ): void {
         $mock = new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response(200, [], '[]')]);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'https://fixture.invalid/gateway',
             'apiKey' => 'fixture-key',
             'httpClient' => new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]),
@@ -171,7 +171,7 @@ class HttpExecutorTest extends TestCase
     public function testEncodedIdentityHashesStayInThePath(): void
     {
         $mock = new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response(200, [], '{}')]);
-        $client = new \OpenWA\Client([
+        $client = new \ZapLink\Client([
             'baseUrl' => 'https://fixture.invalid/gateway',
             'apiKey' => 'fixture-key',
             'httpClient' => new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]),

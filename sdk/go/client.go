@@ -1,17 +1,17 @@
-// Package openwa is the official Go client for OpenWA, the open-source WhatsApp API Gateway (not
+// Package zaplink is the official Go client for ZapLink, the open-source WhatsApp API Gateway (not
 // affiliated with WhatsApp or Meta).
 //
 // The single entry point is New, which returns a *Client whose exported fields
 // are the domain services:
 //
-//	client, err := openwa.New("http://localhost:2785", "owa_k1_…")
+//	client, err := zaplink.New("http://localhost:2785", "owa_k1_…")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 //	ctx := context.Background()
 //	// Sessions are addressed by the UUID that Create returns, not by name.
-//	session, err := client.Sessions.Create(ctx, openwa.CreateSessionRequest{Name: "my-session"})
+//	session, err := client.Sessions.Create(ctx, zaplink.CreateSessionRequest{Name: "my-session"})
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -20,9 +20,9 @@
 //	}
 //	// Link the account before sending: scan Sessions.QRCode (or use Sessions.RequestPairingCode for a number with no linked session),
 //	// then wait for status "ready". An unlinked session answers the send with 409.
-//	res, err := client.Messages.SendText(ctx, session.ID, openwa.SendTextRequest{
+//	res, err := client.Messages.SendText(ctx, session.ID, zaplink.SendTextRequest{
 //	    ChatID: "628123456789@c.us",
-//	    Text:   "Hello from the OpenWA Go SDK!",
+//	    Text:   "Hello from the ZapLink Go SDK!",
 //	})
 //
 // Every network method is context-first. Configuration and dependency injection
@@ -34,7 +34,7 @@
 // Use HTTPS in production: the API key is sent as X-API-Key on every request
 // and is bearer-equivalent. Redirects are never followed, so the key is never
 // re-sent to a redirect target.
-package openwa
+package zaplink
 
 import (
 	"bytes"
@@ -52,7 +52,7 @@ import (
 	"time"
 )
 
-// Client is the entry point to the OpenWA API. Construct it with New. It is safe
+// Client is the entry point to the ZapLink API. Construct it with New. It is safe
 // for concurrent use by multiple goroutines. The exported service fields group
 // the API by domain.
 type Client struct {
@@ -86,17 +86,17 @@ var localhostHosts = map[string]bool{"localhost": true, "127.0.0.1": true, "::1"
 // Both are required. Everything else is configured through Options.
 func New(baseURL, apiKey string, opts ...Option) (*Client, error) {
 	if strings.TrimSpace(baseURL) == "" {
-		return nil, errors.New("openwa: baseURL is required")
+		return nil, errors.New("zaplink: baseURL is required")
 	}
 	// A key read from a secret file usually ends in a newline: trimmed, as the other clients do. A control
 	// character left inside is refused here, by the key's name and without repeating it.
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
-		return nil, errors.New("openwa: apiKey is required")
+		return nil, errors.New("zaplink: apiKey is required")
 	}
 	for _, r := range apiKey {
 		if r < 0x20 || r == 0x7f {
-			return nil, errors.New("openwa: apiKey contains a control character; check for a stray newline")
+			return nil, errors.New("zaplink: apiKey contains a control character; check for a stray newline")
 		}
 	}
 
@@ -171,7 +171,7 @@ func New(baseURL, apiKey string, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-const insecureWarning = "openwa: baseURL uses insecure http:// — the API key is sent in cleartext; use https:// in production"
+const insecureWarning = "zaplink: baseURL uses insecure http:// — the API key is sent in cleartext; use https:// in production"
 
 // warnIfInsecure warns once, at construction, when the API key would travel in
 // cleartext to a non-localhost host.
@@ -240,7 +240,7 @@ func (c *Client) call(ctx context.Context, method, path string, query url.Values
 			*text = string(data)
 			return nil
 		}
-		return fmt.Errorf("openwa: decoding response: %w", err)
+		return fmt.Errorf("zaplink: decoding response: %w", err)
 	}
 	return nil
 }
@@ -293,7 +293,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, query url.Value
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return nil, "", fmt.Errorf("openwa: encoding request body: %w", err)
+			return nil, "", fmt.Errorf("zaplink: encoding request body: %w", err)
 		}
 		bodyBytes = b
 		reader = bytes.NewReader(b)
@@ -301,7 +301,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, query url.Value
 
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
 	if err != nil {
-		return nil, "", fmt.Errorf("openwa: building request: %w", err)
+		return nil, "", fmt.Errorf("zaplink: building request: %w", err)
 	}
 	// Merged into the parsed URL: appended to the string, the values would land inside a fragment.
 	if len(query) > 0 {
@@ -313,7 +313,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, query url.Value
 	// Read through the request: NewRequestWithContext has just refused a nil ctx, which ctx.Value would panic on.
 	if key, hasKey := req.Context().Value(idempotencyContextKey{}).(string); hasKey {
 		if len(key) < 1 || len(key) > 255 || strings.IndexFunc(key, func(r rune) bool { return r < 0x21 || r > 0x7e }) >= 0 {
-			return nil, "", errors.New("openwa: idempotency key must contain 1-255 visible ASCII characters")
+			return nil, "", errors.New("zaplink: idempotency key must contain 1-255 visible ASCII characters")
 		}
 		if req.Method == http.MethodPost && isIdempotentSendPath(path) {
 			req.Header.Set("Idempotency-Key", key)
@@ -333,7 +333,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, query url.Value
 		if isTimeout(err) {
 			return nil, "", c.timeoutErr(ctx, err)
 		}
-		return nil, "", fmt.Errorf("openwa: %s %s: %w", method, path, err)
+		return nil, "", fmt.Errorf("zaplink: %s %s: %w", method, path, err)
 	}
 	defer resp.Body.Close()
 
@@ -342,7 +342,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, query url.Value
 		if isTimeout(err) {
 			return nil, "", c.timeoutErr(ctx, err)
 		}
-		return nil, "", fmt.Errorf("openwa: reading response body: %w", err)
+		return nil, "", fmt.Errorf("zaplink: reading response body: %w", err)
 	}
 
 	// Any non-2xx (including an unfollowed 3xx or a final 1xx) is an error.
@@ -398,7 +398,7 @@ var slashFolder = strings.NewReplacer("%2f", "/", "%2F", "/", "%5c", "/", "%5C",
 // path segments.
 func checkPathSegments(path string, allowEmpty bool) error {
 	if !strings.HasPrefix(path, "/") {
-		return fmt.Errorf("openwa: path must begin with \"/\": %q", path)
+		return fmt.Errorf("zaplink: path must begin with \"/\": %q", path)
 	}
 	p := path
 	if i := strings.IndexAny(p, "?#"); i >= 0 {
@@ -407,13 +407,13 @@ func checkPathSegments(path string, allowEmpty bool) error {
 	for _, seg := range strings.Split(p, "/")[1:] {
 		if seg == "" {
 			if !allowEmpty {
-				return fmt.Errorf("openwa: empty path segment in %q", path)
+				return fmt.Errorf("zaplink: empty path segment in %q", path)
 			}
 			continue
 		}
 		for _, part := range strings.Split(slashFolder.Replace(seg), "/") {
 			if dots := dotFolder.Replace(part); dots == "." || dots == ".." {
-				return fmt.Errorf("openwa: dot path segment in %q", path)
+				return fmt.Errorf("zaplink: dot path segment in %q", path)
 			}
 		}
 	}

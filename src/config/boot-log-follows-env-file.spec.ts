@@ -16,7 +16,7 @@ describe('env loader boot lines', () => {
   let written: string[];
 
   const makeTempCwd = (files: Record<string, string>): void => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-bootlog-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-bootlog-'));
     tempDirs.push(dir);
     for (const [rel, content] of Object.entries(files)) {
       const full = path.join(dir, rel);

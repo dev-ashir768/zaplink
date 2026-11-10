@@ -1,7 +1,7 @@
 /**
- * Typed error hierarchy for the OpenWA SDK.
+ * Typed error hierarchy for the ZapLink SDK.
  *
- * The OpenWA API returns NestJS-default errors of the shape:
+ * The ZapLink API returns NestJS-default errors of the shape:
  *   `{ statusCode: number, message: string | string[], error?: string }`
  * `error` is absent whenever the exception carried no explicit message, so it is never required to
  * recognise the envelope. This module maps that to a typed, ergonomic error tree so callers can
@@ -15,10 +15,10 @@
  * the error `fetch` raised (a `TypeError` on Node), an invalid argument such as an empty or dot id with a
  * `TypeError`, and invalid client options throw an `Error`.
  */
-export class OpenWAError extends Error {
+export class ZapLinkError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'OpenWAError';
+    this.name = 'ZapLinkError';
   }
 }
 
@@ -26,9 +26,9 @@ export class OpenWAError extends Error {
  * Thrown when the API responds with a non-2xx status. Carries the HTTP status
  * code and the parsed error body (or the raw text if the body was not JSON).
  *
- * Use the static {@link OpenWAApiError.fromResponse} factory in most cases.
+ * Use the static {@link ZapLinkApiError.fromResponse} factory in most cases.
  */
-export class OpenWAApiError extends OpenWAError {
+export class ZapLinkApiError extends ZapLinkError {
   /** HTTP status code (e.g. 400, 404, 409, 429, 501). */
   readonly status: number;
   /** Parsed JSON body if available, otherwise the raw response text. */
@@ -48,7 +48,7 @@ export class OpenWAApiError extends OpenWAError {
 
   constructor(message: string, status: number, body: unknown, errorKind?: string, headers?: Headers) {
     super(message);
-    this.name = 'OpenWAApiError';
+    this.name = 'ZapLinkApiError';
     this.status = status;
     this.body = body;
     this.errorKind = errorKind;
@@ -58,13 +58,13 @@ export class OpenWAApiError extends OpenWAError {
     this.retryAfterSeconds = retryAfterSeconds(fields.retryAfterSeconds, headers?.get('retry-after'));
   }
 
-  /** Build an {@link OpenWAApiError} from a fetch Response, awaiting its body. */
-  static async fromResponse(res: Response, context: string): Promise<OpenWAApiError> {
+  /** Build an {@link ZapLinkApiError} from a fetch Response, awaiting its body. */
+  static async fromResponse(res: Response, context: string): Promise<ZapLinkApiError> {
     // An opaque unfollowed redirect (we set `redirect: 'manual'`) surfaces as status 0, not a 3xx.
-    // Give it a clear message instead of "OpenWA API 0": the redirect was deliberately not followed
+    // Give it a clear message instead of "ZapLink API 0": the redirect was deliberately not followed
     // so the API key is never re-sent to the redirect target.
     if (res.status === 0) {
-      return new OpenWAApiError(
+      return new ZapLinkApiError(
         `Unexpected redirect (not followed; the API key is never re-sent to a redirect target) — ${context}`,
         0,
         undefined,
@@ -72,7 +72,7 @@ export class OpenWAApiError extends OpenWAError {
     }
     let body: unknown = undefined;
     // An unreadable body leaves only the status to report, but an abort is the client timeout
-    // firing mid-read: rethrow it so the caller sees OpenWATimeoutError, not this status.
+    // firing mid-read: rethrow it so the caller sees ZapLinkTimeoutError, not this status.
     const text = await res.text().catch((err: unknown) => {
       if (err instanceof Error && err.name === 'AbortError') throw err;
       return '';
@@ -86,22 +86,22 @@ export class OpenWAApiError extends OpenWAError {
     }
     const env = isNestEnvelope(body) ? body : undefined;
     const messageText = describeMessage(env?.message ?? body ?? res.statusText);
-    const message = `OpenWA API ${res.status} ${res.statusText} — ${context}: ${messageText}`;
-    return new OpenWAApiError(message, res.status, body, env?.error, res.headers);
+    const message = `ZapLink API ${res.status} ${res.statusText} — ${context}: ${messageText}`;
+    return new ZapLinkApiError(message, res.status, body, env?.error, res.headers);
   }
 }
 
 /** 401 Unauthorized — missing or invalid API key. */
-export class OpenWAAuthError extends OpenWAApiError {}
+export class ZapLinkAuthError extends ZapLinkApiError {}
 /**
  * 403 Forbidden: the API key's role or scope (session, IP or chat allow-list) refuses the call, or
  * WhatsApp itself refused the operation (for example, missing group admin rights).
  */
-export class OpenWAForbiddenError extends OpenWAApiError {}
+export class ZapLinkForbiddenError extends ZapLinkApiError {}
 /** 404 Not Found. */
-export class OpenWANotFoundError extends OpenWAApiError {}
+export class ZapLinkNotFoundError extends ZapLinkApiError {}
 /** 409 Conflict: a conflicting state, typically a session that is not ready for the operation, or a keyed send that is pending or may already have been sent (see `code`). */
-export class OpenWAConflictError extends OpenWAApiError {}
+export class ZapLinkConflictError extends ZapLinkApiError {}
 /**
  * 429 Too Many Requests: rate limited. The global rate limiter's 429 lifts when its window
  * expires (seconds for the per-second tier, up to an hour for the hourly tier by default), and
@@ -111,9 +111,9 @@ export class OpenWAConflictError extends OpenWAApiError {}
  * (`SEND_PACING_BREAKER_COOLDOWN_MS`, 15 minutes by default) after a run of send failures, otherwise
  * up to the next UTC day.
  */
-export class OpenWARateLimitError extends OpenWAApiError {}
+export class ZapLinkRateLimitError extends ZapLinkApiError {}
 /** 501 Not Implemented — the active engine does not support this operation. */
-export class OpenWANotImplementedError extends OpenWAApiError {}
+export class ZapLinkNotImplementedError extends ZapLinkApiError {}
 
 /**
  * 503 Service Unavailable: the gateway could not complete the request right now. The path to
@@ -138,25 +138,25 @@ export class OpenWANotImplementedError extends OpenWAApiError {}
  * itself is relayed unchanged and keeps its meaning, so a bounded write such as a group, channel,
  * contact or profile change that timed out may still have been applied; re-read the state before
  * repeating it. A forward that fails after the request was sent answers 502 or 504 instead (a plain
- * `OpenWAApiError`): the owner may already have carried it out, so do not repeat a non-idempotent
+ * `ZapLinkApiError`): the owner may already have carried it out, so do not repeat a non-idempotent
  * send on those unchecked.
  */
-export class OpenWAServiceUnavailableError extends OpenWAApiError {}
+export class ZapLinkServiceUnavailableError extends ZapLinkApiError {}
 
 /**
  * Thrown when a request exceeds the configured timeout. The gateway may still complete the request: retry
  * a send only with the same `Idempotency-Key`, and re-read state before repeating any other write.
  */
-export class OpenWATimeoutError extends OpenWAError {
+export class ZapLinkTimeoutError extends ZapLinkError {
   constructor(timeoutMs: number) {
     super(`Request timed out after ${timeoutMs}ms`);
-    this.name = 'OpenWATimeoutError';
+    this.name = 'ZapLinkTimeoutError';
   }
 }
 
 /**
- * Construct the most specific {@link OpenWAApiError} subclass for a status code.
- * Falls back to the generic {@link OpenWAApiError} for unmapped statuses.
+ * Construct the most specific {@link ZapLinkApiError} subclass for a status code.
+ * Falls back to the generic {@link ZapLinkApiError} for unmapped statuses.
  */
 export function classifyApiError(
   status: number,
@@ -164,24 +164,24 @@ export function classifyApiError(
   body: unknown,
   errorKind?: string,
   headers?: Headers,
-): OpenWAApiError {
+): ZapLinkApiError {
   switch (status) {
     case 401:
-      return new OpenWAAuthError(message, status, body, errorKind, headers);
+      return new ZapLinkAuthError(message, status, body, errorKind, headers);
     case 403:
-      return new OpenWAForbiddenError(message, status, body, errorKind, headers);
+      return new ZapLinkForbiddenError(message, status, body, errorKind, headers);
     case 404:
-      return new OpenWANotFoundError(message, status, body, errorKind, headers);
+      return new ZapLinkNotFoundError(message, status, body, errorKind, headers);
     case 409:
-      return new OpenWAConflictError(message, status, body, errorKind, headers);
+      return new ZapLinkConflictError(message, status, body, errorKind, headers);
     case 429:
-      return new OpenWARateLimitError(message, status, body, errorKind, headers);
+      return new ZapLinkRateLimitError(message, status, body, errorKind, headers);
     case 501:
-      return new OpenWANotImplementedError(message, status, body, errorKind, headers);
+      return new ZapLinkNotImplementedError(message, status, body, errorKind, headers);
     case 503:
-      return new OpenWAServiceUnavailableError(message, status, body, errorKind, headers);
+      return new ZapLinkServiceUnavailableError(message, status, body, errorKind, headers);
     default:
-      return new OpenWAApiError(message, status, body, errorKind, headers);
+      return new ZapLinkApiError(message, status, body, errorKind, headers);
   }
 }
 

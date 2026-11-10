@@ -4,7 +4,7 @@
 
 ### Our Pledge
 
-OpenWA is committed to providing a welcoming and inclusive environment for everyone. We pledge to make participation in our project and community a harassment-free experience for all, regardless of:
+ZapLink is committed to providing a welcoming and inclusive environment for everyone. We pledge to make participation in our project and community a harassment-free experience for all, regardless of:
 
 - Age, body size, disability, ethnicity, sex characteristics
 - Gender identity and expression
@@ -57,11 +57,11 @@ flowchart LR
 # 1. Fork the repository on GitHub
 
 # 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/openwa.git
-cd openwa
+git clone https://github.com/YOUR_USERNAME/zaplink.git
+cd zaplink
 
 # 3. Add upstream remote
-git remote add upstream https://github.com/rmyndharis/OpenWA.git
+git remote add upstream https://github.com/dev-ashir768/zaplink.git
 
 # 4. Install the locked dependencies (also installs dashboard dependencies)
 npm ci
@@ -214,21 +214,21 @@ async function sendTextMessage(sessionId: string, phone: string, text: string): 
 
 Before opening an Issue, decide whether it belongs here or in **GitHub Discussions**.
 Most misrouted reports are configuration, provider, or environment questions rather than
-defects in OpenWA — routing them correctly upfront saves time for everyone (faster answers
+defects in ZapLink — routing them correctly upfront saves time for everyone (faster answers
 for you, cleaner triage for maintainers). When in doubt, open a Discussion first; it can
 always be promoted to an Issue once a real defect is confirmed.
 
-| Open an **Issue**                                                        | Open a **Discussion**                                                       |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| Reproducible defect in OpenWA code with clear steps, expected vs. actual | Setup / configuration help ("my proxy doesn't work, how do I configure X?") |
-| Crash, panic, wrong API response, regression after upgrade               | Provider-specific quirks (webshare, IPRoyal, brightdata, Twilio, etc.)      |
-| Documented behavior contradicted by actual behavior                      | "Is X possible?" / "What's the best way to Y?"                              |
-| Security issue (use `SECURITY.md`, not a public issue)                   | Hosting-platform / network / firewall questions                             |
+| Open an **Issue**                                                         | Open a **Discussion**                                                       |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Reproducible defect in ZapLink code with clear steps, expected vs. actual | Setup / configuration help ("my proxy doesn't work, how do I configure X?") |
+| Crash, panic, wrong API response, regression after upgrade                | Provider-specific quirks (webshare, IPRoyal, brightdata, Twilio, etc.)      |
+| Documented behavior contradicted by actual behavior                       | "Is X possible?" / "What's the best way to Y?"                              |
+| Security issue (use `SECURITY.md`, not a public issue)                    | Hosting-platform / network / firewall questions                             |
 
 **Common gray-zone examples (these go to Discussions, not Issues):**
 
 - "My proxy works on first start but fails after pod restart" → almost always a
-  provider-side IP allowlist, not an OpenWA bug. See `docs/12-troubleshooting-faq.md`.
+  provider-side IP allowlist, not an ZapLink bug. See `docs/12-troubleshooting-faq.md`.
 - "WhatsApp blocked my number" → provider/WhatsApp policy, not a code defect.
 - "How do I deploy behind nginx/Traefik?" → configuration, use Discussions.
 - "Why is my QR not showing?" → start with the troubleshooting FAQ; open an Issue only
@@ -246,7 +246,7 @@ Blank issues are disabled — GitHub presents the **Bug report** form
 | Field              | Notes                                                                        |
 | ------------------ | ---------------------------------------------------------------------------- |
 | Pre-flight         | Both checkboxes: searched for duplicates, and on the latest released version |
-| OpenWA version     | e.g. `0.2.1` (shown on the dashboard Login screen) or a commit SHA           |
+| ZapLink version    | e.g. `0.2.1` (shown on the dashboard Login screen) or a commit SHA           |
 | Deployment         | Docker Compose / Docker (manual run) / Bare metal (npm) / Other              |
 | Database           | SQLite (default) / PostgreSQL                                                |
 | What happened?     | The bug and its impact                                                       |
@@ -275,31 +275,31 @@ not supported on whatsapp-web.js, the default engine.
 
 ### Issue Labels
 
-| Label                 | Description                                                                     |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `bug`                 | Something isn't working                                                         |
-| `enhancement`         | New feature or request                                                          |
-| `documentation`       | Improvements to docs                                                            |
-| `good first issue`    | Good for newcomers                                                              |
-| `help wanted`         | Extra attention needed                                                          |
-| `question`            | Further information requested                                                   |
-| `needs-info`          | Awaiting reporter input to proceed                                              |
-| `not-a-bug`           | External/environmental cause (provider, network, hosting); not an OpenWA defect |
-| `move-to-discussions` | Belongs in GitHub Discussions, not Issues — see §20.3 Issue vs. Discussions     |
-| `invalid`             | This doesn't seem right                                                         |
-| `wontfix`             | This will not be worked on                                                      |
-| `duplicate`           | This issue already exists                                                       |
-| `security`            | Security-related                                                                |
-| `design`              | Architecture / design discussion                                                |
-| `engine:baileys`      | Baileys engine specific                                                         |
-| `upstream-blocked`    | Blocked on upstream library/WhatsApp behavior; no OpenWA-side fix               |
-| `release`             | Release / version PR                                                            |
-| `dependencies`        | Pull requests that update a dependency file                                     |
-| `dashboard`           | Dashboard (React) changes                                                       |
-| `ci`                  | CI and GitHub Actions workflow changes                                          |
-| `docker`              | Docker image and container changes                                              |
-| `github_actions`      | Pull requests that update GitHub Actions code                                   |
-| `javascript`          | Pull requests that update javascript code                                       |
+| Label                 | Description                                                                      |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `bug`                 | Something isn't working                                                          |
+| `enhancement`         | New feature or request                                                           |
+| `documentation`       | Improvements to docs                                                             |
+| `good first issue`    | Good for newcomers                                                               |
+| `help wanted`         | Extra attention needed                                                           |
+| `question`            | Further information requested                                                    |
+| `needs-info`          | Awaiting reporter input to proceed                                               |
+| `not-a-bug`           | External/environmental cause (provider, network, hosting); not an ZapLink defect |
+| `move-to-discussions` | Belongs in GitHub Discussions, not Issues — see §20.3 Issue vs. Discussions      |
+| `invalid`             | This doesn't seem right                                                          |
+| `wontfix`             | This will not be worked on                                                       |
+| `duplicate`           | This issue already exists                                                        |
+| `security`            | Security-related                                                                 |
+| `design`              | Architecture / design discussion                                                 |
+| `engine:baileys`      | Baileys engine specific                                                          |
+| `upstream-blocked`    | Blocked on upstream library/WhatsApp behavior; no ZapLink-side fix               |
+| `release`             | Release / version PR                                                             |
+| `dependencies`        | Pull requests that update a dependency file                                      |
+| `dashboard`           | Dashboard (React) changes                                                        |
+| `ci`                  | CI and GitHub Actions workflow changes                                           |
+| `docker`              | Docker image and container changes                                               |
+| `github_actions`      | Pull requests that update GitHub Actions code                                    |
+| `javascript`          | Pull requests that update javascript code                                        |
 
 `.github/dependabot.yml` applies `dependencies`, `dashboard`, `javascript` (the JavaScript SDK), `ci` and
 `docker`; `github_actions` is a Dependabot default from before it set explicit labels.
@@ -318,9 +318,9 @@ Primary community forum for:
 Categories:
 
 - **Announcements**: Official announcements from maintainers
-- **Q&A**: Questions about using OpenWA
+- **Q&A**: Questions about using ZapLink
 - **Ideas**: Feature suggestions and brainstorming
-- **Show and Tell**: Share your projects using OpenWA
+- **Show and Tell**: Share your projects using ZapLink
 - **General**: General discussion
 
 ### Support Priority
@@ -424,7 +424,7 @@ pull requests.
 Report privately through either channel:
 
 1. **GitHub Security Advisories** (preferred) — open a private report at
-   <https://github.com/rmyndharis/OpenWA/security/advisories/new>
+   <https://github.com/dev-ashir768/zaplink/security/advisories/new>
 2. **Email** — yudhi@rmyndharis.com
 
 Include, where possible:

@@ -89,7 +89,7 @@
 > **Request routing now exists, opt-in via `NODE_URL`.** When every node sets its own
 > reachable URL (e.g. `NODE_URL=http://10.0.0.5:2785`), a session-scoped request landing on
 > a non-owner is forwarded to the live owner and the owner's response is relayed back
-> (`x-openwa-served-by` names it). The forward happens after API-key auth, carries the
+> (`x-zaplink-served-by` names it). The forward happens after API-key auth, carries the
 > caller's credentials, is bounded by
 > `SESSION_PROXY_TIMEOUT_MS` (default 60s), and is one hop only — a forwarded request is
 > never forwarded again; one that still lands on a live non-owner (stale ownership, or a
@@ -260,7 +260,7 @@
 > Everything below (node affinity, `replicas: 3`) remains a **design sketch** until those
 > land.
 
-This guide explains a _proposed_ design for deploying OpenWA in a horizontally scaled environment for high availability and increased capacity.
+This guide explains a _proposed_ design for deploying ZapLink in a horizontally scaled environment for high availability and increased capacity.
 
 ## 13.1 Architecture Overview
 
@@ -270,10 +270,10 @@ flowchart TB
         NGINX[Nginx/Traefik]
     end
 
-    subgraph Nodes["OpenWA Nodes"]
-        N1[OpenWA Node 1]
-        N2[OpenWA Node 2]
-        N3[OpenWA Node 3]
+    subgraph Nodes["ZapLink Nodes"]
+        N1[ZapLink Node 1]
+        N2[ZapLink Node 2]
+        N3[ZapLink Node 3]
     end
 
     subgraph Storage["Shared Storage"]
@@ -344,8 +344,8 @@ Each node "claims" sessions on startup and releases them on shutdown. This is im
 version: '3.8'
 
 services:
-  openwa:
-    image: ghcr.io/rmyndharis/openwa:latest
+  zaplink:
+    image: ghcr.io/dev-ashir768/zaplink:latest
     # Teardown takes up to 63 s with every datastore on; raise this by the amount SHUTDOWN_DELAY_MS or
     # WEBHOOK_SHUTDOWN_DRAIN_MS exceeds its default, or the 10 s default kills the task mid-teardown.
     stop_grace_period: 75s
@@ -366,8 +366,8 @@ services:
       - NODE_ENV=production
       - DATABASE_TYPE=postgres
       - DATABASE_HOST=postgres
-      - DATABASE_NAME=openwa
-      - DATABASE_USERNAME=openwa
+      - DATABASE_NAME=zaplink
+      - DATABASE_USERNAME=zaplink
       - DATABASE_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - QUEUE_ENABLED=true
@@ -378,9 +378,9 @@ services:
     volumes:
       # The whole data tree, not only sessions/: main.sqlite (API keys, audit log), baileys/,
       # media and the generated secrets live there too, and a replaced task would lose them.
-      - openwa-data:/app/data
+      - zaplink-data:/app/data
     networks:
-      - openwa-net
+      - zaplink-net
     depends_on:
       - postgres
       - redis
@@ -393,13 +393,13 @@ services:
         constraints:
           - node.role == manager
     environment:
-      - POSTGRES_DB=openwa
-      - POSTGRES_USER=openwa
+      - POSTGRES_DB=zaplink
+      - POSTGRES_USER=zaplink
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - openwa-net
+      - zaplink-net
 
   redis:
     image: redis:7-alpine
@@ -409,20 +409,20 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - openwa-net
+      - zaplink-net
 
-  # NOTE (v0.4.0): OpenWA no longer ships a bundled Traefik container.
+  # NOTE (v0.4.0): ZapLink no longer ships a bundled Traefik container.
   # For TLS / public exposure, bring your own reverse proxy (Traefik, nginx,
-  # Caddy, a cloud load balancer, etc.) and point it at openwa:2785.
+  # Caddy, a cloud load balancer, etc.) and point it at zaplink:2785.
   # See section 13.5 for Traefik / nginx config examples.
 
 volumes:
   postgres-data:
   redis-data:
-  openwa-data:
+  zaplink-data:
 
 networks:
-  openwa-net:
+  zaplink-net:
     driver: overlay
 ```
 
@@ -433,14 +433,14 @@ networks:
 docker swarm init
 
 # Deploy stack
-docker stack deploy -c docker-compose.swarm.yml openwa
+docker stack deploy -c docker-compose.swarm.yml zaplink
 
 # Check status
 docker service ls
-docker service ps openwa_openwa
+docker service ps zaplink_zaplink
 ```
 
-> **Do not scale the `openwa` service** (`docker service scale openwa_openwa=N`). The `openwa-data`
+> **Do not scale the `zaplink` service** (`docker service scale zaplink_zaplink=N`). The `zaplink-data`
 > volume above is declared with the default local driver (not `external`), so Swarm creates one per
 > node: replicas co-located on a single node share that directory and corrupt the WhatsApp auth
 > state, while replicas placed on other nodes each get a fresh empty volume and start an
@@ -455,7 +455,7 @@ docker service ps openwa_openwa
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: openwa
+  name: zaplink
 ```
 
 ### k8s/configmap.yaml
@@ -464,14 +464,14 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: openwa-config
-  namespace: openwa
+  name: zaplink-config
+  namespace: zaplink
 data:
   NODE_ENV: 'production'
   DATABASE_TYPE: 'postgres'
   DATABASE_HOST: 'postgres-service'
   DATABASE_PORT: '5432'
-  DATABASE_NAME: 'openwa'
+  DATABASE_NAME: 'zaplink'
   REDIS_HOST: 'redis-service'
   REDIS_PORT: '6379'
   QUEUE_ENABLED: 'true'
@@ -484,11 +484,11 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: openwa-secrets
-  namespace: openwa
+  name: zaplink-secrets
+  namespace: zaplink
 type: Opaque
 stringData:
-  DATABASE_USERNAME: openwa
+  DATABASE_USERNAME: zaplink
   DATABASE_PASSWORD: your-secure-password
 ```
 
@@ -498,18 +498,18 @@ stringData:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: openwa
-  namespace: openwa
+  name: zaplink
+  namespace: zaplink
 spec:
-  serviceName: openwa-headless # must match the headless Service declared in k8s/service.yaml
+  serviceName: zaplink-headless # must match the headless Service declared in k8s/service.yaml
   replicas: 1 # MUST stay 1 until multi-replica is supported — see the warning at the top of this guide
   selector:
     matchLabels:
-      app: openwa
+      app: zaplink
   template:
     metadata:
       labels:
-        app: openwa
+        app: zaplink
     spec:
       # The teardown can take up to 63 s on a clustered replica (src/common/services/shutdown-budget.ts), so
       # Kubernetes' default grace of 30 s would SIGKILL a slow stop half way. Match the shipped chart.
@@ -519,27 +519,27 @@ spec:
       # Without it the API process, and every plugin loaded into it, keeps whatever the container runtime
       # grants by default, so a plugin that abuses Node built-ins (fs, net) can read host files / open raw
       # sockets outside the capability model. The shipped compose file runs the image read-only +
-      # cap_drop:ALL, and the node process runs as the non-root openwa user; the manifest below mirrors
+      # cap_drop:ALL, and the node process runs as the non-root zaplink user; the manifest below mirrors
       # that so a k8s deploy is not silently weaker. By default the entrypoint starts as root to chown
-      # /app/data, then drops to openwa (uid/gid 997) via gosu. To run non-root from the start instead,
+      # /app/data, then drops to zaplink (uid/gid 997) via gosu. To run non-root from the start instead,
       # add runAsNonRoot: true, runAsUser: 997 and runAsGroup: 997 here and remove the capabilities `add`
       # list below; the entrypoint then skips the chown and the drop (see podSecurityContext in
-      # charts/openwa/values.yaml). fsGroup makes the volume writable by openwa in either mode;
+      # charts/zaplink/values.yaml). fsGroup makes the volume writable by zaplink in either mode;
       # OnRootMismatch re-owns it only when its root is wrong, not every file on every mount.
       securityContext:
         fsGroup: 997
         fsGroupChangePolicy: OnRootMismatch
       containers:
-        - name: openwa
-          image: ghcr.io/rmyndharis/openwa:latest
+        - name: zaplink
+          image: ghcr.io/dev-ashir768/zaplink:latest
           ports:
             - containerPort: 2785
               name: http
           envFrom:
             - configMapRef:
-                name: openwa-config
+                name: zaplink-config
             - secretRef:
-                name: openwa-secrets
+                name: zaplink-secrets
           env:
             # The session-ownership identity — see the compose example above. It must be STABLE
             # across restarts, which a Deployment's pod name is NOT: use a StatefulSet (whose pod
@@ -568,11 +568,11 @@ spec:
               memory: '2Gi'
               cpu: '1000m'
           volumeMounts:
-            - name: openwa-data
+            - name: zaplink-data
               mountPath: /app/data
             - name: tmp
               mountPath: /tmp
-          # Same probes as charts/openwa/templates/statefulset.yaml. The startupProbe holds liveness
+          # Same probes as charts/zaplink/templates/statefulset.yaml. The startupProbe holds liveness
           # off during boot (migrations, connect retry, plugin load, backfills), and every timeoutSeconds is
           # explicit because the 1s kubelet default is shorter than /ready's 3s database bound.
           startupProbe:
@@ -602,7 +602,7 @@ spec:
           emptyDir: {}
   volumeClaimTemplates:
     - metadata:
-        name: openwa-data
+        name: zaplink-data
       spec:
         accessModes: ['ReadWriteOnce']
         resources:
@@ -616,12 +616,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: openwa-service
-  namespace: openwa
+  name: zaplink-service
+  namespace: zaplink
 spec:
   type: ClusterIP
   selector:
-    app: openwa
+    app: zaplink
   ports:
     - port: 80
       targetPort: 2785
@@ -630,12 +630,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: openwa-headless
-  namespace: openwa
+  name: zaplink-headless
+  namespace: zaplink
 spec:
   clusterIP: None
   selector:
-    app: openwa
+    app: zaplink
   ports:
     - port: 2785
       name: http
@@ -647,11 +647,11 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: openwa-ingress
-  namespace: openwa
+  name: zaplink-ingress
+  namespace: zaplink
   annotations:
     nginx.ingress.kubernetes.io/affinity: 'cookie'
-    nginx.ingress.kubernetes.io/session-cookie-name: 'openwa-session'
+    nginx.ingress.kubernetes.io/session-cookie-name: 'zaplink-session'
     nginx.ingress.kubernetes.io/session-cookie-max-age: '172800'
     # ingress-nginx refuses a request body over 1m by default, which base64 media sends exceed.
     # Keep this at or above BODY_SIZE_LIMIT (25mb by default).
@@ -659,25 +659,25 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: openwa.example.com
+    - host: zaplink.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: openwa-service
+                name: zaplink-service
                 port:
                   number: 80
   tls:
     - hosts:
-        - openwa.example.com
-      secretName: openwa-tls
+        - zaplink.example.com
+      secretName: zaplink-tls
 ```
 
 ### Deploy to Kubernetes
 
-The maintained chart is [`charts/openwa`](../charts/openwa), a single-instance StatefulSet that
+The maintained chart is [`charts/zaplink`](../charts/zaplink), a single-instance StatefulSet that
 already encodes the `replicaCount: 1` constraint below; prefer it over hand-applied manifests. The
 raw manifests here stay for operators who do not use Helm.
 
@@ -689,13 +689,13 @@ kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/
 
 # Check pods
-kubectl get pods -n openwa
+kubectl get pods -n zaplink
 
 # Check logs
-kubectl logs -f statefulset/openwa -n openwa
+kubectl logs -f statefulset/zaplink -n zaplink
 ```
 
-> **Do not raise `replicas` above 1** (`kubectl scale statefulset openwa --replicas=N`). Each pod
+> **Do not raise `replicas` above 1** (`kubectl scale statefulset zaplink --replicas=N`). Each pod
 > gets its own PVC, so extra replicas do not share a session directory — they each start their own
 > unauthenticated engine, and with `AUTO_START_SESSIONS=true` every pod tries to drive the same
 > configured sessions from the shared database. See the warning at the top of this guide.
@@ -708,9 +708,9 @@ kubectl logs -f statefulset/openwa -n openwa
 # traefik/dynamic-scaling.yml
 http:
   routers:
-    openwa:
-      rule: 'Host(`openwa.example.com`)'
-      service: openwa
+    zaplink:
+      rule: 'Host(`zaplink.example.com`)'
+      service: zaplink
       middlewares:
         - sticky-session
 
@@ -718,20 +718,20 @@ http:
     sticky-session:
       headers:
         customResponseHeaders:
-          X-OpenWA-Node: '{{.Node}}'
+          X-ZapLink-Node: '{{.Node}}'
 
   services:
-    openwa:
+    zaplink:
       loadBalancer:
         sticky:
           cookie:
-            name: openwa_node
+            name: zaplink_node
             secure: true
             httpOnly: true
         servers:
-          - url: 'http://openwa-1:2785'
-          - url: 'http://openwa-2:2785'
-          - url: 'http://openwa-3:2785'
+          - url: 'http://zaplink-1:2785'
+          - url: 'http://zaplink-2:2785'
+          - url: 'http://zaplink-3:2785'
         healthCheck:
           path: /api/health
           interval: 10s
@@ -741,24 +741,24 @@ http:
 ### Nginx Upstream Config
 
 ```nginx
-upstream openwa {
+upstream zaplink {
     ip_hash;  # Sticky sessions based on client IP
 
-    server openwa-1:2785 weight=1 max_fails=3 fail_timeout=30s;
-    server openwa-2:2785 weight=1 max_fails=3 fail_timeout=30s;
-    server openwa-3:2785 weight=1 max_fails=3 fail_timeout=30s;
+    server zaplink-1:2785 weight=1 max_fails=3 fail_timeout=30s;
+    server zaplink-2:2785 weight=1 max_fails=3 fail_timeout=30s;
+    server zaplink-3:2785 weight=1 max_fails=3 fail_timeout=30s;
 }
 
 server {
     listen 80;
-    server_name openwa.example.com;
+    server_name zaplink.example.com;
 
-    # nginx refuses a request body over 1m by default, below the 25mb OpenWA itself accepts
+    # nginx refuses a request body over 1m by default, below the 25mb ZapLink itself accepts
     # (BODY_SIZE_LIMIT), so base64 media sends would answer 413 before reaching a node.
     client_max_body_size 25m;
 
     location / {
-        proxy_pass http://openwa;
+        proxy_pass http://zaplink;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -771,7 +771,7 @@ server {
     }
 
     location /api/health {
-        proxy_pass http://openwa;
+        proxy_pass http://zaplink;
         proxy_connect_timeout 5s;
         proxy_read_timeout 5s;
     }
@@ -797,21 +797,21 @@ single-instance deployment with its own session volume and split sessions betwee
 `scale up` / `scale down` becomes an option only once the gaps listed at the top of this guide are closed.
 
 On one Docker daemon, the built-in datastores Dashboard > Infrastructure starts are shared, not per
-instance: their container names (`openwa-postgres`, `openwa-redis`, `openwa-minio`), their volumes and
-the `openwa-network` network are fixed, so a second instance that turns on Use Built-in attaches to the
+instance: their container names (`zaplink-postgres`, `zaplink-redis`, `zaplink-minio`), their volumes and
+the `zaplink-network` network are fixed, so a second instance that turns on Use Built-in attaches to the
 first instance's container and data. Let at most one instance on a daemon use them, and point the
 others at datastores of their own with their Use Built-in toggles off.
 
-Each instance finds a bundled container by its `com.openwa.service` label anywhere on the daemon. Its
+Each instance finds a bundled container by its `com.zaplink.service` label anywhere on the daemon. Its
 status reads a running one as the datastore it uses whenever its own host for that datastore is spelled
 like the bundled one: `postgres`, `redis`, `minio` or the container name, in any letter case, with or
 without a trailing dot. A dashboard restart that then switches that datastore off or to another host
 stops the first container on the daemon with that label, which can be the other instance's. So give the
-other instances' datastores host names of their own and no `com.openwa.*` labels; a second copy of the
+other instances' datastores host names of their own and no `com.zaplink.*` labels; a second copy of the
 shipped compose file needs its own project name and container names, and its app must reach its
 datastores under names other than `postgres`, `redis` and `minio`. An instance set up that way whose
 `*_BUILTIN` flags are not `true` leaves the other instance's containers running: its dashboard counts
-a container OpenWA created as its own only beside its own flag, and asks to stop none of them.
+a container ZapLink created as its own only beside its own flag, and asks to stop none of them.
 
 | Metric                            | Threshold  | Action                                                                                                     |
 | --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------- |
@@ -836,18 +836,18 @@ the warning at the top of this guide), so the 3- and 5-node rows could not have 
 
 ### Prometheus Metrics
 
-OpenWA exports Prometheus text exposition at `GET /api/metrics` (`openwa_*` gauges and counters).
+ZapLink exports Prometheus text exposition at `GET /api/metrics` (`zaplink_*` gauges and counters).
 The endpoint returns `404` until `METRICS_TOKEN` is set, and then requires that token as a Bearer:
 
 ```yaml
 # prometheus/prometheus.yml
 scrape_configs:
-  - job_name: 'openwa'
+  - job_name: 'zaplink'
     static_configs:
-      # Swarm service name (13.3). On Kubernetes there is no Service called `openwa` — scrape the
+      # Swarm service name (13.3). On Kubernetes there is no Service called `zaplink` — scrape the
       # pod through the headless Service instead, e.g.
-      # openwa-0.openwa-headless.openwa.svc.cluster.local:2785
-      - targets: ['openwa:2785']
+      # zaplink-0.zaplink-headless.zaplink.svc.cluster.local:2785
+      - targets: ['zaplink:2785']
     metrics_path: '/api/metrics'
     authorization:
       type: Bearer
@@ -855,25 +855,25 @@ scrape_configs:
 ```
 
 ```yaml
-# prometheus/openwa-rules.yaml
+# prometheus/zaplink-rules.yaml
 groups:
-  - name: openwa
+  - name: zaplink
     rules:
       - alert: HighMemoryUsage
-        expr: container_memory_usage_bytes{container="openwa"} > 1.8e9
+        expr: container_memory_usage_bytes{container="zaplink"} > 1.8e9
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: 'OpenWA node high memory usage'
+          summary: 'ZapLink node high memory usage'
 
       - alert: NodeDown
-        expr: up{job="openwa"} == 0
+        expr: up{job="zaplink"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: 'OpenWA node is down'
+          summary: 'ZapLink node is down'
 ```
 
 ### Health Check Endpoints

@@ -91,7 +91,7 @@ export function useInfraConfigForm(
     port: '5432',
     username: 'postgres',
     password: '',
-    database: 'openwa',
+    database: 'zaplink',
     schema: 'public',
     poolSize: 10,
     sslEnabled: false,

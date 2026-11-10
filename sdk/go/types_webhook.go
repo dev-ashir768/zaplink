@@ -1,4 +1,4 @@
-package openwa
+package zaplink
 
 import "encoding/json"
 
@@ -106,7 +106,7 @@ func (f WebhookFilters) MarshalJSON() ([]byte, error) {
 
 // CreateWebhookRequest registers a webhook. RetryCount is 0–5 (default 3).
 //
-// Secret is optional and signs every delivery as X-OpenWA-Signature: sha256=<hex>. The gateway
+// Secret is optional and signs every delivery as X-ZapLink-Signature: sha256=<hex>. The gateway
 // enforces a 16-character minimum and answers 400 below it; omit Secret for unsigned deliveries.
 type CreateWebhookRequest struct {
 	URL        string            `json:"url"`

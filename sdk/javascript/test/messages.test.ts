@@ -1,9 +1,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { OpenWAClient, type BatchCancelResponse } from '../src';
+import { ZapLinkClient, type BatchCancelResponse } from '../src';
 import { MockTransport } from './helpers';
 
-function client(t: MockTransport): OpenWAClient {
-  return new OpenWAClient({ baseUrl: 'http://x', apiKey: 'k', fetch: t.asFetch() });
+function client(t: MockTransport): ZapLinkClient {
+  return new ZapLinkClient({ baseUrl: 'http://x', apiKey: 'k', fetch: t.asFetch() });
 }
 
 it('preserves message-time filters and the unknown timestamp count', async () => {
@@ -23,7 +23,7 @@ it('preserves message-time filters and the unknown timestamp count', async () =>
 });
 
 describe('MessagesResource idempotency keys', () => {
-  const sends: Array<[string, (c: OpenWAClient, key?: string) => Promise<unknown>]> = [
+  const sends: Array<[string, (c: ZapLinkClient, key?: string) => Promise<unknown>]> = [
     ['send-text', (c, key) => c.messages.sendText('s', { chatId: 'c@c.us', text: 'hi', mentions: ['1@c.us'] }, key)],
     ['send-image', (c, key) => c.messages.sendImage('s', { chatId: 'c@c.us', url: 'http://image', caption: 'image' }, key)],
     ['send-video', (c, key) => c.messages.sendVideo('s', { chatId: 'c@c.us', url: 'http://video', caption: 'video' }, key)],
@@ -40,7 +40,7 @@ describe('MessagesResource idempotency keys', () => {
 
   it.each(sends)('%s keeps keys local to each call and preserves JSON', async (route, send) => {
     const t = new MockTransport().on('POST', new RegExp(`/messages/${route}$`), { body: { messageId: 'm', timestamp: 1 } });
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
     await send(c);
     const originalBody = t.lastCall!.body;
     expect(t.lastCall!.headers['idempotency-key']).toBeUndefined();
@@ -60,7 +60,7 @@ describe('MessagesResource idempotency keys', () => {
 
   it('treats a null key from an untyped caller as no key, as the Python and PHP SDKs do', async () => {
     const t = new MockTransport().on('POST', /\/messages\/send-text$/, { body: { messageId: 'm', timestamp: 1 } });
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
     await c.messages.sendText('s', { chatId: 'c@c.us', text: 'hi' }, null as unknown as string);
     expect(t.lastCall!.headers['idempotency-key']).toBeUndefined();
   });
@@ -68,7 +68,7 @@ describe('MessagesResource idempotency keys', () => {
   it('overrides a mixed-case default without changing later calls', async () => {
     const t = new MockTransport().on('POST', /send-text$/, { body: { messageId: 'm', timestamp: 1 } });
     const headers = { 'iDeMpOtEnCy-KeY': 'default-key', 'X-Trace': 'trace' };
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', defaultHeaders: headers, fetch: t.asFetch() });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', defaultHeaders: headers, fetch: t.asFetch() });
     const body = { chatId: 'c@c.us', text: 'hi' };
     await c.messages.sendText('s', body, 'explicit-key');
     expect(t.lastCall!.headers['idempotency-key']).toBe('explicit-key');
@@ -82,7 +82,7 @@ describe('MessagesResource idempotency keys', () => {
     'rejects invalid key %j before transport',
     async key => {
       const t = new MockTransport().on('POST', /send-text$/, { body: { messageId: 'm', timestamp: 1 } });
-      const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
+      const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
       await expect(c.messages.sendText('s', { chatId: 'c@c.us', text: 'hi' }, key)).rejects.toThrow(TypeError);
       expect(t.calls).toHaveLength(0);
     },
@@ -90,7 +90,7 @@ describe('MessagesResource idempotency keys', () => {
 
   it.each(['!', '~', 'x', 'x'.repeat(255)])('accepts visible ASCII key %j', async key => {
     const t = new MockTransport().on('POST', /send-text$/, { body: { messageId: 'm', timestamp: 1 } });
-    const c = new OpenWAClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
+    const c = new ZapLinkClient({ baseUrl: 'http://localhost', apiKey: 'k', fetch: t.asFetch() });
     await c.messages.sendText('s', { chatId: 'c@c.us', text: 'hi' }, key);
     expect(t.lastCall!.headers['idempotency-key']).toBe(key);
   });
@@ -135,7 +135,7 @@ describe('MessagesResource — exact paths', () => {
   });
 
   it('sendVideo / sendAudio / sendDocument / sendSticker use correct segments', async () => {
-    const cases: Array<[string, (c: OpenWAClient) => Promise<unknown>]> = [
+    const cases: Array<[string, (c: ZapLinkClient) => Promise<unknown>]> = [
       ['send-video', c => c.messages.sendVideo('s', { chatId: 'a@c.us', url: 'u' })],
       ['send-audio', c => c.messages.sendAudio('s', { chatId: 'a@c.us', url: 'u' })],
       ['send-document', c => c.messages.sendDocument('s', { chatId: 'a@c.us', filename: 'f.pdf' })],
@@ -200,20 +200,20 @@ describe('MessagesResource — exact paths', () => {
   it.each([
     [
       'send-text',
-      (c: OpenWAClient) => c.messages.sendText('s1', { chatId: 'a@c.us', text: 'hi', quotedMessageId: 'q1' }),
+      (c: ZapLinkClient) => c.messages.sendText('s1', { chatId: 'a@c.us', text: 'hi', quotedMessageId: 'q1' }),
     ],
     [
       'send-image',
-      (c: OpenWAClient) => c.messages.sendImage('s1', { chatId: 'a@c.us', url: 'http://u', quotedMessageId: 'q1' }),
+      (c: ZapLinkClient) => c.messages.sendImage('s1', { chatId: 'a@c.us', url: 'http://u', quotedMessageId: 'q1' }),
     ],
     [
       'send-location',
-      (c: OpenWAClient) =>
+      (c: ZapLinkClient) =>
         c.messages.sendLocation('s1', { chatId: 'a@c.us', latitude: 1, longitude: 2, quotedMessageId: 'q1' }),
     ],
     [
       'send-contact',
-      (c: OpenWAClient) =>
+      (c: ZapLinkClient) =>
         c.messages.sendContact('s1', {
           chatId: 'a@c.us',
           contactName: 'A',
@@ -223,7 +223,7 @@ describe('MessagesResource — exact paths', () => {
     ],
     [
       'send-poll',
-      (c: OpenWAClient) =>
+      (c: ZapLinkClient) =>
         c.messages.sendPoll('s1', { chatId: 'a@c.us', name: 'Q', options: ['a', 'b'], quotedMessageId: 'q1' }),
     ],
   ])('%s forwards quotedMessageId in the body', async (route, call) => {

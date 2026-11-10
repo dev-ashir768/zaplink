@@ -5,7 +5,7 @@ import { executableLines, executableLinesConservative } from './workflow-lines';
 
 /**
  * The published image has no `USER` directive by design: docker-entrypoint.sh starts as root to fix
- * named-volume ownership and then drops via `exec gosu openwa`. That drop is the only thing keeping
+ * named-volume ownership and then drops via `exec gosu zaplink`. That drop is the only thing keeping
  * an internet-facing Node process (and its Chromium subprocess) off uid 0, and
  * `scripts/smoke-test-non-root.sh` is the only check of it.
  *
@@ -67,7 +67,7 @@ describe('the non-root drop is enforced, not merely documented', () => {
   // it out is the exact shape that let the script go unrun while this file reported it enforced.
   it('does not count a commented-out invocation as running the script', () => {
     expect(executableLines('# ./scripts/smoke-test-non-root.sh\necho skipped')).not.toContain('smoke-test-non-root.sh');
-    expect(executableLines('  OPENWA_SMOKE_IMAGE="$IMAGE" ./scripts/smoke-test-non-root.sh # run it')).toContain(
+    expect(executableLines('  ZAPLINK_SMOKE_IMAGE="$IMAGE" ./scripts/smoke-test-non-root.sh # run it')).toContain(
       'smoke-test-non-root.sh',
     );
     // A '#' inside a quoted string is data; truncating there would drop a real command.
@@ -152,7 +152,7 @@ describe('the non-root drop is enforced, not merely documented', () => {
   // absent, so its absence is never read as an oversight and "fixed" by deleting the drop.
   it('keeps the entrypoint gosu drop the image depends on', () => {
     const entrypoint = fs.readFileSync(path.join(__dirname, '..', '..', 'docker-entrypoint.sh'), 'utf8');
-    expect(entrypoint).toMatch(/exec\s+gosu\s+openwa/);
+    expect(entrypoint).toMatch(/exec\s+gosu\s+zaplink/);
   });
 
   // A start as any other uid (runAsUser, `--user`) holds no CAP_CHOWN or CAP_SETUID, so it must leave
@@ -164,16 +164,16 @@ describe('the non-root drop is enforced, not merely documented', () => {
     const firstChown = entrypoint.search(/^\s*(?:chown|find\b.*-exec chown)\b/m);
     expect(exit).toBeGreaterThan(-1);
     expect(firstChown).toBeGreaterThan(exit);
-    expect(entrypoint.search(/^exec gosu openwa/m)).toBeGreaterThan(exit);
+    expect(entrypoint.search(/^exec gosu zaplink/m)).toBeGreaterThan(exit);
     expect(entrypoint).toMatch(/FATAL: \$dir is not writable by uid/);
   });
 
   // runAsUser, fsGroup and `--user` name a number, so the image has to guarantee it rather than take
   // whatever `useradd -r` finds free after the apt layers.
-  it('pins the openwa uid and gid that the chart and docs name', () => {
+  it('pins the zaplink uid and gid that the chart and docs name', () => {
     const dockerfile = fs.readFileSync(path.join(__dirname, '..', '..', 'Dockerfile'), 'utf8');
-    const values = fs.readFileSync(path.join(__dirname, '..', '..', 'charts', 'openwa', 'values.yaml'), 'utf8');
-    expect(dockerfile).toMatch(/^RUN groupadd -r -g 997 openwa && useradd -r -u 997 -g openwa openwa$/m);
+    const values = fs.readFileSync(path.join(__dirname, '..', '..', 'charts', 'zaplink', 'values.yaml'), 'utf8');
+    expect(dockerfile).toMatch(/^RUN groupadd -r -g 997 zaplink && useradd -r -u 997 -g zaplink zaplink$/m);
     expect(values).toMatch(/runAsUser: 997/);
     expect(values).toMatch(/fsGroup: 997/);
   });
@@ -200,7 +200,7 @@ describe('the non-root drop is enforced, not merely documented', () => {
     const entrypoint = fs.readFileSync(path.join(__dirname, '..', '..', 'docker-entrypoint.sh'), 'utf8');
     const cleanup = entrypoint.search(/^rm -f \/app\/data\/sessions\/\*\/Singleton\*/m);
     const chown = entrypoint.search(
-      /^find \/app\/data ! -type l \\\( ! -user openwa -o ! -group openwa \\\) -exec chown -h openwa:openwa \{\} \+$/m,
+      /^find \/app\/data ! -type l \\\( ! -user zaplink -o ! -group zaplink \\\) -exec chown -h zaplink:zaplink \{\} \+$/m,
     );
     expect(entrypoint).not.toMatch(/^\s*chown\s+-R\b.*\/app\/data/m);
     // Swallowing the failure would hide a real refusal (NFS root_squash, SELinux).
@@ -2143,8 +2143,8 @@ describe('deployment docs describe what the entrypoint, probes and backup script
   it('runs the Helm restore helper as the app user, and scopes the compose re-own to the root start', () => {
     const doc = read('docs/11-operational-runbooks.md');
     const helper = doc.slice(
-      doc.indexOf('  name: openwa-restore'),
-      doc.indexOf('> EOF', doc.indexOf('  name: openwa-restore')),
+      doc.indexOf('  name: zaplink-restore'),
+      doc.indexOf('> EOF', doc.indexOf('  name: zaplink-restore')),
     );
     expect(helper).toMatch(/runAsNonRoot: true/);
     expect(helper).toMatch(/runAsUser: 997/);
@@ -2269,7 +2269,7 @@ describe('ci.yml moves the branch image tag only for the tested branch head', ()
   it('refuses a re-point that runs before the smoke or is only named behind a #', () => {
     const copy = (): CiStep[] => JSON.parse(JSON.stringify(dockerSteps())) as CiStep[];
     const smokeAt = dockerSteps().findIndex(step => (step.run ?? '').includes('smoke-test-non-root.sh'));
-    const REPOINT = 'docker buildx imagetools create --tag ghcr.io/x/openwa:main ghcr.io/x/openwa@sha256:0';
+    const REPOINT = 'docker buildx imagetools create --tag ghcr.io/x/zaplink:main ghcr.io/x/zaplink@sha256:0';
     const early = (run: string): CiStep[] => {
       const steps = copy();
       steps.splice(smokeAt, 0, { run });
@@ -2617,7 +2617,7 @@ describe.each([
       'echo phpstorm',
       'git -c core.hooksPath=/dev/null push',
       'SPLIT_SHA="$(git subtree split --prefix=sdk/php HEAD)"',
-      'echo "Mirrored sdk/php -> rmyndharis/openwa-php@main"',
+      'echo "Mirrored sdk/php -> rmyndharis/zaplink-php@main"',
       'if git ls-remote --tags --exit-code "$MIRROR" "refs/tags/${VERSION}" >/dev/null 2>&1; then',
       'git -c core.hooksPath=/dev/null push --force \\\n  "https://x@github.com/o/r.git" \\\n  "${SHA}:refs/heads/main"',
     ]) {

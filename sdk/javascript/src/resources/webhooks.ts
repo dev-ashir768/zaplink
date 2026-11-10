@@ -6,7 +6,7 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type {
   CreateWebhookRequest,
   RedriveWebhookDeliveriesRequest,
@@ -29,7 +29,7 @@ export interface DeliveryFailureQuery extends WebhookListQuery {
 }
 
 export class WebhooksResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /**
    * List webhooks across EVERY session the key can see, not one session's. Requires an OPERATOR-level

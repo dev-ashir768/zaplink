@@ -154,10 +154,10 @@ export class PluginCatalogEntryDto {
   keywords?: string[];
 
   @ApiPropertyOptional({ example: '0.18.0' })
-  minOpenWAVersion?: string;
+  minZapLinkVersion?: string;
 
   @ApiPropertyOptional({ example: '0.18.0' })
-  testedOpenWAVersion?: string;
+  testedZapLinkVersion?: string;
 
   @ApiPropertyOptional({ example: '2026-08-01' })
   releasedAt?: string;

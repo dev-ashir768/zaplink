@@ -171,18 +171,18 @@ export function Infrastructure() {
         (pinned('DATABASE_HOST')?.database.host ?? (db.builtIn ? 'postgres' : db.host.trim())) || 'localhost';
       // The database name the save writes: the form's for an external server; for a built-in one the name the server
       // keeps, the saved config's where its host already reaches the bundled container, else the one the bundled
-      // container serves now (the page loaded it), else openwa.
+      // container serves now (the page loaded it), else zaplink.
       const dbName = db.builtIn
         ? (namesBundledContainer('postgres', savedConfig?.database.host) && savedConfig?.database.type === 'postgres'
             ? savedConfig.database.database
             : infraStatus?.database.type === 'postgres' && namesBundledContainer('postgres', infraStatus.database.host)
               ? loaded?.database.database
-              : '') || 'openwa'
+              : '') || 'zaplink'
         : db.database;
       const dbRetarget =
         !!loaded &&
         ((!db.builtIn && !pinned('DATABASE_PORT') && db.port !== (loaded.database.port || '5432')) ||
-          (!pinned('DATABASE_NAME') && dbName !== (loaded.database.database || 'openwa')));
+          (!pinned('DATABASE_NAME') && dbName !== (loaded.database.database || 'zaplink')));
       const dbSwitch =
         !!infraStatus &&
         (dbType !== infraStatus.database.type ||
@@ -206,15 +206,15 @@ export function Infrastructure() {
               ? savedConfig?.storage.s3Bucket
               : servesBucket
                 ? infraStatus?.storage.bucket
-                : 'openwa'
+                : 'zaplink'
             : storage.s3Bucket)) ||
-        'openwa';
+        'zaplink';
       const storageSwitch =
         !!infraStatus &&
         (storageType !== infraStatus.storage.type ||
           (storageType === 's3' &&
             (!sameHost('minio', endpoint, infraStatus.storage.endpoint ?? '') ||
-              bucket !== (infraStatus.storage.bucket || 'openwa'))));
+              bucket !== (infraStatus.storage.bucket || 'zaplink'))));
       // The built-in containers running now, so the restart stops each one the new config dropped. With no
       // status read there is nothing to go on, and nothing is stopped.
       const running = [
@@ -222,7 +222,7 @@ export function Infrastructure() {
         infraStatus?.redis.builtIn && 'redis',
         infraStatus?.storage.type === 's3' && infraStatus.storage.builtIn && 'minio',
       ].filter((p): p is string => typeof p === 'string');
-      // A bundled container OpenWA created that no boot uses while the environment pins its host elsewhere: the
+      // A bundled container ZapLink created that no boot uses while the environment pins its host elsewhere: the
       // restart stops it. The server starts nothing for that host whatever the save asked, so it is no start either.
       const pinnedAway = (
         [

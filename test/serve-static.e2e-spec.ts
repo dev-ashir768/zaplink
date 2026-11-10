@@ -13,14 +13,14 @@ import { join, sep } from 'path';
 /**
  * Two throwaway dashboard builds, evaluated before the module decorators (forRoot reads rootPath
  * eagerly). The second deliberately sits under a DOT-SEGMENT directory, which is not exotic:
- * `~/.openwa`, a CI checkout under `~/.cache`, and a `TMPDIR` inside a dotdir all produce it.
+ * `~/.zaplink`, a CI checkout under `~/.cache`, and a `TMPDIR` inside a dotdir all produce it.
  * `ServeStaticModule`'s own SPA fallback silently 404s every client-side route on such a path
  * (it sends the index by absolute path, and Express's `send` refuses dot-segments), so the shape
  * has to be covered explicitly or a real deployment class goes untested.
  */
 function makeBuild(root: string): string {
   mkdirSync(join(root, 'assets'), { recursive: true });
-  writeFileSync(join(root, 'index.html'), '<!doctype html><title>OpenWA Dashboard</title>');
+  writeFileSync(join(root, 'index.html'), '<!doctype html><title>ZapLink Dashboard</title>');
   writeFileSync(join(root, 'assets', 'app.js'), 'console.log(1)');
   writeFileSync(join(root, '.env.secret'), 'TOKEN=nope');
   return root;
@@ -33,11 +33,11 @@ const osTmp = realpathSync(tmpdir());
 // dot-free, and using it blindly would make BOTH cases dotted - which is exactly how this gap
 // stayed hidden. node_modules is gitignored, so nothing strays into the working tree.
 const dotFreeBase = hasDotSegment(osTmp) ? join(__dirname, '..', 'node_modules') : osTmp;
-const plainRoot = mkdtempSync(join(dotFreeBase, 'openwa-dash-plain-'));
-const dottedRoot = mkdtempSync(join(osTmp, 'openwa-dash-'));
+const plainRoot = mkdtempSync(join(dotFreeBase, 'zaplink-dash-plain-'));
+const dottedRoot = mkdtempSync(join(osTmp, 'zaplink-dash-'));
 const plainDist = makeBuild(join(plainRoot, 'dashboard', 'dist'));
 const dottedDist = makeBuild(join(dottedRoot, '.dotted', 'dashboard', 'dist'));
-// The e2e globalTeardown sweeps only openwa-e2e-* entries in the temp dir, and the plain root can sit
+// The e2e globalTeardown sweeps only zaplink-e2e-* entries in the temp dir, and the plain root can sit
 // under node_modules, so this suite removes its own fixtures.
 afterAll(() => {
   for (const root of [plainRoot, dottedRoot]) rmSync(root, { recursive: true, force: true });
@@ -118,7 +118,7 @@ describe.each([
     const res = await request(app.getHttpServer()).get('/');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/html/);
-    expect(res.text).toContain('OpenWA Dashboard');
+    expect(res.text).toContain('ZapLink Dashboard');
   });
 
   it('serves index.html for client-side routes (SPA fallback)', async () => {
@@ -146,7 +146,7 @@ describe.each([
     const res = await request(app.getHttpServer()).get('/assets/app.js');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/javascript/);
-    expect(res.text).not.toContain('OpenWA Dashboard');
+    expect(res.text).not.toContain('ZapLink Dashboard');
   });
 
   it('404s a missing asset instead of handing back the SPA shell', async () => {
@@ -154,7 +154,7 @@ describe.each([
     // parse the shell as JavaScript and report a syntax error, hiding the real cause.
     const res = await request(app.getHttpServer()).get('/assets/missing.js');
     expect(res.status).toBe(404);
-    expect(res.text).not.toContain('OpenWA Dashboard');
+    expect(res.text).not.toContain('ZapLink Dashboard');
   });
 
   it('404s a missing top-level file rather than serving the shell', async () => {
@@ -184,7 +184,7 @@ describe.each([
     const res = await request(app.getHttpServer()).get('/api/does-not-exist');
     expect(res.status).toBe(404);
     expect(res.headers['content-type']).toMatch(/json/);
-    expect(res.text).not.toContain('OpenWA Dashboard');
+    expect(res.text).not.toContain('ZapLink Dashboard');
   });
 
   it('does not hand the SPA to a non-GET request', async () => {

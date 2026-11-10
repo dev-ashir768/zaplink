@@ -101,7 +101,7 @@ export function applyDatabaseSection(
       const servesRunning =
         process.env.DATABASE_TYPE === 'postgres' && namesBundledContainer('postgres', process.env.DATABASE_HOST);
       const kept: Partial<Record<string, string>> = servesStored ? existing : servesRunning ? process.env : {};
-      updates.DATABASE_USERNAME = kept.DATABASE_USERNAME || 'openwa';
+      updates.DATABASE_USERNAME = kept.DATABASE_USERNAME || 'zaplink';
       // Secrets are not echoed to the form. A blank password keeps one stored for PostgreSQL at the bundled host (stored, pinned,
       // or still serving the running process after a saved switch away); external credentials do not follow it.
       const storedPassword =
@@ -112,8 +112,8 @@ export function applyDatabaseSection(
           : servesRunning
             ? process.env.DATABASE_PASSWORD
             : undefined;
-      updates.DATABASE_PASSWORD = database.password || storedPassword || 'openwa';
-      updates.DATABASE_NAME = kept.DATABASE_NAME || 'openwa';
+      updates.DATABASE_PASSWORD = database.password || storedPassword || 'zaplink';
+      updates.DATABASE_NAME = kept.DATABASE_NAME || 'zaplink';
       // A newly initialized bundled database starts in public; an existing one keeps its schema.
       updates.POSTGRES_SCHEMA = kept.POSTGRES_SCHEMA || 'public';
     } else if (!dbBuiltIn) {
@@ -133,7 +133,7 @@ export function applyDatabaseSection(
       }
       if (database.username !== undefined) updates.DATABASE_USERNAME = database.username.trim() || 'postgres';
       setSecret(updates, 'DATABASE_PASSWORD', database.password);
-      if (database.database !== undefined) updates.DATABASE_NAME = database.database || 'openwa';
+      if (database.database !== undefined) updates.DATABASE_NAME = database.database || 'zaplink';
       // Left from SQLite, the key holds a file path, which the next boot would open as a PostgreSQL database name.
       // A file with no type beside a PostgreSQL pin holds a name the pinned server uses, so that one stays.
       else if (existing.DATABASE_TYPE !== 'postgres' && nextBootValue('DATABASE_TYPE', existing) !== 'postgres') {
@@ -299,7 +299,7 @@ export function applyStorageSection(
         nextBootValue('STORAGE_TYPE', existing) === 's3' &&
         namesBundledContainer('minio', nextBootValue('S3_ENDPOINT', existing));
       const kept: Partial<Record<string, string>> = servesStored ? existing : servesRunning ? process.env : {};
-      updates.S3_BUCKET = kept.S3_BUCKET || 'openwa';
+      updates.S3_BUCKET = kept.S3_BUCKET || 'zaplink';
       updates.S3_REGION = kept.S3_REGION || 'us-east-1';
     } else if (!storageBuiltIn) {
       // Only an already selected external S3 service owns the stored credentials and endpoint.

@@ -143,7 +143,7 @@ export class StorageService implements OnModuleDestroy {
    */
   private s3StreamClient: S3Client | null = null;
   private s3OpenDownloads = 0;
-  private s3Bucket = 'openwa';
+  private s3Bucket = 'zaplink';
   private s3KeyRoot = DEFAULT_S3_KEY_PREFIX;
   private s3Available = false;
   private s3ReprobeTimer: NodeJS.Timeout | null = null;
@@ -182,7 +182,7 @@ export class StorageService implements OnModuleDestroy {
         // Each client builds its own HTTP handler, and with it its own socket pool.
         this.s3Client = new S3Client(clientConfig);
         this.s3StreamClient = new S3Client(clientConfig);
-        this.s3Bucket = process.env.S3_BUCKET || s3Config.bucket || 'openwa';
+        this.s3Bucket = process.env.S3_BUCKET || s3Config.bucket || 'zaplink';
         const keyRoot = normalizeS3KeyPrefix(process.env.S3_KEY_PREFIX || s3Config.keyPrefix);
         if (!keyRoot) throw new Error('S3_KEY_PREFIX is not a safe relative key prefix');
         this.s3KeyRoot = keyRoot;

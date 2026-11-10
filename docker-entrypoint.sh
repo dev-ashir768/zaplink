@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs as root (via dumb-init) by default: fixes named-volume ownership, then drops to the
-# openwa user via gosu so the Node process never holds root privileges. Started as any other
+# zaplink user via gosu so the Node process never holds root privileges. Started as any other
 # uid (`docker run --user`, compose `user:`, a Kubernetes runAsUser) it cannot chown or switch
 # users, so it skips both and runs the command as that uid.
 set -e
@@ -26,9 +26,9 @@ mkdir -p /app/data/sessions /app/data/media /app/data/plugins
 # so clearing them lets sessions re-launch after a crash/restart. (#259)
 rm -f /app/data/sessions/*/Singleton* 2>/dev/null || true
 
-# Chromium resolves its home from the passwd entry (no /home/openwa exists), so it hard-crashes at
+# Chromium resolves its home from the passwd entry (no /home/zaplink exists), so it hard-crashes at
 # launch unless its config/cache dirs exist and are writable. XDG_CONFIG_HOME/XDG_CACHE_HOME (set in
-# the image) point here; create them owned by openwa. On a read_only rootfs these live on tmpfs /tmp,
+# the image) point here; create them owned by zaplink. On a read_only rootfs these live on tmpfs /tmp,
 # which is mounted fresh each start, so they must be (re)created at runtime, not at build. (#254)
 if ! mkdir -p "${XDG_CONFIG_HOME:-/tmp/.config}" "${XDG_CACHE_HOME:-/tmp/.cache}"; then
   echo "FATAL: cannot create Chromium config/cache dirs (${XDG_CONFIG_HOME:-/tmp/.config}, ${XDG_CACHE_HOME:-/tmp/.cache})." >&2
@@ -42,7 +42,7 @@ if [ "$(id -u)" != 0 ]; then
   exec "$@"
 fi
 
-# Re-own every path under /app/data that is not already openwa:openwa, except symlinks. Some bind
+# Re-own every path under /app/data that is not already zaplink:zaplink, except symlinks. Some bind
 # mounts (Docker Desktop's file sharing) refuse to change a symlink's owner, which a link never
 # needs, so a `chown -R` that met any link (a Chromium lock under a custom SESSION_DATA_PATH, a
 # relocated session profile, a backup staging copy) failed under `set -e` and crash-looped the
@@ -53,12 +53,12 @@ fi
 # itself stays, because a file restored or copied in as root must still be re-owned. The
 # parentheses matter: without them `-o` would let the group branch bypass `! -type l`. A real
 # chown failure still stops the script.
-find /app/data ! -type l \( ! -user openwa -o ! -group openwa \) -exec chown -h openwa:openwa {} +
+find /app/data ! -type l \( ! -user zaplink -o ! -group zaplink \) -exec chown -h zaplink:zaplink {} +
 
 # The Chromium config/cache dirs created above, as root.
-chown openwa:openwa "${XDG_CONFIG_HOME:-/tmp/.config}" "${XDG_CACHE_HOME:-/tmp/.cache}"
+chown zaplink:zaplink "${XDG_CONFIG_HOME:-/tmp/.config}" "${XDG_CACHE_HOME:-/tmp/.cache}"
 
 # "$@" = CMD from Dockerfile (default: node dist/main).
 # gosu performs exec, so the node process replaces this shell and becomes the
 # direct child of dumb-init (PID 1), which can therefore forward SIGTERM cleanly.
-exec gosu openwa "$@"
+exec gosu zaplink "$@"

@@ -1,9 +1,9 @@
 // The container each managed profile runs, as the restart dialog names it. No prototype, as the server's table: a
 // name such as `constructor` finds nothing.
 export const CONTAINER_OF: Record<string, string> = Object.assign(Object.create(null) as Record<string, string>, {
-  postgres: 'openwa-postgres',
-  redis: 'openwa-redis',
-  minio: 'openwa-minio',
+  postgres: 'zaplink-postgres',
+  redis: 'zaplink-redis',
+  minio: 'zaplink-minio',
 });
 
 /**

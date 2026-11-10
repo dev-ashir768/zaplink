@@ -435,8 +435,8 @@ export class LoggerService implements NestLoggerService {
   }
 
   // Render a single entry as a human-readable line in the same shape NestJS's ConsoleLogger uses
-  // (so it lines up with the framework's own output), but tagged honestly as [OpenWA]:
-  //   [OpenWA] 1896  - 25/06/2026, 4:59:22 PM     LOG [AuthService] API Docs: … sessionId=abc
+  // (so it lines up with the framework's own output), but tagged honestly as [ZapLink]:
+  //   [ZapLink] 1896  - 25/06/2026, 4:59:22 PM     LOG [AuthService] API Docs: … sessionId=abc
   private formatPretty(level: LogLevel, entry: Record<string, unknown>): string {
     const useColor = LoggerService.colorEnabled();
     const paint = (code: string, text: string): string => (useColor ? `${code}${text}${ANSI.reset}` : text);
@@ -455,7 +455,7 @@ export class LoggerService implements NestLoggerService {
       .join(' ');
 
     let line =
-      `${paint(levelColor, `[OpenWA] ${process.pid}  -`)} ${timestamp} ` +
+      `${paint(levelColor, `[ZapLink] ${process.pid}  -`)} ${timestamp} ` +
       `${paint(levelColor, label)} ${paint(ANSI.yellow, `[${contextName}]`)} ${paint(levelColor, message)}`;
 
     if (meta) {

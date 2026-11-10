@@ -29,10 +29,10 @@ import { DEFAULT_PUPPETEER_ARGS } from '../../config/configuration';
 import { checkForUpdate, type UpdateCheck } from './update-check';
 
 interface InfraStatus {
-  // `builtIn` reflects whether OpenWA's own bundled container is actually running and backing this
+  // `builtIn` reflects whether ZapLink's own bundled container is actually running and backing this
   // service (detected live from the labeled container), not merely the saved intent. Falls back to the
   // saved flag, the environment's first, when Docker is unavailable. (#488)
-  // `running` is whether a bundled container OpenWA created is up, whether or not the service uses it; false for
+  // `running` is whether a bundled container ZapLink created is up, whether or not the service uses it; false for
   // one Docker Compose created, and absent when Docker is unavailable, since nothing can be seen or stopped then.
   database: { connected: boolean; type: string; host: string; builtIn: boolean; running?: boolean };
   redis: { enabled: boolean; connected: boolean; host: string; port: number; builtIn: boolean; running?: boolean };
@@ -221,7 +221,7 @@ export class InfraStatusController {
     // decides whether the container starts at boot, so it counts beside the bundled host alone. (#488) The labelled
     // container may be another instance's on the same daemon: it counts whenever this one's host is spelled like the
     // bundled one (docs/13, Scaling Guidelines).
-    // `running` names a container OpenWA created beside this instance's own built-in flag only: the container names
+    // `running` names a container ZapLink created beside this instance's own built-in flag only: the container names
     // are fixed per daemon, so a second instance there sees the first one's containers, which are not its to stop.
     const s3Endpoint = this.configService.get<string>('storage.s3.endpoint');
     const running = this.dockerService.isDockerAvailable()
@@ -259,7 +259,7 @@ export class InfraStatusController {
         type: dbType,
         host: dbHost,
         builtIn: dbBuiltIn,
-        ...(running ? { running: running.database === 'openwa' && savedBuiltin.database } : {}),
+        ...(running ? { running: running.database === 'zaplink' && savedBuiltin.database } : {}),
       },
       redis: {
         enabled: redisEnabled,
@@ -267,7 +267,7 @@ export class InfraStatusController {
         host: redisHost,
         port: redisPort,
         builtIn: redisBuiltIn,
-        ...(running ? { running: running.cache === 'openwa' && savedBuiltin.cache } : {}),
+        ...(running ? { running: running.cache === 'zaplink' && savedBuiltin.cache } : {}),
       },
       queue: {
         enabled: queueEnabled,
@@ -280,7 +280,7 @@ export class InfraStatusController {
         // The endpoint this process dials: a bundled MinIO that is stopped still names it, an external store does not.
         ...(storageType === 's3' && s3Endpoint ? { endpoint: s3Endpoint } : {}),
         builtIn: storageBuiltIn,
-        ...(running ? { running: running.storage === 'openwa' && savedBuiltin.storage } : {}),
+        ...(running ? { running: running.storage === 'zaplink' && savedBuiltin.storage } : {}),
         ...(storageType === 's3' ? { s3Available } : {}),
       },
       engine: {
@@ -330,7 +330,7 @@ export class InfraStatusController {
   @Get('update-check')
   @RequireRole(ApiKeyRole.ADMIN)
   @ApiOperation({
-    summary: 'Compare the running version with the latest OpenWA release',
+    summary: 'Compare the running version with the latest ZapLink release',
     description:
       'Reads the latest published GitHub release through the SSRF-guarded fetch and caches it. ' +
       'Set UPDATE_CHECK_ENABLED=false to turn the outbound request off.',

@@ -113,9 +113,9 @@ describe('bannerKeyLine (startup banner key masking)', () => {
 
   it('names the bootstrap key file BOOTSTRAP_KEY_FILE points at', () => {
     const original = process.env.BOOTSTRAP_KEY_FILE;
-    process.env.BOOTSTRAP_KEY_FILE = '/run/secrets/openwa-key';
+    process.env.BOOTSTRAP_KEY_FILE = '/run/secrets/zaplink-key';
     try {
-      expect(bannerKeyLine(FULL, false)).toContain('(full key in /run/secrets/openwa-key)');
+      expect(bannerKeyLine(FULL, false)).toContain('(full key in /run/secrets/zaplink-key)');
     } finally {
       if (original === undefined) delete process.env.BOOTSTRAP_KEY_FILE;
       else process.env.BOOTSTRAP_KEY_FILE = original;

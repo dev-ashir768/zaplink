@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OpenWA\Resources;
+namespace ZapLink\Resources;
 
-use OpenWA\Http\HttpExecutor;
+use ZapLink\Http\HttpExecutor;
 
 /**
  * Media resource — server-side conversion into the formats WhatsApp plays.

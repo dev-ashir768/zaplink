@@ -1,4 +1,4 @@
-package openwa
+package zaplink
 
 import (
 	"crypto/hmac"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// VerifyWebhookSignature checks a delivery's X-OpenWA-Signature header
+// VerifyWebhookSignature checks a delivery's X-ZapLink-Signature header
 // ("sha256=<hex HMAC-SHA256>") against the webhook secret. Pass the raw request
 // body exactly as received; a re-serialized decode can differ byte for byte and
 // will not verify. It returns false for a missing, malformed or non-matching

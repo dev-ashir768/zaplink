@@ -12,7 +12,7 @@ describe('MetricsService concurrent scrapes', () => {
   };
 
   const loopMax = (text: string): number =>
-    Number(/^openwa_event_loop_delay_max_seconds (\S+)$/m.exec(text)?.[1] ?? Number.NaN);
+    Number(/^zaplink_event_loop_delay_max_seconds (\S+)$/m.exec(text)?.[1] ?? Number.NaN);
 
   const makeService = (): { svc: MetricsService; getOverview: jest.Mock } => {
     const config = { get: () => undefined } as unknown as ConfigService;
@@ -57,7 +57,7 @@ describe('MetricsService concurrent scrapes', () => {
       const overlapping = await Promise.allSettled([svc.render(), svc.render()]);
       expect(overlapping.map(outcome => outcome.status)).toEqual(['rejected', 'rejected']);
 
-      expect(await svc.render()).toContain('openwa_up 1');
+      expect(await svc.render()).toContain('zaplink_up 1');
     } finally {
       svc.onModuleDestroy();
     }

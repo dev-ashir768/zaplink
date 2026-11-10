@@ -7,11 +7,11 @@
  */
 
 import { encodeSegment } from '../http.js';
-import type { OpenWAClient } from '../client.js';
+import type { ZapLinkClient } from '../client.js';
 import type { AddLabelRequest, ChatSummary, LabelRecord, SuccessResult, UpsertLabelRequest } from '../types.js';
 
 export class LabelsResource {
-  constructor(private readonly client: OpenWAClient) {}
+  constructor(private readonly client: ZapLinkClient) {}
 
   /** List all labels available in the business account. **whatsapp-web.js only**: Baileys answers 501. */
   list(sessionId: string): Promise<LabelRecord[]> {

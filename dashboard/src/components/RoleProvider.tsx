@@ -10,46 +10,46 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     // key but no role of its own adopts that copy, so its first reload after an upgrade does not drop
     // the role until /auth/validate answers. The copy is left in place for the other tabs signed in
     // before the upgrade; every sign-in since stores a role with its key, so no newer tab adopts it.
-    const legacy = localStorage.getItem('openwa_user_role');
-    if (legacy && !sessionStorage.getItem('openwa_user_role') && sessionStorage.getItem('openwa_api_key')) {
-      sessionStorage.setItem('openwa_user_role', legacy);
+    const legacy = localStorage.getItem('zaplink_user_role');
+    if (legacy && !sessionStorage.getItem('zaplink_user_role') && sessionStorage.getItem('zaplink_api_key')) {
+      sessionStorage.setItem('zaplink_user_role', legacy);
     }
-    const saved = sessionStorage.getItem('openwa_user_role');
+    const saved = sessionStorage.getItem('zaplink_user_role');
     return (saved as UserRole) || null;
   });
 
   const setRole = useCallback((newRole: UserRole | null) => {
     setRoleState(newRole);
     if (newRole) {
-      sessionStorage.setItem('openwa_user_role', newRole);
+      sessionStorage.setItem('zaplink_user_role', newRole);
     } else {
-      sessionStorage.removeItem('openwa_user_role');
+      sessionStorage.removeItem('zaplink_user_role');
     }
   }, []);
 
   // Kept beside the role because GET /infra/engines/current is admin-only: the validate response is
   // the one place every role learns which engine it is talking to.
-  const [engineType, setEngineTypeState] = useState<string | null>(() => sessionStorage.getItem('openwa_engine_type'));
+  const [engineType, setEngineTypeState] = useState<string | null>(() => sessionStorage.getItem('zaplink_engine_type'));
 
   const setEngineType = useCallback((newEngineType: string | null) => {
     setEngineTypeState(newEngineType);
     if (newEngineType) {
-      sessionStorage.setItem('openwa_engine_type', newEngineType);
+      sessionStorage.setItem('zaplink_engine_type', newEngineType);
     } else {
-      sessionStorage.removeItem('openwa_engine_type');
+      sessionStorage.removeItem('zaplink_engine_type');
     }
   }, []);
 
   // Session-scoped keys are refused on the cross-session routes (e.g. /stats/overview) whatever their
   // role, so the UI needs the scope beside the role to avoid sending them.
-  const [scoped, setScopedState] = useState(() => sessionStorage.getItem('openwa_key_scoped') === 'true');
+  const [scoped, setScopedState] = useState(() => sessionStorage.getItem('zaplink_key_scoped') === 'true');
 
   const setScoped = useCallback((newScoped: boolean) => {
     setScopedState(newScoped);
     if (newScoped) {
-      sessionStorage.setItem('openwa_key_scoped', 'true');
+      sessionStorage.setItem('zaplink_key_scoped', 'true');
     } else {
-      sessionStorage.removeItem('openwa_key_scoped');
+      sessionStorage.removeItem('zaplink_key_scoped');
     }
   }, []);
 

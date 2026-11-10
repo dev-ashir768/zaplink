@@ -107,7 +107,7 @@ test('a 401 without a message reads as an invalid key', async () => {
 // A 200 that is not the gateway's answer (a reverse proxy serving the app's HTML for a misrouted /api) or that does not
 // say the key is valid signed in any typed text as a viewer, and every page then failed its first read.
 for (const [label, body] of [
-  ['an HTML page', '<!doctype html><title>OpenWA</title>'],
+  ['an HTML page', '<!doctype html><title>ZapLink</title>'],
   ['valid: false', JSON.stringify({ valid: false })],
 ] as const) {
   test(`a 200 carrying ${label} is a connection error, not a sign-in`, async () => {

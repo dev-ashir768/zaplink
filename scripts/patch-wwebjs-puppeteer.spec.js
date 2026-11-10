@@ -9,7 +9,7 @@ const path = require('node:path');
 const { applyPatch, isApplied, REPLACEMENTS } = require('./patch-wwebjs-puppeteer.js');
 
 function fixture(t, source) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-puppeteer-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zaplink-puppeteer-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'src'));
   const file = path.join(root, 'src', 'Client.js');

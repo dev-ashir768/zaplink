@@ -177,13 +177,13 @@ describe('WebhookProcessor', () => {
     expect(outbox.close).not.toHaveBeenCalled();
   });
 
-  it('sets X-OpenWA-Retry-Count to the attempt number', async () => {
+  it('sets X-ZapLink-Retry-Count to the attempt number', async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
     await processor.process(makeJob({}, 2));
 
     const call = mockFetch.mock.calls[0] as unknown as [string, { headers: Record<string, string> }];
-    expect(call[1].headers['X-OpenWA-Retry-Count']).toBe('2');
+    expect(call[1].headers['X-ZapLink-Retry-Count']).toBe('2');
   });
 
   it('throws on a non-ok response WITHOUT firing webhook:error before the final attempt', async () => {
@@ -481,7 +481,7 @@ describe('WebhookProcessor', () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: 'Bearer old',
-          'X-OpenWA-Signature': 'sha256=old',
+          'X-ZapLink-Signature': 'sha256=old',
         },
       } as Partial<WebhookJobData>);
 
@@ -495,7 +495,7 @@ describe('WebhookProcessor', () => {
       expect(url).toBe('https://8.8.4.4/new');
       expect(init.headers.Authorization).toBe('Bearer new');
       const expected = `sha256=${createHmac('sha256', 'rotated').update(init.body).digest('hex')}`;
-      expect(init.headers['X-OpenWA-Signature']).toBe(expected);
+      expect(init.headers['X-ZapLink-Signature']).toBe(expected);
       expect(init.body).toBe(JSON.stringify(job.data.payload));
     });
   });

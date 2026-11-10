@@ -59,7 +59,7 @@ const TRIGRAM_BACKFILL_BATCH = 1000;
 
 /**
  * The session-level advisory lock one replica holds while it builds the Postgres trigram index, in the
- * two-int4 form: 0x7472676d ("trgm") first, a first key no other OpenWA lock uses (the boot migration
+ * two-int4 form: 0x7472676d ("trgm") first, a first key no other ZapLink lock uses (the boot migration
  * lock's is 0x4f5741, "OWA"), then the oid of the `messages` table the index is built on, so deployments
  * that share a database in different schemas (POSTGRES_SCHEMA) each build their own.
  */
@@ -85,7 +85,7 @@ const CONTAINS_UNAVAILABLE = {
 /**
  * Three letters or digits in a row, the only characters pg_trgm takes trigrams from: letters of every
  * kind, decimal digits and letter numbers (`Ⅻ`), never other numbers (`²`, `①`). The nine modifier
- * letters left out are the ones openwa_unaccent turns into punctuation before pg_trgm reads them (`ʼ`
+ * letters left out are the ones zaplink_unaccent turns into punctuation before pg_trgm reads them (`ʼ`
  * into an apostrophe, `ˆ` into `^`).
  */
 const POSTGRES_TRIGRAM_SOURCE = new RegExp(
@@ -107,7 +107,7 @@ const CONTAINS_COLUMNS = `m."id", m."waMessageId" AS wa_message_id, m."sessionId
 
 /**
  * What the Postgres catalog holds for contains search: the schema of each extension it needs (null when
- * not installed), whether the `openwa_unaccent` wrapper exists, and the trigram index: null when absent,
+ * not installed), whether the `zaplink_unaccent` wrapper exists, and the trigram index: null when absent,
  * false while a CONCURRENTLY build runs or after one died, true once usable.
  */
 interface TrigramStateRow {
@@ -146,7 +146,7 @@ function quoteIdent(name: string): string {
  */
 export function postgresUnaccentFunctionDdl(unaccentSchema: string): string {
   const schema = quoteIdent(unaccentSchema);
-  return `CREATE OR REPLACE FUNCTION openwa_unaccent(text) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT AS $$ SELECT ${schema}.unaccent('${schema.replace(/'/g, "''")}.unaccent'::regdictionary, $1) $$`;
+  return `CREATE OR REPLACE FUNCTION zaplink_unaccent(text) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT AS $$ SELECT ${schema}.unaccent('${schema.replace(/'/g, "''")}.unaccent'::regdictionary, $1) $$`;
 }
 
 /** A LIKE/ILIKE pattern that finds `term` anywhere, with its own `\`, `%` and `_` matched literally. */
@@ -161,7 +161,7 @@ function likePattern(term: string): string {
  * `'\'` escapes its closing quote.
  */
 function postgresLikePattern(placeholder: string): string {
-  return String.raw`'%' || replace(replace(replace(openwa_unaccent(${placeholder}), E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%'`;
+  return String.raw`'%' || replace(replace(replace(zaplink_unaccent(${placeholder}), E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%'`;
 }
 
 /** Shorter than a trigram once folded, so no trigram index can look it up. */
@@ -234,7 +234,7 @@ export class BuiltInFtsProvider implements SearchProvider, OnModuleInit, OnAppli
   /** Whether the Postgres database has a C or POSIX ctype, read by each build (see postgresCanIndex). */
   private postgresAsciiTrigrams = false;
 
-  // OpenWA has two TypeORM connections (main: auth/audit SQLite, data: messages). Bind explicitly to
+  // ZapLink has two TypeORM connections (main: auth/audit SQLite, data: messages). Bind explicitly to
   // 'data' so the provider queries the connection that owns the `messages` table + the FTS migration,
   // never the default/`main` one. The bare `DataSource` type alone is ambiguous with two connections.
   constructor(
@@ -631,7 +631,7 @@ export class BuiltInFtsProvider implements SearchProvider, OnModuleInit, OnAppli
     if (idx === false) await runner.query(`DROP INDEX CONCURRENTLY IF EXISTS "idx_messages_body_trgm"`);
     if (idx !== true) {
       await runner.query(
-        `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_messages_body_trgm" ON "messages" USING GIN (openwa_unaccent("body") ${quoteIdent(trgm)}.gin_trgm_ops)`,
+        `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_messages_body_trgm" ON "messages" USING GIN (zaplink_unaccent("body") ${quoteIdent(trgm)}.gin_trgm_ops)`,
       );
     }
     return null;
@@ -646,7 +646,7 @@ export class BuiltInFtsProvider implements SearchProvider, OnModuleInit, OnAppli
     return (runner ?? this.dataSource).manager.query<TrigramStateRow[]>(
       `SELECT (SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'pg_trgm') AS trgm,
               (SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'unaccent') AS unaccent,
-              to_regprocedure('openwa_unaccent(text)') IS NOT NULL AS fn,
+              to_regprocedure('zaplink_unaccent(text)') IS NOT NULL AS fn,
               (SELECT i.indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE i.indrelid = to_regclass('messages') AND c.relname = 'idx_messages_body_trgm') AS idx`,
     );
   }
@@ -914,8 +914,8 @@ export class BuiltInFtsProvider implements SearchProvider, OnModuleInit, OnAppli
 
   // --- Postgres pg_trgm candidates (match=contains) --------------------------
   // SQL appearance order: one ILIKE per term -> filters -> LIMIT. Each ILIKE compares
-  // openwa_unaccent(body), the exact expression the GIN trigram index holds; ILIKE folds case and
-  // openwa_unaccent folds accents, and each term has its `%`, `_` and `\` escaped after that fold so it
+  // zaplink_unaccent(body), the exact expression the GIN trigram index holds; ILIKE folds case and
+  // zaplink_unaccent folds accents, and each term has its `%`, `_` and `\` escaped after that fold so it
   // matches literally (postgresLikePattern). unaccent also transliterates letters remove_diacritics
   // leaves alone (Ł, ß, Ø, œ), so Postgres finds some matches SQLite does not (docs/26). The most
   // recently stored first, as on SQLite: IDX_messages_createdAt lets the planner walk them backward and
@@ -928,7 +928,7 @@ export class BuiltInFtsProvider implements SearchProvider, OnModuleInit, OnAppli
     const where = terms.map(term => {
       const placeholder = ph();
       params.push(term);
-      return `openwa_unaccent(m."body") ILIKE ${postgresLikePattern(placeholder)}`;
+      return `zaplink_unaccent(m."body") ILIKE ${postgresLikePattern(placeholder)}`;
     });
     this.applyFilters(where, params, q, 'm.', ph);
     const sql = `SELECT ${CONTAINS_COLUMNS} FROM messages m WHERE ${where.join(' AND ')} ORDER BY m."createdAt" DESC, m."id" DESC LIMIT ${ph()}`;

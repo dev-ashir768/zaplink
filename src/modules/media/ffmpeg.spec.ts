@@ -81,8 +81,8 @@ describe('ffmpeg encoder arguments', () => {
  */
 describe('ffmpeg invocation shape', () => {
   const args = buildFfmpegArgs(
-    '/tmp/openwa-convert-x/in.bin',
-    '/tmp/openwa-convert-x/out.ogg',
+    '/tmp/zaplink-convert-x/in.bin',
+    '/tmp/zaplink-convert-x/out.ogg',
     ['-c:a', 'libopus'],
     1000,
   );
@@ -132,8 +132,8 @@ describe('ffmpeg invocation shape', () => {
   });
 
   it('names the input immediately after -i, and the output last', () => {
-    expect(args[args.indexOf('-i') + 1]).toBe('/tmp/openwa-convert-x/in.bin');
-    expect(args[args.length - 1]).toBe('/tmp/openwa-convert-x/out.ogg');
+    expect(args[args.indexOf('-i') + 1]).toBe('/tmp/zaplink-convert-x/in.bin');
+    expect(args[args.length - 1]).toBe('/tmp/zaplink-convert-x/out.ogg');
   });
 
   // Encoder flags have to land between the input and the output; ffmpeg applies options positionally,

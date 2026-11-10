@@ -82,12 +82,12 @@ describe('TemplateService', () => {
       await service.create('sess-1', {
         name: 'promo',
         body: 'Buy now',
-        header: 'OpenWA Store',
+        header: 'ZapLink Store',
         footer: 'Reply STOP to opt out',
       });
 
       expect(repository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ header: 'OpenWA Store', footer: 'Reply STOP to opt out' }),
+        expect.objectContaining({ header: 'ZapLink Store', footer: 'Reply STOP to opt out' }),
       );
     });
   });

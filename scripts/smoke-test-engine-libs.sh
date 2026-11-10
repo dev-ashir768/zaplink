@@ -1,6 +1,6 @@
 #!/bin/sh
 # Smoke test: load both WhatsApp engine libraries inside the built image, the way a session does.
-# Usage: OPENWA_SMOKE_IMAGE=<image> [OPENWA_SMOKE_PLATFORM=linux/arm64] ./scripts/smoke-test-engine-libs.sh
+# Usage: ZAPLINK_SMOKE_IMAGE=<image> [ZAPLINK_SMOKE_PLATFORM=linux/arm64] ./scripts/smoke-test-engine-libs.sh
 # Requires Docker. Needs no network and no WhatsApp account.
 #
 # Booting the image proves neither engine works. Baileys is ESM and imported lazily on the first
@@ -8,16 +8,16 @@
 # architecture, only fails once a user starts a session. whatsapp-web.js loads at boot, but the
 # browser it drives is launched per session and differs by architecture (Chrome for Testing on
 # amd64, Debian's chromium on arm64). Each probe runs through the real entrypoint, so it executes
-# as the openwa user with the directories the entrypoint prepares.
+# as the zaplink user with the directories the entrypoint prepares.
 #
 # Two more checks close the script: the image carries no TypeScript toolchain, and the migration CLI
 # the runbooks drive still runs without one.
 set -e
 
-IMAGE="${OPENWA_SMOKE_IMAGE:?set OPENWA_SMOKE_IMAGE to the image under test}"
-if [ -n "${OPENWA_SMOKE_PLATFORM:-}" ]; then
-  set -- --platform "$OPENWA_SMOKE_PLATFORM"
-  LABEL="$OPENWA_SMOKE_PLATFORM"
+IMAGE="${ZAPLINK_SMOKE_IMAGE:?set ZAPLINK_SMOKE_IMAGE to the image under test}"
+if [ -n "${ZAPLINK_SMOKE_PLATFORM:-}" ]; then
+  set -- --platform "$ZAPLINK_SMOKE_PLATFORM"
+  LABEL="$ZAPLINK_SMOKE_PLATFORM"
 else
   set --
   LABEL="host platform"
@@ -45,7 +45,7 @@ import('@whiskeysockets/baileys')
 # browser binary instead, which still fails on a missing shared library or a binary built for the
 # wrong architecture. The daemon's own platform gets the full launch.
 NATIVE="linux/$(docker version --format '{{.Server.Arch}}')"
-if [ -n "${OPENWA_SMOKE_PLATFORM:-}" ] && [ "$OPENWA_SMOKE_PLATFORM" != "$NATIVE" ]; then
+if [ -n "${ZAPLINK_SMOKE_PLATFORM:-}" ] && [ "$ZAPLINK_SMOKE_PLATFORM" != "$NATIVE" ]; then
   echo "==> [$LABEL] Loading whatsapp-web.js and running the image's browser binary (emulated, no launch)..."
   docker run --rm "$@" "$IMAGE" sh -c "node -e \"require('whatsapp-web.js')\" && \"\$PUPPETEER_EXECUTABLE_PATH\" --version"
   echo "PASS: whatsapp-web.js loaded and the browser binary runs"

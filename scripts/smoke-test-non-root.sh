@@ -1,5 +1,5 @@
 #!/bin/sh
-# Smoke test: verify the built image runs its process as the openwa user (not root).
+# Smoke test: verify the built image runs its process as the zaplink user (not root).
 # Usage: ./scripts/smoke-test-non-root.sh
 # Requires Docker to be running locally.
 set -e
@@ -8,12 +8,12 @@ set -e
 # so the build requires BuildKit. It's the modern default, but force it on in case the host disabled it.
 export DOCKER_BUILDKIT=1
 
-# CI already builds the image; set OPENWA_SMOKE_IMAGE to reuse that tag instead of paying for a
+# CI already builds the image; set ZAPLINK_SMOKE_IMAGE to reuse that tag instead of paying for a
 # second build. Unset (the local default) keeps the original behaviour: build here, remove after.
-IMAGE_TAG="${OPENWA_SMOKE_IMAGE:-openwa-test-non-root:smoke}"
+IMAGE_TAG="${ZAPLINK_SMOKE_IMAGE:-zaplink-test-non-root:smoke}"
 BUILT_HERE=0
 
-if [ -z "${OPENWA_SMOKE_IMAGE:-}" ]; then
+if [ -z "${ZAPLINK_SMOKE_IMAGE:-}" ]; then
   BUILT_HERE=1
   echo "==> Building test image..."
   docker build -t "$IMAGE_TAG" .
@@ -41,7 +41,7 @@ trap cleanup EXIT
 
 echo ""
 echo "==> Checking process user inside container..."
-# Override CMD with 'id' so docker-entrypoint.sh runs: exec gosu openwa id
+# Override CMD with 'id' so docker-entrypoint.sh runs: exec gosu zaplink id
 USER_OUTPUT=$(docker run --rm "$IMAGE_TAG" id)
 echo "    $USER_OUTPUT"
 
@@ -50,10 +50,10 @@ if echo "$USER_OUTPUT" | grep -q "uid=0(root)"; then
   exit 1
 fi
 
-if echo "$USER_OUTPUT" | grep -q "openwa"; then
-  echo "PASS: process runs as openwa (non-root)"
+if echo "$USER_OUTPUT" | grep -q "zaplink"; then
+  echo "PASS: process runs as zaplink (non-root)"
 else
-  echo "FAIL: process is not running as the openwa user" >&2
+  echo "FAIL: process is not running as the zaplink user" >&2
   exit 1
 fi
 
@@ -72,7 +72,7 @@ fi
 echo ""
 echo "==> Checking signal forwarding with Compose capabilities..."
 CAPS=$(docker run --rm -i --entrypoint node "$IMAGE_TAG" -e \
-  'const fs=require("fs"),yaml=require("js-yaml");console.log(yaml.load(fs.readFileSync(0,"utf8")).services["openwa-api"].cap_add.join(" "))' < docker-compose.yml)
+  'const fs=require("fs"),yaml=require("js-yaml");console.log(yaml.load(fs.readFileSync(0,"utf8")).services["zaplink-api"].cap_add.join(" "))' < docker-compose.yml)
 set --
 for cap in $CAPS; do
   set -- "$@" --cap-add "$cap"
@@ -110,17 +110,17 @@ SIGNAL_CONTAINER=""
 
 echo ""
 echo "==> Checking /app/data ownership on start..."
-VOL="openwa-smoke-data-$$"
+VOL="zaplink-smoke-data-$$"
 docker volume create "$VOL" > /dev/null
 # Seed as root, bypassing the entrypoint: a file restored as root, and a link to a root-owned file.
 docker run --rm --entrypoint sh -v "$VOL":/app/data "$IMAGE_TAG" -c \
   'mkdir -p /app/data/sessions/s1 && touch /app/data/sessions/s1/restored && ln -s /etc/passwd /app/data/link'
 OWNERS=$(docker run --rm -v "$VOL":/app/data "$IMAGE_TAG" stat -c '%U:%G' /app/data/sessions/s1/restored /etc/passwd | tr '\n' ' ')
 echo "    restored file, link target: $OWNERS"
-if [ "$OWNERS" = "openwa:openwa root:root " ]; then
+if [ "$OWNERS" = "zaplink:zaplink root:root " ]; then
   echo "PASS: a root-owned file is re-owned and a symlink target is left alone"
 else
-  echo "FAIL: expected 'openwa:openwa root:root', got '$OWNERS'" >&2
+  echo "FAIL: expected 'zaplink:zaplink root:root', got '$OWNERS'" >&2
   exit 1
 fi
 # A chown is a metadata write even when the owner is unchanged, so it moves ctime. A start that
@@ -136,13 +136,13 @@ else
 fi
 
 echo ""
-echo "==> Checking a start as the openwa uid itself..."
+echo "==> Checking a start as the zaplink uid itself..."
 # runAsUser/fsGroup and --user name a number, so the image must guarantee it.
-PINNED=$(docker run --rm --entrypoint id "$IMAGE_TAG" openwa)
+PINNED=$(docker run --rm --entrypoint id "$IMAGE_TAG" zaplink)
 echo "    $PINNED"
 case "$PINNED" in
-  "uid=997(openwa) gid=997(openwa)"*) echo "PASS: openwa is uid/gid 997" ;;
-  *) echo "FAIL: expected openwa to be uid=997 gid=997, got '$PINNED'" >&2; exit 1 ;;
+  "uid=997(zaplink) gid=997(zaplink)"*) echo "PASS: zaplink is uid/gid 997" ;;
+  *) echo "FAIL: expected zaplink to be uid=997 gid=997, got '$PINNED'" >&2; exit 1 ;;
 esac
 # The Pod Security "restricted" shape: no capabilities at all, read-only rootfs, and the volume a
 # root start has already re-owned. The entrypoint must skip its chown and gosu drop, not fail on them.

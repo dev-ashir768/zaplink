@@ -31,9 +31,9 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
   const connectionOptions = {
     host: process.env.DATABASE_HOST || 'localhost',
     port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'openwa',
-    password: process.env.DATABASE_PASSWORD || 'openwa',
-    database: process.env.DATABASE_NAME || 'openwa',
+    username: process.env.DATABASE_USERNAME || 'zaplink',
+    password: process.env.DATABASE_PASSWORD || 'zaplink',
+    database: process.env.DATABASE_NAME || 'zaplink',
   };
 
   // The exact options shape app.module.ts hands to createBootDataSource for the postgres data
@@ -101,9 +101,9 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
       type: 'postgres',
       host: process.env.DATABASE_HOST || 'localhost',
       port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'openwa',
-      password: process.env.DATABASE_PASSWORD || 'openwa',
-      database: process.env.DATABASE_NAME || 'openwa',
+      username: process.env.DATABASE_USERNAME || 'zaplink',
+      password: process.env.DATABASE_PASSWORD || 'zaplink',
+      database: process.env.DATABASE_NAME || 'zaplink',
       migrations: [path.join(__dirname, '..', '*{.ts,.js}')],
     });
     try {
@@ -127,8 +127,8 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 (POSTGRES_ENABLED ? describe : describe.skip)('data connection session settings on every pooled connection', () => {
   const host = process.env.DATABASE_HOST || 'localhost';
   const credentials = {
-    username: process.env.DATABASE_USERNAME || 'openwa',
-    password: process.env.DATABASE_PASSWORD || 'openwa',
+    username: process.env.DATABASE_USERNAME || 'zaplink',
+    password: process.env.DATABASE_PASSWORD || 'zaplink',
   };
   const directPort = Number(process.env.DATABASE_PORT || 5432);
   const poolerPort = process.env.PGBOUNCER_PORT ? Number(process.env.PGBOUNCER_PORT) : undefined;
@@ -140,7 +140,7 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
       host,
       port: directPort,
       ...credentials,
-      database: process.env.DATABASE_NAME || 'openwa',
+      database: process.env.DATABASE_NAME || 'zaplink',
     }).initialize();
   });
 
@@ -286,8 +286,8 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
     const host = process.env.DATABASE_HOST || 'localhost';
     const port = Number(process.env.DATABASE_PORT || 5432);
     const superuser = {
-      username: process.env.DATABASE_USERNAME || 'openwa',
-      password: process.env.DATABASE_PASSWORD || 'openwa',
+      username: process.env.DATABASE_USERNAME || 'zaplink',
+      password: process.env.DATABASE_PASSWORD || 'zaplink',
     };
     const schema = 'shared_app';
     let admin: DataSource;
@@ -298,7 +298,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         host,
         port,
         ...superuser,
-        database: process.env.DATABASE_NAME || 'openwa',
+        database: process.env.DATABASE_NAME || 'zaplink',
       }).initialize();
     });
 
@@ -326,7 +326,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
                 (SELECT count(*)::int FROM pg_constraint WHERE contype = 'f' AND connamespace = to_regnamespace($1)) AS fks,
                 (SELECT indisvalid FROM pg_index WHERE indexrelid = to_regclass('idx_messages_body_trgm')) AS trigram,
                 (SELECT count(*)::int FROM messages WHERE body_ts @@ plainto_tsquery('simple', 'searchable')) AS hits,
-                (SELECT count(*)::int FROM messages WHERE openwa_unaccent(body) LIKE '%earchab%') AS contains`,
+                (SELECT count(*)::int FROM messages WHERE zaplink_unaccent(body) LIKE '%earchab%') AS contains`,
         [schema],
       );
       return row;
@@ -338,7 +338,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         const role = `shared_role_${process.pid}_${placement}`;
         const source = `shared_src_${process.pid}_${placement}`;
         const target = `shared_dst_${process.pid}_${placement}`;
-        const work = mkdtempSync(path.join(tmpdir(), 'openwa-schema-backup-'));
+        const work = mkdtempSync(path.join(tmpdir(), 'zaplink-schema-backup-'));
         const scoped = async (database: string): Promise<DataSource> =>
           new DataSource({ type: 'postgres', host, port, ...superuser, database }).initialize();
         try {
@@ -515,7 +515,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         const role = `shared_role_${process.pid}_pgcrypto_${placement}`;
         const source = `shared_src_${process.pid}_pgcrypto_${placement}`;
         const target = `shared_dst_${process.pid}_pgcrypto_${placement}`;
-        const work = mkdtempSync(path.join(tmpdir(), 'openwa-schema-backup-'));
+        const work = mkdtempSync(path.join(tmpdir(), 'zaplink-schema-backup-'));
         const scoped = async (database: string): Promise<DataSource> =>
           new DataSource({ type: 'postgres', host, port, ...superuser, database }).initialize();
         const tools = { PATH: process.env.PATH, PG_HOST_PORT: process.env.PG_HOST_PORT };
@@ -670,8 +670,8 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
   const connection = {
     host: process.env.DATABASE_HOST || 'localhost',
     port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'openwa',
-    password: process.env.DATABASE_PASSWORD || 'openwa',
+    username: process.env.DATABASE_USERNAME || 'zaplink',
+    password: process.env.DATABASE_PASSWORD || 'zaplink',
   };
   const database = `pgcrypto_elsewhere_${process.pid}`;
   const REFUSAL =
@@ -722,7 +722,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
     admin = await new DataSource({
       type: 'postgres',
       ...connection,
-      database: process.env.DATABASE_NAME || 'openwa',
+      database: process.env.DATABASE_NAME || 'zaplink',
     }).initialize();
     const [{ num }] = await admin.query<Array<{ num: number }>>(
       `SELECT current_setting('server_version_num')::int AS num`,

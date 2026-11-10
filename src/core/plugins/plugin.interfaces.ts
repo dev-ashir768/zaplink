@@ -1,6 +1,6 @@
 /**
  * Plugin System Interfaces
- * Defines the contract for OpenWA plugins
+ * Defines the contract for ZapLink plugins
  */
 
 import { HookManager, HookEvent, HookHandler } from '../hooks';
@@ -103,9 +103,9 @@ export interface PluginManifest {
   // is enforced — see SUPPORTED_SDK_MAJOR / validateIngressManifest. Absent = treated as '1'.
   sdkVersion?: string;
 
-  // Oldest OpenWA release the plugin runs on (MAJOR.MINOR.PATCH). validatePluginManifest refuses the
+  // Oldest ZapLink release the plugin runs on (MAJOR.MINOR.PATCH). validatePluginManifest refuses the
   // plugin at install and at boot load when the running host is older. Absent or null = no floor.
-  minOpenWAVersion?: string | null;
+  minZapLinkVersion?: string | null;
 
   // Inbound webhook routes this plugin claims (requires the `webhook:ingress` permission). Validated
   // by validateIngressManifest, which the loader calls on every external plugin load (loadPlugin).

@@ -118,7 +118,7 @@ function mergeEnvironment(lines: Array<{ level: 'log' | 'warn'; message: string 
   } else {
     lines.push({ level: 'log', message: 'First run detected, creating default configuration...' });
     // Create minimal .env.generated with sensible defaults
-    const minimalConfig = `# OpenWA Configuration
+    const minimalConfig = `# ZapLink Configuration
 # Generated automatically on first run
 # Edit via Dashboard > Infrastructure or modify this file directly.
 # Note: values in process env or project .env take precedence over this file.

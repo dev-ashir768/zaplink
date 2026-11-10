@@ -41,14 +41,14 @@ function AppContent() {
   // handleLogin stores a fresh key would re-fire the startup re-validation effect below and
   // double the /auth/validate request on every sign-in — the effect is for genuine page
   // refreshes with a saved key only.
-  const [savedKey] = useState(() => sessionStorage.getItem('openwa_api_key'));
+  const [savedKey] = useState(() => sessionStorage.getItem('zaplink_api_key'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!savedKey);
   const [, setApiKey] = useState(savedKey || '');
   const { setRole, role, setEngineType, setScoped, scoped } = useRole();
 
   const handleLogin = (key: string, validatedRole?: string, engineType?: string, scoped = false) => {
     setApiKey(key);
-    sessionStorage.setItem('openwa_api_key', key);
+    sessionStorage.setItem('zaplink_api_key', key);
 
     // The login page's validate response already carried the role, so no second /auth/validate
     // round-trip is needed here. An absent or unrecognized role falls back to viewer, the
@@ -66,7 +66,7 @@ function AppContent() {
     setRole(null);
     setEngineType(null);
     setScoped(false);
-    sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('zaplink_api_key');
     // Wipe the React Query cache too: it is keyed by resource, not actor, so without a full
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
@@ -86,7 +86,7 @@ function AppContent() {
         // Nothing cancels this request on logout. If the user has since signed out, or back in with
         // another key, the answer is about a key no longer in use: applying it would hand the new
         // session the old key's role, or log it out over the old key's 401.
-        if (sessionStorage.getItem('openwa_api_key') !== savedKey) return;
+        if (sessionStorage.getItem('zaplink_api_key') !== savedKey) return;
         if (decision.action === 'logout') {
           handleLogout();
         } else if (decision.action === 'role') {

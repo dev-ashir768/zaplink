@@ -2,7 +2,7 @@
 
 ## 11.1 Overview
 
-This document contains Standard Operating Procedures (SOP) for OpenWA operations, including incident response, maintenance procedures, and troubleshooting guides.
+This document contains Standard Operating Procedures (SOP) for ZapLink operations, including incident response, maintenance procedures, and troubleshooting guides.
 
 ### Runbook Structure
 
@@ -39,11 +39,11 @@ Each runbook follows this format:
 # 1. Check container status
 docker compose ps
 
-# 2. Check container logs. Every `docker compose … openwa-api` below names the service as the
+# 2. Check container logs. Every `docker compose … zaplink-api` below names the service as the
 #    production docker-compose.yml defines it — on docker-compose.dev.yml that service is called
-#    `openwa`, so substitute it there. The bare `docker stats`/`docker restart` forms take the
-#    container name, which is `openwa-api` under both files.
-docker compose logs --tail=100 openwa-api
+#    `zaplink`, so substitute it there. The bare `docker stats`/`docker restart` forms take the
+#    container name, which is `zaplink-api` under both files.
+docker compose logs --tail=100 zaplink-api
 
 # 3. Check system resources
 docker stats --no-stream
@@ -52,18 +52,18 @@ free -m
 
 # 4. Identify root cause
 # A. Container crashed
-docker compose logs openwa-api 2>&1 | grep -i "error\|fatal\|crash"
+docker compose logs zaplink-api 2>&1 | grep -i "error\|fatal\|crash"
 
 # B. Out of memory
-docker compose logs openwa-api 2>&1 | grep -i "oom\|memory"
+docker compose logs zaplink-api 2>&1 | grep -i "oom\|memory"
 
 # C. Database connection
-docker compose logs openwa-api 2>&1 | grep -i "database\|connection refused"
+docker compose logs zaplink-api 2>&1 | grep -i "database\|connection refused"
 
 # 5. Apply fix based on cause:
 
 # A. Simple restart
-docker compose restart openwa-api
+docker compose restart zaplink-api
 
 # B. Full restart with cleanup
 docker compose down
@@ -73,12 +73,12 @@ docker compose up -d
 # Edit docker-compose.yml and increase memory limit
 docker compose up -d
 
-# D. Database issues (built-in PostgreSQL runs as container `openwa-postgres`, both when
+# D. Database issues (built-in PostgreSQL runs as container `zaplink-postgres`, both when
 #    started via the compose `postgres`/`full` profile and when orchestrated by the app)
-docker restart openwa-postgres
+docker restart zaplink-postgres
 # Wait for postgres to be ready
 sleep 10
-docker compose restart openwa-api
+docker compose restart zaplink-api
 ```
 
 **Verification:**
@@ -125,7 +125,7 @@ curl -H "X-API-Key: $API_KEY" \
   http://localhost:2785/api/sessions/{sessionId}
 
 # 2. Check if auto-reconnect is working
-docker compose logs openwa-api 2>&1 | grep -i "{sessionId}" | tail -20
+docker compose logs zaplink-api 2>&1 | grep -i "{sessionId}" | tail -20
 
 # 3. Try session restart (stop then start — there is no /restart route)
 curl -X POST -H "X-API-Key: $API_KEY" \
@@ -192,27 +192,27 @@ curl -X POST http://localhost:2785/api/sessions/{sessionId}/messages/send-text \
 **Steps:**
 
 ```bash
-# 1. Check current memory usage (the container is named `openwa-api`)
-docker stats --no-stream openwa-api
+# 1. Check current memory usage (the container is named `zaplink-api`)
+docker stats --no-stream zaplink-api
 free -m
 
 # 2. Identify memory consumers
 # Process-wide memory: scrape /api/metrics (Prometheus text, Bearer METRICS_TOKEN)
 curl -H "Authorization: Bearer $METRICS_TOKEN" \
   http://localhost:2785/api/metrics \
-  | grep -E "openwa_process_resident_memory_bytes|openwa_process_heap_used_bytes"
+  | grep -E "zaplink_process_resident_memory_bytes|zaplink_process_heap_used_bytes"
 
 # 3. Check for memory leaks
-docker compose logs openwa-api 2>&1 | grep -i "heap\|memory\|gc"
+docker compose logs zaplink-api 2>&1 | grep -i "heap\|memory\|gc"
 
 # 4. Immediate actions:
 
 # A. Restart container (sessions reconnect on their own only with AUTO_START_SESSIONS=true;
 #    otherwise POST /api/sessions/{sessionId}/start each one). This also drops the in-process
-#    caches; there is no runtime cache-clear API. Flushing Redis frees no openwa-api memory, since
+#    caches; there is no runtime cache-clear API. Flushing Redis frees no zaplink-api memory, since
 #    Redis is a separate process. Never run FLUSHALL: the queue and rate limits live in db 0, and the cache
 #    has its own database (REDIS_CACHE_DB, default 1)
-docker compose restart openwa-api
+docker compose restart zaplink-api
 
 # B. If caused by too many sessions:
 # List sessions (no sort param); process memory is in stats/overview (memoryUsage, MB)
@@ -262,7 +262,7 @@ curl -H "X-API-Key: $API_KEY" \
 
 ```bash
 # Memory below threshold
-docker stats --no-stream openwa-api
+docker stats --no-stream zaplink-api
 # Expected: Memory usage < 80%
 
 # All sessions still connected
@@ -310,21 +310,21 @@ curl -H "X-API-Key: $ADMIN_API_KEY" \
   "http://localhost:2785/api/webhooks/delivery-failures?sessionId={sessionId}&limit=20"
 
 # Attempts still in flight (not yet exhausted) only appear in the server logs:
-docker compose logs openwa-api 2>&1 | grep -i "webhook" | tail -20
+docker compose logs zaplink-api 2>&1 | grep -i "webhook" | tail -20
 
 # 3. Identify failure reason:
 # A. Endpoint not responding
-curl -v https://your-webhook-endpoint.com/openwa
+curl -v https://your-webhook-endpoint.com/zaplink
 
 # B. SSL certificate issues
-curl -v --insecure https://your-webhook-endpoint.com/openwa
+curl -v --insecure https://your-webhook-endpoint.com/zaplink
 
 # C. Timeout
-curl -v --max-time 30 https://your-webhook-endpoint.com/openwa
+curl -v --max-time 30 https://your-webhook-endpoint.com/zaplink
 
 # D. Authentication failed
 curl -v -H "Authorization: Bearer token" \
-  https://your-webhook-endpoint.com/openwa
+  https://your-webhook-endpoint.com/zaplink
 
 # 4. Test webhook delivery
 curl -X POST -H "X-API-Key: $API_KEY" \
@@ -370,7 +370,7 @@ curl -X PUT http://localhost:2785/api/sessions/{sessionId}/webhooks/{webhookId} 
 #    Rows stay inside the ADMIN key's allowedSessions; sessionId, webhookId and ids only narrow
 #    the batch. The webhook must be active and still subscribed to the event (re-enable it if
 #    step 5C left it off). Each row gets one direct POST to the webhook's current URL with its
-#    stored X-OpenWA-Idempotency-Key; a delivered row is removed, along with the copy the sweep
+#    stored X-ZapLink-Idempotency-Key; a delivered row is removed, along with the copy the sweep
 #    still held for that event, and a failed one stays. A sweep replay already under way can still
 #    POST the event again under the same key, so receivers must deduplicate.
 curl -X POST http://localhost:2785/api/webhooks/delivery-failures/redrive \
@@ -433,13 +433,13 @@ docker stats --no-stream
 #    checkout, which only a bare-metal install or docker-compose.dev.yml reads. Engine auth state is
 #    copied live; stop the sessions first if a restore must not need re-pairing, and start them
 #    again in step 10
-docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups openwa-api ./scripts/backup.sh
-docker cp openwa-api:/app/data/backups/. ./backups/ \
-  && docker exec openwa-api sh -c 'rm -f /app/data/backups/openwa-backup-*.tar.gz'   # the copy off the volume is the backup
+docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups zaplink-api ./scripts/backup.sh
+docker cp zaplink-api:/app/data/backups/. ./backups/ \
+  && docker exec zaplink-api sh -c 'rm -f /app/data/backups/zaplink-backup-*.tar.gz'   # the copy off the volume is the backup
 
-# Verify backup (backup.sh writes $BACKUP_DIR/openwa-backup-<timestamp>.tar.gz,
+# Verify backup (backup.sh writes $BACKUP_DIR/zaplink-backup-<timestamp>.tar.gz,
 # BACKUP_DIR defaults to ./backups — it creates no dated subdirectories)
-ls -la ./backups/openwa-backup-*.tar.gz
+ls -la ./backups/zaplink-backup-*.tar.gz
 
 # 4. Stop accepting new requests (if using load balancer)
 # Remove from load balancer or set to maintenance mode
@@ -504,7 +504,7 @@ What each signal does to the gateway process. `docker stop`, Kubernetes and syst
 
 A closed terminal (`SIGHUP`) drains like any other stop: the log lines the gateway can no longer write to it, or to a log pipe that has broken, are lost instead of ending the stop early. Outside a stop, a lost log output still ends the process, as before.
 
-Read the status of a stopped container with `docker inspect -f '{{.State.ExitCode}}' openwa-api`.
+Read the status of a stopped container with `docker inspect -f '{{.State.ExitCode}}' zaplink-api`.
 
 ---
 
@@ -529,42 +529,42 @@ Read the status of a stopped container with `docker inspect -f '{{.State.ExitCod
 # Check for breaking changes, migration requirements
 
 # 2. Create a backup in the running container, where the data is mounted, then copy it to
-#    $BACKUP_DIR as openwa-backup-<timestamp>.tar.gz, where the Rollback block reads it. Both compose
-#    files name the container openwa-api. Running ./scripts/backup.sh on the host instead archives
+#    $BACKUP_DIR as zaplink-backup-<timestamp>.tar.gz, where the Rollback block reads it. Both compose
+#    files name the container zaplink-api. Running ./scripts/backup.sh on the host instead archives
 #    ./data in the checkout, which the production compose never reads (see Runbook: Database Backup).
 #    An image older than 0.19.0 has no scripts/backup.sh, and on PostgreSQL one older than 0.22.0 has
 #    no pg_dump: see 14 - Known Upgrade Hazards. Engine auth state is copied live; stop the sessions
 #    first if a rollback must not need re-pairing, and start them again in step 11
-export BACKUP_DIR="/backups/openwa"
+export BACKUP_DIR="/backups/zaplink"
 mkdir -p "$BACKUP_DIR"
-docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups openwa-api ./scripts/backup.sh
-docker cp openwa-api:/app/data/backups/. "$BACKUP_DIR"/ \
-  && docker exec openwa-api sh -c 'rm -f /app/data/backups/openwa-backup-*.tar.gz'   # the copy off the volume is the backup
+docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups zaplink-api ./scripts/backup.sh
+docker cp zaplink-api:/app/data/backups/. "$BACKUP_DIR"/ \
+  && docker exec zaplink-api sh -c 'rm -f /app/data/backups/zaplink-backup-*.tar.gz'   # the copy off the volume is the backup
 
 # 3. Export the Data DB as JSON alongside the archive (admin key)
 curl -H "X-API-Key: $ADMIN_API_KEY" \
   http://localhost:2785/api/infra/export-data > "$BACKUP_DIR/export-data.json"
 
 # Started with docker-compose.dev.yml (the README Quick Start)? Add `-f docker-compose.dev.yml`
-# to every docker compose command in this runbook, the Rollback block included, and write `openwa`
-# wherever a command names the `openwa-api` service (steps 6 and 7, rollback steps 2 and 3).
+# to every docker compose command in this runbook, the Rollback block included, and write `zaplink`
+# wherever a command names the `zaplink-api` service (steps 6 and 7, rollback steps 2 and 3).
 
 # 4. Stop services
 docker compose down
 
 # 5. Fetch the new release
-# The shipped docker-compose.yml BUILDS openwa-api from source (`build: context: .`) — there is
+# The shipped docker-compose.yml BUILDS zaplink-api from source (`build: context: .`) — there is
 # no `image:` tag to edit and `docker compose pull` never updates the app, so upgrade the source:
 git pull
 # or pin to a release: git checkout v<new-version>
 
 # 6. Build the new image
-docker compose build openwa-api
+docker compose build zaplink-api
 
 # 7. Run database migrations (if any)
 # Use migration:run:prod in the production image — `migration:run` needs ts-node + the TS
 # source, and the image ships neither: it holds the compiled dist/ only.
-docker compose run --rm openwa-api npm run migration:run:prod
+docker compose run --rm zaplink-api npm run migration:run:prod
 
 # 8. Start services
 docker compose up -d
@@ -593,16 +593,16 @@ curl -X POST http://localhost:2785/api/sessions/{sessionId}/messages/send-text \
 ```
 
 > If you deploy the published image instead of building from source — your own compose file with
-> `image: ghcr.io/rmyndharis/openwa:<tag>` — keep step 5 (or copy the release's `docker-compose.yml`
+> `image: ghcr.io/dev-ashir768/zaplink:<tag>` — keep step 5 (or copy the release's `docker-compose.yml`
 > changes into your own compose file) and replace step 6 with editing that tag, running
-> `docker compose pull openwa-api`, and confirming the image landed with
-> `docker image inspect ghcr.io/rmyndharis/openwa:<tag>`. `docker compose run` in step 7 has no
+> `docker compose pull zaplink-api`, and confirming the image landed with
+> `docker image inspect ghcr.io/dev-ashir768/zaplink:<tag>`. `docker compose run` in step 7 has no
 > `--no-build`, so when the service keeps a `build:` section a failed pull would otherwise build from
 > source under the published name. Run step 8 as `docker compose up -d --no-build`.
 
-> On Kubernetes with the chart in `charts/openwa`, take the step 2 backup with the Helm lines in
+> On Kubernetes with the chart in `charts/zaplink`, take the step 2 backup with the Helm lines in
 > Runbook: Database Backup and the step 3 export first, then replace steps 4-8 with checking out the
-> new release and running `helm upgrade openwa ./charts/openwa --reset-then-reuse-values` (Helm 3.14
+> new release and running `helm upgrade zaplink ./charts/zaplink --reset-then-reuse-values` (Helm 3.14
 > or later). It takes the new chart's defaults and re-applies the values you set. Plain
 > `--reuse-values` renders the new templates with the old release's defaults instead, which keeps a
 > 45 s `terminationGracePeriodSeconds` and a capability list without `KILL`, so a stop never reaches
@@ -631,20 +631,20 @@ docker compose down
 
 # 2. Restore from the pre-upgrade backup (main.sqlite, a SQLite data store and the auth state). The
 #    archive upgrade step 2 produced is
-#    "$BACKUP_DIR/openwa-backup-<timestamp>.tar.gz". The databases in place still hold the failed
+#    "$BACKUP_DIR/zaplink-backup-<timestamp>.tar.gz". The databases in place still hold the failed
 #    upgrade's data, so the restore refuses to touch them without --force. That state is not lost: it
 #    is kept in "$BACKUP_DIR/data.pre-restore-<ts>", the path the script prints. It runs in the image
-#    because the data lives in the openwa-data volume (see Runbook: Restore from Backup), and before
+#    because the data lives in the zaplink-data volume (see Runbook: Restore from Backup), and before
 #    the checkout below because an image older than 0.23.7 cannot move its safety snapshot off the
 #    read-only container root
 docker compose run --rm --no-deps --entrypoint /app/scripts/restore.sh \
-  -v "$BACKUP_DIR:/backups" -e OPENWA_RESTORE_SNAPSHOT_DIR=/backups -e TMPDIR=/backups -e HOME=/tmp \
-  openwa-api /backups/openwa-backup-<timestamp>.tar.gz --force
+  -v "$BACKUP_DIR:/backups" -e ZAPLINK_RESTORE_SNAPSHOT_DIR=/backups -e TMPDIR=/backups -e HOME=/tmp \
+  zaplink-api /backups/zaplink-backup-<timestamp>.tar.gz --force
 
 # On a PostgreSQL data store, step 2 leaves the upgraded database in place. Load the pre-upgrade dump
 # into an empty database: replayed over the upgraded tables, its CREATE statements fail and its rows
 # mix with theirs. With the built-in PostgreSQL (the compose `postgres` service, or the
-# openwa-postgres container Dashboard > Infrastructure created), start only the database; openwa-api
+# zaplink-postgres container Dashboard > Infrastructure created), start only the database; zaplink-api
 # stays stopped, or the rename below fails on its open connections. The upgraded database is kept
 # under a new name, as the SQLite path keeps data.pre-restore-<ts>, and an empty one takes its place.
 # The container's own POSTGRES_USER and POSTGRES_DB name the role and database the app uses. The
@@ -654,22 +654,22 @@ docker compose run --rm --no-deps --entrypoint /app/scripts/restore.sh \
 # \restrict" and loads nothing. The third command fails on such a psql before anything is renamed; a
 # postgres:16-alpine pulled before August 2025 is one. Pull it again and recreate the container on its
 # kept volume (compose: `docker compose --profile postgres pull postgres` and the `up -d` below;
-# dashboard-created: `docker pull postgres:16-alpine` and `docker rm -f openwa-postgres`, then start
-# OpenWA once so it creates the container again, and stop it), then run these commands again
-docker compose --profile postgres up -d postgres   # dashboard-created: docker start openwa-postgres
-docker exec openwa-postgres sh -c 'until pg_isready -q -U "$POSTGRES_USER"; do sleep 1; done'
-docker exec openwa-postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
-  -c "\restrict openwa" -c "\unrestrict openwa"'
-docker exec openwa-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+# dashboard-created: `docker pull postgres:16-alpine` and `docker rm -f zaplink-postgres`, then start
+# ZapLink once so it creates the container again, and stop it), then run these commands again
+docker compose --profile postgres up -d postgres   # dashboard-created: docker start zaplink-postgres
+docker exec zaplink-postgres sh -c 'until pg_isready -q -U "$POSTGRES_USER"; do sleep 1; done'
+docker exec zaplink-postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+  -c "\restrict zaplink" -c "\unrestrict zaplink"'
+docker exec zaplink-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
   -c "ALTER DATABASE \"$POSTGRES_DB\" RENAME TO \"${POSTGRES_DB}_pre_restore_$(date +%Y%m%d%H%M%S)\"" \
   -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\""'
-tar -xzOf "$BACKUP_DIR/openwa-backup-<timestamp>.tar.gz" ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
-  docker exec -i openwa-postgres sh -c 'psql --single-transaction -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+tar -xzOf "$BACKUP_DIR/zaplink-backup-<timestamp>.tar.gz" ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
+  docker exec -i zaplink-postgres sh -c 'psql --single-transaction -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
 # An external PostgreSQL server: rename the upgraded database and create an empty one under the
 # DATABASE_NAME the app uses in the same way, then load the dump into it, with a psql that reads
 # \restrict as above (restore.sh refuses an older one on its PATH). DATABASE_URL is not an
-# OpenWA setting: fill in your own URL for that database, such as
+# ZapLink setting: fill in your own URL for that database, such as
 # postgres://<user>@<host>:5432/<database>, with the password in PGPASSWORD. With DATABASE_SSL=true,
 # run psql under PGSSLMODE=verify-full (require when DATABASE_SSL_REJECT_UNAUTHORIZED=false), as the
 # command restore.sh prints does; libpq's default sslmode=prefer accepts any certificate. verify-full
@@ -689,19 +689,19 @@ tar -xzOf "$BACKUP_DIR/openwa-backup-<timestamp>.tar.gz" ./database.sql | sed '/
 # when they live in it, are dropped from the copy with its trigram index (idx_messages_body_trgm), and
 # such a pgcrypto with the copy's id column defaults, so the dump can create them again. A load that
 # stops at "cannot drop extension" means another schema uses them and nothing was changed; its DETAIL
-# lines name what. When that is another OpenWA deployment's idx_messages_body_trgm, drop that index and
+# lines name what. When that is another ZapLink deployment's idx_messages_body_trgm, drop that index and
 # load again: that deployment's contains search then reads its whole messages table until its next
 # start builds the index again, and answers 501 while it builds. Drop anything else named first and
 # recreate it after the load. Into an empty database, an extension it uses (pg_trgm, unaccent) that
 # lives in another application's schema has to exist first, and on PostgreSQL 12 or older so does a
 # pgcrypto that lived outside the app's schema, in the schema it lived in (the dump leaves that one
 # out). A pgcrypto that lived in the app's schema is created by the load: do not create it first
-tar -xzOf "$BACKUP_DIR/openwa-backup-<timestamp>.tar.gz" ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
+tar -xzOf "$BACKUP_DIR/zaplink-backup-<timestamp>.tar.gz" ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
   psql --single-transaction -v ON_ERROR_STOP=1 "$DATABASE_URL"
 
 # 3. Check out the previous release and rebuild the image
 git checkout v<old-version>
-docker compose build openwa-api
+docker compose build zaplink-api
 
 # 4. Start with old version
 docker compose up -d
@@ -775,7 +775,7 @@ User-managed files outside that list (for example the project-level `.env`) must
 ```bash
 # scripts/backup.sh captures:
 #   - main.sqlite   — auth (API keys) + audit log   (ALWAYS SQLite; MAIN_DATABASE_NAME, default ./data/main.sqlite)
-#   - openwa.sqlite — user data                      (DATABASE_NAME, default ./data/openwa.sqlite;
+#   - zaplink.sqlite — user data                      (DATABASE_NAME, default ./data/zaplink.sqlite;
 #                                                     or a pg_dump when DATABASE_TYPE=postgres; a
 #                                                     POSTGRES_SCHEMA other than public is dumped
 #                                                     alone, and database.schema names it; that
@@ -795,29 +795,29 @@ User-managed files outside that list (for example the project-level `.env`) must
 #                        (not packages in a legacy ./plugins, which the app still loads while
 #                        PLUGINS_DIR is unset; backup.sh warns about those)
 #   - plugin-state/    — registry + ctx.storage state under PLUGIN_STATE_DIR/plugins
-#                        (default: <OPENWA_DATA_DIR>/plugins)
+#                        (default: <ZAPLINK_DATA_DIR>/plugins)
 #   - .env.generated / .api-key — generated configuration and bootstrap secret
 #                                  (.api-key from BOOTSTRAP_KEY_FILE when that is set)
 #
 # The database paths resolve exactly like the app: MAIN_DATABASE_NAME / DATABASE_NAME from the
 # environment, then ./.env, then <data dir>/.env.generated, otherwise the app's ./data defaults,
-# read under OPENWA_DATA_DIR like every other ./data path. A missing source database fails the run
+# read under ZAPLINK_DATA_DIR like every other ./data path. A missing source database fails the run
 # (no silent empty backup), the finished archive is checked to contain every configured database,
 # and with the sqlite3 CLI present the databases are snapshotted online via .backup (otherwise
 # plain-copied with a CONSISTENCY-WARNING marker inside the archive). sessions/ and baileys/ are
 # plain copies: when a whatsapp-web.js profile is open or Baileys state is present, the archive
 # carries an ENGINE-STATE-NOTE naming them, which restore.sh prints and never refuses.
 
-# Run from the repo root (OPENWA_DATA_DIR defaults to ./data; the ./data defaults and a ./data/...
+# Run from the repo root (ZAPLINK_DATA_DIR defaults to ./data; the ./data defaults and a ./data/...
 # path from ./.env or .env.generated are read under it):
 ./scripts/backup.sh
 
 # Customize via environment. Keep the password out of DATABASE_URL: the URL is passed to pg_dump as
 # an argument, which every local user can read in the process list while the dump runs. pg_dump
 # takes it from PGPASSWORD (or ~/.pgpass) instead:
-OPENWA_DATA_DIR=/srv/openwa/data \
-  BACKUP_DIR=/backups/openwa \
-  DATABASE_TYPE=postgres DATABASE_URL=postgres://user@host:5432/openwa PGPASSWORD='<password>' \
+ZAPLINK_DATA_DIR=/srv/zaplink/data \
+  BACKUP_DIR=/backups/zaplink \
+  DATABASE_TYPE=postgres DATABASE_URL=postgres://user@host:5432/zaplink PGPASSWORD='<password>' \
   ./scripts/backup.sh
 
 # With DATABASE_SSL=true, pg_dump makes the app's TLS check: sslmode=verify-full against the CA roots
@@ -828,8 +828,8 @@ OPENWA_DATA_DIR=/srv/openwa/data \
 # certificate, so name the host the certificate carries.
 ```
 
-> The data directory is a Docker **named volume** (`openwa-data`) in the production
-> compose. Run the script where that volume is mounted — e.g. point `OPENWA_DATA_DIR`
+> The data directory is a Docker **named volume** (`zaplink-data`) in the production
+> compose. Run the script where that volume is mounted — e.g. point `ZAPLINK_DATA_DIR`
 > at the volume's mountpoint, or run it inside a container with `/app/data` mounted.
 >
 > The shipped compose file and Helm chart mount the container root read-only, so the default
@@ -838,12 +838,12 @@ OPENWA_DATA_DIR=/srv/openwa/data \
 > volume as the data does not survive losing that volume:
 >
 > ```bash
-> docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups openwa-api ./scripts/backup.sh
-> docker cp openwa-api:/app/data/backups/. ./backups/ \
->   && docker exec openwa-api sh -c 'rm -f /app/data/backups/openwa-backup-*.tar.gz'   # do not let archives pile up on the volume
+> docker exec -e BACKUP_DIR=/app/data/backups -e TMPDIR=/app/data/backups zaplink-api ./scripts/backup.sh
+> docker cp zaplink-api:/app/data/backups/. ./backups/ \
+>   && docker exec zaplink-api sh -c 'rm -f /app/data/backups/zaplink-backup-*.tar.gz'   # do not let archives pile up on the volume
 > # Helm: kubectl exec <pod> -- env BACKUP_DIR=/app/data/backups ./scripts/backup.sh
 > #       kubectl cp <pod>:/app/data/backups ./backups \
-> #         && kubectl exec <pod> -- sh -c 'rm -f /app/data/backups/openwa-backup-*.tar.gz'
+> #         && kubectl exec <pod> -- sh -c 'rm -f /app/data/backups/zaplink-backup-*.tar.gz'
 > ```
 >
 > The script stages a full copy of the data in `TMPDIR` before archiving it. The compose file mounts
@@ -866,12 +866,12 @@ OPENWA_DATA_DIR=/srv/openwa/data \
 > there. A relative `./data/...` path in `./.env` or `.env.generated`, such as the
 > `PLUGINS_DIR=./data/plugins` that `.env.example` sets or the `STORAGE_LOCAL_PATH=./data/media` the
 > app writes on first run, names a path in the app's data directory and is read under
-> `OPENWA_DATA_DIR`, as are the `./data` database and state defaults; a path from the environment is
+> `ZAPLINK_DATA_DIR`, as are the `./data` database and state defaults; a path from the environment is
 > read against the current directory. When operating directly on the host mount, a path recorded
 > inside the container (`/app/data/...`) is not host-visible, so override it in the environment.
 >
 > A leftover `STORAGE_LOCAL_PATH=./uploads` (which v0.2.0 to v0.7.3 wrote to `.env.generated`), in
-> `./.env` or `.env.generated`, is read as `<OPENWA_DATA_DIR>/media` whenever `OPENWA_DATA_DIR` is
+> `./.env` or `.env.generated`, is read as `<ZAPLINK_DATA_DIR>/media` whenever `ZAPLINK_DATA_DIR` is
 > not the current directory's own `./data`, since the current directory's `./uploads` is then not
 > the app's. A `./data` symlink counts as that directory even before its target exists. On bare metal
 > with `./data` linking to a data directory kept elsewhere, create the link before restoring, or pass
@@ -939,7 +939,7 @@ OPENWA_DATA_DIR=/srv/openwa/data \
 ```bash
 # The archive MUST contain main.sqlite, the configured data store, and the auth directory for the
 # selected engine (sessions/ for whatsapp-web.js or baileys/ for Baileys). Lists the newest archive.
-tar -tzf "$(ls -t ./backups/openwa-backup-*.tar.gz | head -n 1)"
+tar -tzf "$(ls -t ./backups/zaplink-backup-*.tar.gz | head -n 1)"
 ```
 
 > Backup archives contain API keys, provider credentials, WhatsApp auth state, and plugin secrets.
@@ -975,17 +975,17 @@ docker compose down
 # 2. Restore from an archive produced by scripts/backup.sh
 #    (databases land on MAIN_DATABASE_NAME / DATABASE_NAME, default ./data/... — the same paths
 #    the app reads, as the environment, ./.env or the archive's .env.generated set them; the ./data
-#    defaults and a ./data/... path from ./.env or .env.generated are read under OPENWA_DATA_DIR,
+#    defaults and a ./data/... path from ./.env or .env.generated are read under ZAPLINK_DATA_DIR,
 #    as for the backup. Pass --strict to refuse an archive whose CONSISTENCY-WARNING
 #    marker reports plain-copied, possibly-torn database snapshots;
 #    an ENGINE-STATE-NOTE (engine auth state that may have been copied while the app ran) is only printed.
 #    Restoring over an existing install's live databases requires --force; without it the script
 #    refuses to overwrite them)
-./scripts/restore.sh ./backups/openwa-backup-<timestamp>.tar.gz
+./scripts/restore.sh ./backups/zaplink-backup-<timestamp>.tar.gz
 
 # 3. (Postgres only) the archive contains database.sql. Load it into an empty database: its CREATE
 #    statements fail against tables that already exist. With the built-in PostgreSQL (the compose
-#    `postgres` service, or the openwa-postgres container Dashboard > Infrastructure created), start
+#    `postgres` service, or the zaplink-postgres container Dashboard > Infrastructure created), start
 #    only the database; the app stays stopped, or the rename below fails on its open connections.
 #    The current database is kept under a new name, as the data dir is kept in data.pre-restore-<ts>,
 #    and an empty one takes its place. The container's own POSTGRES_USER and POSTGRES_DB name the
@@ -996,22 +996,22 @@ docker compose down
 #    on such a psql before anything is renamed; a postgres:16-alpine pulled before August 2025 is one.
 #    Pull it again and recreate the container on its kept volume (compose: `docker compose --profile
 #    postgres pull postgres` and the `up -d` below; dashboard-created: `docker pull postgres:16-alpine`
-#    and `docker rm -f openwa-postgres`, then start OpenWA once so it creates the container again, and
+#    and `docker rm -f zaplink-postgres`, then start ZapLink once so it creates the container again, and
 #    stop it), then run these commands again
-docker compose --profile postgres up -d postgres   # dashboard-created: docker start openwa-postgres
-docker exec openwa-postgres sh -c 'until pg_isready -q -U "$POSTGRES_USER"; do sleep 1; done'
-docker exec openwa-postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
-  -c "\restrict openwa" -c "\unrestrict openwa"'
-docker exec openwa-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+docker compose --profile postgres up -d postgres   # dashboard-created: docker start zaplink-postgres
+docker exec zaplink-postgres sh -c 'until pg_isready -q -U "$POSTGRES_USER"; do sleep 1; done'
+docker exec zaplink-postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+  -c "\restrict zaplink" -c "\unrestrict zaplink"'
+docker exec zaplink-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
   -c "ALTER DATABASE \"$POSTGRES_DB\" RENAME TO \"${POSTGRES_DB}_pre_restore_$(date +%Y%m%d%H%M%S)\"" \
   -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\""'
-tar -xzOf ./backups/openwa-backup-<timestamp>.tar.gz ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
-  docker exec -i openwa-postgres sh -c 'psql --single-transaction -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+tar -xzOf ./backups/zaplink-backup-<timestamp>.tar.gz ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
+  docker exec -i zaplink-postgres sh -c 'psql --single-transaction -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
 #    An external PostgreSQL server: rename the current database and create an empty one under the
 #    DATABASE_NAME the app uses in the same way, then load the dump into it, with a psql that reads
 #    \restrict as above (restore.sh refuses an older one on its PATH). DATABASE_URL is not an
-#    OpenWA setting: fill in your own URL for that database, such as
+#    ZapLink setting: fill in your own URL for that database, such as
 #    postgres://<user>@<host>:5432/<database>, with the password in PGPASSWORD. With
 #    DATABASE_SSL=true, run psql under PGSSLMODE=verify-full (require when
 #    DATABASE_SSL_REJECT_UNAUTHORIZED=false), as the command restore.sh prints does; libpq's default
@@ -1032,7 +1032,7 @@ tar -xzOf ./backups/openwa-backup-<timestamp>.tar.gz ./database.sql | sed '/^SET
 #    dropped from the copy with its trigram index (idx_messages_body_trgm), and such a pgcrypto with
 #    the copy's id column defaults, so the dump can create them again. A load that stops at "cannot
 #    drop extension" means another schema uses them and nothing was changed; its DETAIL lines name
-#    what. When that is another OpenWA deployment's idx_messages_body_trgm, drop that index and load
+#    what. When that is another ZapLink deployment's idx_messages_body_trgm, drop that index and load
 #    again: that deployment's contains search then reads its whole messages table until its next
 #    start builds the index again, and answers 501 while it builds. Drop anything else named first
 #    and recreate it after the load. Into an empty database, an extension it uses (pg_trgm, unaccent)
@@ -1040,7 +1040,7 @@ tar -xzOf ./backups/openwa-backup-<timestamp>.tar.gz ./database.sql | sed '/^SET
 #    does a pgcrypto that lived outside the app's schema, in the schema it lived in (the dump leaves
 #    that one out). A pgcrypto that lived in the app's schema is created by the load: do not create
 #    it first
-tar -xzOf ./backups/openwa-backup-<timestamp>.tar.gz ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
+tar -xzOf ./backups/zaplink-backup-<timestamp>.tar.gz ./database.sql | sed '/^SET transaction_timeout = 0;$/d' |
   psql --single-transaction -v ON_ERROR_STOP=1 "$DATABASE_URL"
 
 # 4. Start the app and CONFIRM an existing API key still authenticates
@@ -1050,10 +1050,10 @@ curl -s -X POST -H "X-API-Key: <an-existing-key>" http://localhost:2785/api/auth
 
 > Step 2 as written restores into `./data` in the checkout. The app reads that directory only on a
 > bare-metal install or under `docker-compose.dev.yml`, which bind-mounts it. The production compose
-> file keeps the data in the **named volume** `openwa-data` and the Helm chart in a PVC, so a host run
+> file keeps the data in the **named volume** `zaplink-data` and the Helm chart in a PVC, so a host run
 > there fills a directory the container never reads and still reports success. Run the script from the
 > image against the volume instead, in place of step 2. Both mount the container root read-only, so
-> `OPENWA_RESTORE_SNAPSHOT_DIR` (0.23.7 or later) puts the pre-restore snapshots, of the data dir and of
+> `ZAPLINK_RESTORE_SNAPSHOT_DIR` (0.23.7 or later) puts the pre-restore snapshots, of the data dir and of
 > any state directory mounted outside it, on a writable, persistent path, and `TMPDIR` keeps the
 > extracted archive there too; allow free space for about twice the data plus the archive. `--force` is
 > included because the volume of an existing install still holds its databases:
@@ -1066,18 +1066,18 @@ curl -s -X POST -H "X-API-Key: <an-existing-key>" http://localhost:2785/api/auth
 > # HOME=/app/data, and the script refuses a data dir that is the home directory, so HOME is moved
 > # off it here for a compose file that does not already set it.
 > docker compose run --rm --no-deps --entrypoint /app/scripts/restore.sh \
->   -v "$PWD/backups:/backups" -e OPENWA_RESTORE_SNAPSHOT_DIR=/backups -e TMPDIR=/backups -e HOME=/tmp \
->   openwa-api /backups/openwa-backup-<timestamp>.tar.gz --force
+>   -v "$PWD/backups:/backups" -e ZAPLINK_RESTORE_SNAPSHOT_DIR=/backups -e TMPDIR=/backups -e HOME=/tmp \
+>   zaplink-api /backups/zaplink-backup-<timestamp>.tar.gz --force
 >
-> # Helm, for a release named openwa (`kubectl get statefulset,configmap,pvc` shows the names of
+> # Helm, for a release named zaplink (`kubectl get statefulset,configmap,pvc` shows the names of
 > # another): stop the pod, then run the script in a helper pod on the same PVC, with the release's image.
-> kubectl scale statefulset/openwa --replicas=0
-> kubectl wait --for=delete pod/openwa-0 --timeout=120s
+> kubectl scale statefulset/zaplink --replicas=0
+> kubectl wait --for=delete pod/zaplink-0 --timeout=120s
 > kubectl apply -f - <<'EOF'
 > apiVersion: v1
 > kind: Pod
 > metadata:
->   name: openwa-restore
+>   name: zaplink-restore
 > spec:
 >   restartPolicy: Never
 >   securityContext:
@@ -1088,35 +1088,35 @@ curl -s -X POST -H "X-API-Key: <an-existing-key>" http://localhost:2785/api/auth
 >     seccompProfile: { type: RuntimeDefault }
 >   containers:
 >     - name: restore
->       image: ghcr.io/rmyndharis/openwa:<version>
+>       image: ghcr.io/dev-ashir768/zaplink:<version>
 >       command: ['sleep', 'infinity']
 >       securityContext:
 >         allowPrivilegeEscalation: false
 >         capabilities: { drop: [ALL] }
 >       envFrom:
 >         - configMapRef:
->             name: openwa
+>             name: zaplink
 >       volumeMounts:
 >         - { name: data, mountPath: /app/data }
 >         - { name: work, mountPath: /restore }
 >   volumes:
 >     - name: data
 >       persistentVolumeClaim:
->         claimName: data-openwa-0
+>         claimName: data-zaplink-0
 >     - name: work
 >       emptyDir: {}
 > EOF
-> kubectl wait --for=condition=Ready pod/openwa-restore --timeout=300s
-> kubectl cp ./backups/openwa-backup-<timestamp>.tar.gz openwa-restore:/restore/backup.tar.gz
+> kubectl wait --for=condition=Ready pod/zaplink-restore --timeout=300s
+> kubectl cp ./backups/zaplink-backup-<timestamp>.tar.gz zaplink-restore:/restore/backup.tar.gz
 > # HOME is moved off the data dir here too, as in the compose command.
-> kubectl exec openwa-restore -- env HOME=/tmp OPENWA_RESTORE_SNAPSHOT_DIR=/restore TMPDIR=/restore \
+> kubectl exec zaplink-restore -- env HOME=/tmp ZAPLINK_RESTORE_SNAPSHOT_DIR=/restore TMPDIR=/restore \
 >   ./scripts/restore.sh /restore/backup.tar.gz --force
 > # The helper runs as the app user (uid 997), so what the script restores is already owned by it,
 > # and the pod meets Pod Security "restricted" for a release that runs non-root.
 > # The emptyDir goes away with the pod: copy off every snapshot the script named first.
-> kubectl cp openwa-restore:/restore/data.pre-restore-<ts> ./backups/data.pre-restore-<ts>
-> kubectl delete pod openwa-restore
-> kubectl scale statefulset/openwa --replicas=1
+> kubectl cp zaplink-restore:/restore/data.pre-restore-<ts> ./backups/data.pre-restore-<ts>
+> kubectl delete pod zaplink-restore
+> kubectl scale statefulset/zaplink --replicas=1
 > ```
 >
 > The PostgreSQL import in step 3 reads the dump from the archive, not from `./data` on the host, so
@@ -1216,7 +1216,7 @@ du -sh /var/lib/docker/*
 du -sh ./data/*
 # The app writes no log files — it logs to stdout, so log volume is whatever the Docker
 # log driver retains for the container:
-du -sh "$(docker inspect --format='{{.LogPath}}' openwa-api)"
+du -sh "$(docker inspect --format='{{.LogPath}}' zaplink-api)"
 
 # 3. Clean up:
 
@@ -1224,23 +1224,23 @@ du -sh "$(docker inspect --format='{{.LogPath}}' openwa-api)"
 docker image prune -f
 docker builder prune -f
 # Never run `docker system prune` or `docker volume prune` on this host. They remove stopped
-# containers (a stopped openwa-api, or a built-in openwa-postgres/openwa-redis/openwa-minio), and on
+# containers (a stopped zaplink-api, or a built-in zaplink-postgres/zaplink-redis/zaplink-minio), and on
 # Docker older than 23.0 or on Podman the volume prune deletes every unused named volume, including
-# openwa_openwa-data (API keys, session auth, media) and openwa_postgres-data.
+# zaplink_zaplink-data (API keys, session auth, media) and zaplink_postgres-data.
 
 # B. Container log (Docker-managed; cap it at the daemon/compose log-driver level to stop it
 #    growing back)
-sudo truncate -s 0 "$(docker inspect --format='{{.LogPath}}' openwa-api)"
+sudo truncate -s 0 "$(docker inspect --format='{{.LogPath}}' zaplink-api)"
 
 # C. Old backups
 find /backups -name "*.tar.gz" -mtime +30 -delete
 
 # D. Archived chat media: let the app expire it instead of deleting files, which leaves rows
 #    pointing at missing files. Set CHAT_MEDIA_ARCHIVE_TTL_DAYS (default 0, keep forever) in .env and
-#    recreate the container with `docker compose up -d openwa-api`; a plain `docker compose restart`
+#    recreate the container with `docker compose up -d zaplink-api`; a plain `docker compose restart`
 #    keeps the old environment. Sessions reconnect on their own only with AUTO_START_SESSIONS=true;
 #    otherwise POST /api/sessions/{sessionId}/start each one. Expiry clears the file and the row's
-#    media columns. Under the production compose the media lives in the openwa_openwa-data volume,
+#    media columns. Under the production compose the media lives in the zaplink_zaplink-data volume,
 #    not in ./data in the checkout. With MESSAGE_INLINE_MEDIA=archive the expired file is the only
 #    copy (no inline fallback), so expiry makes that media unreadable for good.
 

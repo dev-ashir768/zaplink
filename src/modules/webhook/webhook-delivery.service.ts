@@ -698,7 +698,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       const finalPayload = usable ? (hookPayload as WebhookPayload) : payload;
       // Re-assert EVERY identity field after the (untrusted) hook chain. A hook may rewrite data,
       // but event/sessionId/timestamp and the dedupe ids must remain the server's values: the
-      // receiver verifies the signature over this body and compares it against the X-OpenWA-*
+      // receiver verifies the signature over this body and compares it against the X-ZapLink-*
       // headers, and failure records are filed by these fields — a rewritten sessionId/event
       // misfiles them across sessions.
       finalPayload.event = event;
@@ -873,7 +873,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       // Fallback: deliver directly when the queue add failed (Redis not connected yet, or down with the
       // producer's enableOfflineQueue:false). This is at-least-once — if add() actually reached
       // Redis before rejecting, the queued job AND this fallback may both POST. Both paths carry the
-      // same X-OpenWA-Idempotency-Key / X-OpenWA-Delivery-Id, so a conformant receiver dedupes.
+      // same X-ZapLink-Idempotency-Key / X-ZapLink-Delivery-Id, so a conformant receiver dedupes.
       try {
         // Removed, disabled or unsubscribed before a retry: nothing to report, as on the queued path.
         if (!(await this.deliverWebhook(webhook, finalPayload, body, this.directOptions(ctx)))) return 'cancelled';

@@ -59,7 +59,7 @@ describe('conversion directories left behind by a killed process', () => {
   });
 
   it('clears an old leftover when the conversion service starts', async () => {
-    const old = leftover('openwa-convert-Ab12Cd', 3 * HOUR_MS);
+    const old = leftover('zaplink-convert-Ab12Cd', 3 * HOUR_MS);
 
     start(service());
     for (let i = 0; i < 100 && fs.existsSync(old); i++) await new Promise(resolve => setTimeout(resolve, 10));
@@ -77,15 +77,15 @@ describe('conversion directories left behind by a killed process', () => {
   });
 
   it('removes only old conversion directories, never young ones, other entries or what a link points at', async () => {
-    const old = leftover('openwa-convert-Ef34Gh', 3 * HOUR_MS);
-    const young = leftover('openwa-convert-Ij56Kl', 10 * 60 * 1000);
-    const unrelated = leftover('openwa-other-Mn78Op', 3 * HOUR_MS);
-    const file = path.join(root, 'openwa-convert-Qr90St');
+    const old = leftover('zaplink-convert-Ef34Gh', 3 * HOUR_MS);
+    const young = leftover('zaplink-convert-Ij56Kl', 10 * 60 * 1000);
+    const unrelated = leftover('zaplink-other-Mn78Op', 3 * HOUR_MS);
+    const file = path.join(root, 'zaplink-convert-Qr90St');
     fs.writeFileSync(file, 'not a directory');
     const target = path.join(outside, 'kept');
     fs.mkdirSync(target);
     fs.writeFileSync(path.join(target, 'data'), 'kept');
-    const link = path.join(root, 'openwa-convert-Uv12Wx');
+    const link = path.join(root, 'zaplink-convert-Uv12Wx');
     fs.symlinkSync(target, link);
     const at = new Date(Date.now() - 3 * HOUR_MS);
     fs.utimesSync(target, at, at);

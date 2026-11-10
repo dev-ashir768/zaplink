@@ -38,7 +38,7 @@ ${PIPE_FIND}
 }
 
 /**
- * The production sequence: the reader gives up (OpenWA's timeout destroys the stream it was handed),
+ * The production sequence: the reader gives up (ZapLink's timeout destroys the stream it was handed),
  * then the HTTP body is reset. Prints whether the body was released.
  */
 const ABANDON = `

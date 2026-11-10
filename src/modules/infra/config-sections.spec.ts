@@ -49,11 +49,11 @@ it.each(cases)(
         ? {
             DATABASE_TYPE: changed ? 'sqlite' : 'postgres',
             POSTGRES_BUILTIN: 'true',
-            DATABASE_HOST: 'openwa-postgres',
+            DATABASE_HOST: 'zaplink-postgres',
             DATABASE_PORT: '6432',
             DATABASE_USERNAME: 'app',
             DATABASE_PASSWORD: 'StoredPassword123456',
-            DATABASE_NAME: changed ? './data/openwa.sqlite' : 'appdb',
+            DATABASE_NAME: changed ? './data/zaplink.sqlite' : 'appdb',
             POSTGRES_SCHEMA: 'tenant',
             DATABASE_SSL: 'false',
           }
@@ -61,14 +61,14 @@ it.each(cases)(
           ? {
               REDIS_ENABLED: changed ? 'false' : 'true',
               REDIS_BUILTIN: 'true',
-              REDIS_HOST: 'openwa-redis',
+              REDIS_HOST: 'zaplink-redis',
               REDIS_PORT: '6380',
               REDIS_PASSWORD: 'StoredRedis123456',
             }
           : {
               STORAGE_TYPE: changed ? 'local' : 's3',
               MINIO_BUILTIN: 'true',
-              S3_ENDPOINT: 'http://openwa-minio:9000',
+              S3_ENDPOINT: 'http://zaplink-minio:9000',
               S3_ACCESS_KEY: 'StoredKey123456',
               S3_SECRET_KEY: 'StoredSecret1234567890',
               S3_BUCKET: 'media',
@@ -135,9 +135,9 @@ it.each(cases)(
         Object.assign(expected, {
           DATABASE_HOST: 'postgres',
           DATABASE_PORT: '5432',
-          DATABASE_USERNAME: !changed && pin !== 'external' ? 'app' : 'openwa',
-          DATABASE_PASSWORD: changed ? 'openwa' : existing.DATABASE_PASSWORD,
-          DATABASE_NAME: !changed && pin !== 'external' ? 'appdb' : 'openwa',
+          DATABASE_USERNAME: !changed && pin !== 'external' ? 'app' : 'zaplink',
+          DATABASE_PASSWORD: changed ? 'zaplink' : existing.DATABASE_PASSWORD,
+          DATABASE_NAME: !changed && pin !== 'external' ? 'appdb' : 'zaplink',
           POSTGRES_SCHEMA: !changed && pin !== 'external' ? 'tenant' : 'public',
         });
     } else if (service === 'redis') {
@@ -196,7 +196,7 @@ it.each(cases)(
       } else if (!(builtIn === undefined && pin === 'external' && !changed))
         Object.assign(expected, {
           S3_ENDPOINT: 'http://minio:9000',
-          S3_BUCKET: !changed && pin !== 'external' ? 'media' : 'openwa',
+          S3_BUCKET: !changed && pin !== 'external' ? 'media' : 'zaplink',
           S3_REGION: !changed && pin !== 'external' ? 'eu-west-1' : 'us-east-1',
           S3_ACCESS_KEY_ID: changed ? 'minioadmin' : existing.S3_ACCESS_KEY,
           S3_SECRET_ACCESS_KEY: changed ? 'minioadmin' : existing.S3_SECRET_KEY,
@@ -226,7 +226,7 @@ it.each(['true', 'false'])(
     recordPinnedEnvKeys({ DATABASE_HOST: process.env.DATABASE_HOST, DATABASE_SSL: 'true' });
     const existing = {
       DATABASE_TYPE: 'postgres',
-      DATABASE_HOST: 'openwa-POSTGRES.',
+      DATABASE_HOST: 'zaplink-POSTGRES.',
       POSTGRES_BUILTIN: flag,
       DATABASE_PASSWORD: 'StoredPassword123456',
       DATABASE_SSL: 'false',
@@ -277,7 +277,7 @@ it.each(['true', 'false'])(
   'keeps only credentials belonging to the selected external database with startup flag %s',
   flag => {
     for (const type of ['postgres', 'sqlite']) {
-      for (const host of ['db.external.example', ' OpenWA-POSTGRES. ']) {
+      for (const host of ['db.external.example', ' ZapLink-POSTGRES. ']) {
         const existing = {
           DATABASE_TYPE: type,
           DATABASE_HOST: host,
@@ -305,7 +305,7 @@ it.each(credentialNames)(
   (access, secret) => {
     for (const flag of ['true', 'false']) {
       for (const type of ['s3', 'local']) {
-        for (const endpoint of ['https://s3.external.example', 'http://OpenWA-MINIO.:9000']) {
+        for (const endpoint of ['https://s3.external.example', 'http://ZapLink-MINIO.:9000']) {
           const existing = {
             STORAGE_TYPE: type,
             S3_ENDPOINT: endpoint,
@@ -353,7 +353,7 @@ it.each(credentialNames)('fresh S3 credentials replace inactive %s and %s', (acc
 
 it('does not carry the bundled S3 endpoint into a newly selected external service', () => {
   const ctx = context();
-  const existing = { STORAGE_TYPE: 's3', MINIO_BUILTIN: 'false', S3_ENDPOINT: 'http://OpenWA-MINIO.:9000' };
+  const existing = { STORAGE_TYPE: 's3', MINIO_BUILTIN: 'false', S3_ENDPOINT: 'http://ZapLink-MINIO.:9000' };
 
   applyStorageSection(
     { builtIn: false, s3AccessKey: 'NewKey123456', s3SecretKey: 'NewSecret1234567890' },

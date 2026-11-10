@@ -20,8 +20,8 @@ describe('release.yml release-tags', () => {
   ) as Workflow;
   const select = workflow.jobs['release-tags'].steps!.find(step => step.id === 'select')!;
 
-  const GHCR = 'ghcr.io/example/openwa';
-  const HUB = 'docker.io/example/openwa';
+  const GHCR = 'ghcr.io/example/zaplink';
+  const HUB = 'docker.io/example/zaplink';
   const stableTags = (version: string, minor: string): string[] =>
     [GHCR, HUB].flatMap(image => [`${image}:${version}`, `${image}:${minor}`, `${image}:latest`]);
 
@@ -45,7 +45,7 @@ describe('release.yml release-tags', () => {
   };
 
   const run = (scenario: Scenario): { status: number; output: string; tags: string[]; latest: string } => {
-    const directory = mkdtempSync(join(tmpdir(), 'openwa-release-tags-'));
+    const directory = mkdtempSync(join(tmpdir(), 'zaplink-release-tags-'));
     try {
       const bin = join(directory, 'bin');
       const fake = join(directory, 'fake');

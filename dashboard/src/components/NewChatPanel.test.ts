@@ -55,7 +55,7 @@ function renderPanel(): { lookups: string[] } {
     if (path.includes('/contacts?')) return jsonResponse(CONTACTS);
     return jsonResponse([]);
   }) as typeof fetch;
-  sessionStorage.setItem('openwa_user_role', 'operator');
+  sessionStorage.setItem('zaplink_user_role', 'operator');
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
   rtl.render(
     createElement(

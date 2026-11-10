@@ -65,7 +65,7 @@ const MASTER_KEY_PREFIX = '(master key)';
 // 12 characters of the raw key. The key seeded from API_MASTER_KEY lists a fixed marker instead, so it is the
 // one that no other key's prefix matches.
 function isSignedInKey(apiKey: ApiKey, keys: ApiKey[]): boolean {
-  const signedIn = sessionStorage.getItem('openwa_api_key');
+  const signedIn = sessionStorage.getItem('zaplink_api_key');
   if (!signedIn || !apiKey.keyPrefix) return false;
   if (apiKey.keyPrefix !== MASTER_KEY_PREFIX) return signedIn.startsWith(apiKey.keyPrefix);
   return !keys.some(other => other.id !== apiKey.id && !!other.keyPrefix && signedIn.startsWith(other.keyPrefix));

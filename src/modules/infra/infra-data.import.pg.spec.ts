@@ -44,9 +44,9 @@ describePostgres('InfraDataController.importData (postgres)', () => {
       type: 'postgres' as const,
       host: process.env.DATABASE_HOST || 'localhost',
       port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'openwa',
-      password: process.env.DATABASE_PASSWORD || 'openwa',
-      database: process.env.DATABASE_NAME || 'openwa',
+      username: process.env.DATABASE_USERNAME || 'zaplink',
+      password: process.env.DATABASE_PASSWORD || 'zaplink',
+      database: process.env.DATABASE_NAME || 'zaplink',
     };
     admin = await new DataSource(options).initialize();
     await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -169,9 +169,9 @@ describePostgres('InfraDataController.importData (postgres)', () => {
       type: 'postgres',
       host: process.env.DATABASE_HOST || 'localhost',
       port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'openwa',
-      password: process.env.DATABASE_PASSWORD || 'openwa',
-      database: process.env.DATABASE_NAME || 'openwa',
+      username: process.env.DATABASE_USERNAME || 'zaplink',
+      password: process.env.DATABASE_PASSWORD || 'zaplink',
+      database: process.env.DATABASE_NAME || 'zaplink',
       schema,
       extra: { ...postgresUtcExtra(), options: `-c search_path=${schema},public`, statement_timeout: 250 },
       entities: ds.options.entities,
@@ -227,9 +227,9 @@ describePostgres('InfraDataController.importData (postgres)', () => {
         type: 'postgres',
         host: process.env.DATABASE_HOST || 'localhost',
         port: Number(process.env.DATABASE_PORT || 5432),
-        username: process.env.DATABASE_USERNAME || 'openwa',
-        password: process.env.DATABASE_PASSWORD || 'openwa',
-        database: process.env.DATABASE_NAME || 'openwa',
+        username: process.env.DATABASE_USERNAME || 'zaplink',
+        password: process.env.DATABASE_PASSWORD || 'zaplink',
+        database: process.env.DATABASE_NAME || 'zaplink',
         schema,
         extra: {
           ...postgresUtcExtra(),

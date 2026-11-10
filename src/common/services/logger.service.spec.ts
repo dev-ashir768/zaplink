@@ -728,7 +728,7 @@ describe('LoggerService', () => {
         JSON.parse(output);
       }).toThrow();
       // NestJS-style prefix, level label, context and message all present.
-      expect(output).toContain('[OpenWA]');
+      expect(output).toContain('[ZapLink]');
       expect(output).toContain('LOG');
       expect(output).toContain('[TestContext]');
       expect(output).toContain('Test message');
@@ -755,7 +755,7 @@ describe('LoggerService', () => {
     // The format is read line by line, so text from a contact, a plugin or a request must not be able to start a
     // line of its own that reads as another record.
     describe('keeps a record on one physical line', () => {
-      const FORGED = 'Alice\n[OpenWA] 1  - 1/1/2026, 12:00:00 AM   ERROR [AuthService] Admin key rotated';
+      const FORGED = 'Alice\n[ZapLink] 1  - 1/1/2026, 12:00:00 AM   ERROR [AuthService] Admin key rotated';
       // The painted output carries escape codes of its own, so the assertions below read the plain text.
       const previousNoColor = process.env.NO_COLOR;
       beforeEach(() => {
@@ -771,7 +771,7 @@ describe('LoggerService', () => {
 
         const output = getRawOutput(consoleSpy);
         expect(output.split('\n')).toHaveLength(1);
-        expect(output).toContain('displayName=Alice\\n[OpenWA] 1  - 1/1/2026');
+        expect(output).toContain('displayName=Alice\\n[ZapLink] 1  - 1/1/2026');
       });
 
       it('for a newline in the message', () => {
@@ -779,7 +779,7 @@ describe('LoggerService', () => {
 
         const output = getRawOutput(consoleSpy);
         expect(output.split('\n')).toHaveLength(1);
-        expect(output).toContain('Message from Alice\\n[OpenWA]');
+        expect(output).toContain('Message from Alice\\n[ZapLink]');
       });
 
       it('for a newline in a metadata key and in the context name', () => {
@@ -817,8 +817,8 @@ describe('LoggerService', () => {
 
         const output = getRawOutput(errorSpy);
         // The record line alone starts at the left edge as a record; the forged line is indented, not removed.
-        expect(output.split('\n').filter(line => line.startsWith('[OpenWA]'))).toHaveLength(1);
-        expect(output).toContain('    [OpenWA] 1  - 1/1/2026');
+        expect(output.split('\n').filter(line => line.startsWith('[ZapLink]'))).toHaveLength(1);
+        expect(output).toContain('    [ZapLink] 1  - 1/1/2026');
         // eslint-disable-next-line no-control-regex
         expect(output).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/);
         expect(output).toContain('\\x1b[31m');
@@ -846,7 +846,7 @@ describe('LoggerService', () => {
         logger.error('failed', trace);
 
         const [record, ...rest] = getRawOutput(errorSpy).split('\n');
-        expect(record.startsWith('[OpenWA]')).toBe(true);
+        expect(record.startsWith('[ZapLink]')).toBe(true);
         expect(rest.length).toBeGreaterThan(0);
         expect(rest.every(line => line.startsWith(' '))).toBe(true);
       });
@@ -872,7 +872,7 @@ describe('LoggerService', () => {
         const output = getRawOutput(spy);
         expect(output).not.toMatch(/[\u2028\u2029]/);
         expect(output).toMatch(/\\u202[89]/);
-        expect(output.split(/\r\n|[\n\r\u2028\u2029]/).filter(line => line.startsWith('[OpenWA]'))).toHaveLength(1);
+        expect(output.split(/\r\n|[\n\r\u2028\u2029]/).filter(line => line.startsWith('[ZapLink]'))).toHaveLength(1);
       });
 
       it('and leaves a line of a trace that starts with a tab as it was', () => {

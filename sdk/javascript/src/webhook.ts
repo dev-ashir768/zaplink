@@ -1,7 +1,7 @@
 const encoder = new TextEncoder();
 
 /**
- * Check a webhook delivery's `X-OpenWA-Signature` header (`sha256=<hex HMAC-SHA256>`) against the
+ * Check a webhook delivery's `X-ZapLink-Signature` header (`sha256=<hex HMAC-SHA256>`) against the
  * webhook secret. Pass the raw request body exactly as received; a re-serialized parse can differ
  * byte for byte and will not verify. Resolves `false` (never throws) for a missing, malformed or
  * non-matching signature and for an empty secret.

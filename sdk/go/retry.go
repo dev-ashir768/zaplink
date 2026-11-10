@@ -1,4 +1,4 @@
-package openwa
+package zaplink
 
 import (
 	"bytes"
@@ -274,7 +274,7 @@ func retryMiddleware(p RetryPolicy, log Logger) Middleware {
 					_ = resp.Body.Close()
 				}
 
-				log.Log(req.Context(), LevelWarn, "openwa retrying request",
+				log.Log(req.Context(), LevelWarn, "zaplink retrying request",
 					"method", req.Method, "url", req.URL.Redacted(),
 					"attempt", attempt+1, "delay_ms", delay.Milliseconds())
 
