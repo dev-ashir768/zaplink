@@ -230,7 +230,7 @@ describe('EngineFactory', () => {
     const missing: Array<[string, unknown]> = [
       ['no plugin', undefined],
       ['a plugin without an instance', { instance: undefined }],
-      ['a non-engine plugin', { instance: { type: PluginType.EXTENSION } }],
+      ['a non-engine plugin', { instance: { type: 'extension' } }],
     ];
 
     describe.each(['whatsapp-web.js', 'baileys'])('ENGINE_TYPE=%s', engineType => {

@@ -71,9 +71,6 @@ import { Message, MessageDirection } from '../message/entities/message.entity';
 import { ServerShuttingDownException, SessionStoppedException } from './session-engine-controls';
 import { phoneKey } from './message-mutation-guard';
 import { ownAccountIds } from '../../engine/adapters/baileys-stored-chat-previews.service';
-// Type-only: the module binds this class to PLUGIN_SESSION_PORT with a `useExisting` alias, which
-// TypeScript does not check, so `implements` is what keeps the two in step.
-import type { PluginSessionPort } from '../../core/plugins/plugin-host-ports';
 
 /** Stagger before the single transient-launch retry; short - the claim is held while it waits. */
 const SESSION_START_RETRY_DELAY_MS = 2_000;
@@ -161,7 +158,7 @@ const ACTIVE_STATUSES = [
  * its public surface toward the controller and the feature modules is unchanged by the split.
  */
 @Injectable()
-export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicationBootstrap, PluginSessionPort {
+export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicationBootstrap {
   private readonly logger = createLogger('SessionService');
 
   // Live engine instances, owned by the shared EngineRegistry (the narrow port feature modules

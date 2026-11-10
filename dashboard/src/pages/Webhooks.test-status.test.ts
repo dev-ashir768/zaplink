@@ -81,15 +81,6 @@ function renderWebhooks(): void {
   );
 }
 
-test('a test delivery the receiver refused is reported without English text in another language', async () => {
-  await i18n.changeLanguage('es');
-  renderWebhooks();
-  rtl.fireEvent.click(await rtl.screen.findByTitle('Probar'));
-  const toast = await rtl.screen.findByText(/Prueba de webhook fallida/);
-  assert.ok(!/\bStatus\b/.test(toast.textContent ?? ''), `the Spanish toast reads: ${toast.textContent}`);
-  assert.match(toast.textContent ?? '', /HTTP 500/);
-});
-
 test('in English the refused test names the receiver status', async () => {
   renderWebhooks();
   rtl.fireEvent.click(await rtl.screen.findByTitle('Test'));

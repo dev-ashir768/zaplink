@@ -1,16 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
-import { createLogger } from '../../../common/services/logger.service';
 import { HookManager } from '../../../core/hooks';
-import { PluginCapabilityContext } from '../../../core/plugins/plugin-capability-context';
-import { PluginHostServices } from '../../../core/plugins/plugin-host-services';
-import { PluginStorageService } from '../../../core/plugins/plugin-storage.service';
-import {
-  PluginEngineReadCapability,
-  PluginInstance,
-  PluginStatus,
-  PluginType,
-} from '../../../core/plugins/plugin.interfaces';
 import { LidMapping } from '../../../engine/identity/lid-mapping.entity';
 import { LidMappingStoreService } from '../../../engine/identity/lid-mapping-store.service';
 import { Webhook } from '../entities/webhook.entity';
@@ -70,34 +60,6 @@ describe('Identity readers after a peer changes a mapping', () => {
     );
   }
 
-  function pluginCapability(): PluginEngineReadCapability {
-    const context = new PluginCapabilityContext(
-      createLogger('PluginIdentity'),
-      { getSessionPort: () => ({ getEngine: () => ({}) }) } as unknown as PluginHostServices,
-      new HookManager(),
-      {} as PluginStorageService,
-      reader,
-    );
-    const plugin: PluginInstance = {
-      manifest: {
-        id: 'identity',
-        name: 'Identity',
-        version: '1.0.0',
-        type: PluginType.EXTENSION,
-        main: 'index.js',
-        permissions: ['engine:read'],
-        sessions: ['s'],
-      },
-      status: PluginStatus.INSTALLED,
-      config: {},
-      instance: null,
-      activeSessions: ['s'],
-    };
-    return (
-      context as unknown as { buildEngineReadCapability: (p: PluginInstance) => PluginEngineReadCapability }
-    ).buildEngineReadCapability(plugin);
-  }
-
   it('does not deliver a phone-filtered webhook after a peer revokes the alias', async () => {
     await peer.rememberIfUnknown('484848', '628222', 'peer');
     expect(reader.getCached('484848')).toBe('628111');
@@ -105,23 +67,15 @@ describe('Identity readers after a peer changes a mapping', () => {
     expect(await webhookMatches(LID)).toHaveLength(1);
   });
 
-  it('returns the raw LID to a plugin after a peer revokes the alias', async () => {
-    await peer.rememberIfUnknown('484848', '628222', 'peer');
-    expect(await pluginCapability().canonicalChatId('s', LID)).toBe(LID);
-  });
-
   it('uses the peer reported phone without reloading the resident mirror', async () => {
     await peer.remember('484848', '628222', 'peer');
     expect(reader.getCached('484848')).toBe('628111');
     expect(await webhookMatches(P)).toHaveLength(0);
     expect(await webhookMatches(Q)).toHaveLength(1);
-    expect(await pluginCapability().canonicalChatId('s', LID)).toBe(Q);
   });
 
   it('preserves matching reported aliases and exact phone inputs', async () => {
     expect(await webhookMatches(P)).toHaveLength(1);
-    expect(await pluginCapability().canonicalChatId('s', LID)).toBe(P);
-    expect(await pluginCapability().canonicalChatId('s', Q)).toBe(Q);
   });
 
   it.each([

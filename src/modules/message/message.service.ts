@@ -18,9 +18,6 @@ import { ChatMediaArchiveService } from '../chat-media/chat-media-archive.servic
 import { StorageService, isMissingObjectError } from '../../common/storage/storage.service';
 import { MessageSendService, SaveOutgoingMessageData } from './message-send.service';
 import { SessionWriteScope } from '../../common/utils/session-write-scope';
-// Type-only: the module binds this class to PLUGIN_MESSAGE_PORT with a `useExisting` alias, which
-// TypeScript does not check, so `implements` is what keeps the two in step.
-import type { PluginMessagePort } from '../../core/plugins/plugin-host-ports';
 import { MessageWindow, messageTimeBoundarySeconds, validateMessageWindow } from './message-window';
 
 // Re-exported for existing importers (bulk send shares the rendered-template cap with the send path).
@@ -171,7 +168,7 @@ function inertMimetype(mimetype: string): string {
 }
 
 @Injectable()
-export class MessageService implements PluginMessagePort {
+export class MessageService {
   private readonly logger = createLogger('MessageService');
 
   constructor(

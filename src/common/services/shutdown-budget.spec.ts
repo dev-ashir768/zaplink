@@ -4,7 +4,6 @@ import * as yaml from 'js-yaml';
 import { CACHE_QUIT_TIMEOUT_MS } from '../cache/cache.service';
 import { THROTTLER_REDIS_QUIT_TIMEOUT_MS } from '../throttler/redis-throttler.storage';
 import configuration from '../../config/configuration';
-import { PLUGIN_SHUTDOWN_WAIT_MS } from '../../core/plugins/plugin-loader.service';
 import { ApiKeyUsageTracker } from '../../modules/auth/api-key-usage-tracker.service';
 import { WS_REDIS_QUIT_TIMEOUT_MS } from '../../modules/events/redis-io.adapter';
 import { MAX_WORKER_CLOSE_WAIT_MS } from '../../modules/queue/processors/close-worker';
@@ -36,7 +35,7 @@ describe('shutdown time budget', () => {
     AUTOSTART_SHUTDOWN_WAIT_MS +
     DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS +
     ApiKeyUsageTracker.SHUTDOWN_FLUSH_TIMEOUT_MS;
-  const withPlugins = base + PLUGIN_SHUTDOWN_WAIT_MS;
+  const withPlugins = base;
   const clustered =
     withPlugins +
     MAX_WORKER_CLOSE_WAIT_MS +
@@ -46,7 +45,7 @@ describe('shutdown time budget', () => {
     WS_REDIS_QUIT_TIMEOUT_MS;
 
   it('sums to the documented totals', () => {
-    expect([base, withPlugins, clustered]).toEqual([28_000, 38_000, 56_000]);
+    expect([base, withPlugins, clustered]).toEqual([28_000, 28_000, 46_000]);
   });
 
   it('registers one queue module per queue name, so the queue stage is counted per queue', () => {

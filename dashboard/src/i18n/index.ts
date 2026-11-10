@@ -3,43 +3,13 @@ import type { BackendModule, ReadCallback, ResourceKey } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-export const supportedLanguages = [
-  'en',
-  'de',
-  'es',
-  'he',
-  'tr',
-  'zh-CN',
-  'zh-HK',
-  'ar',
-  'te',
-  'fr',
-  'it',
-  'pt-BR',
-  'ko',
-  'hi',
-  'id',
-] as const;
+export const supportedLanguages = ['en'] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
 
-export const rtlLanguages: SupportedLanguage[] = ['he', 'ar'];
+export const rtlLanguages: SupportedLanguage[] = [];
 
 export const languageOptions: Array<{ value: SupportedLanguage; label: string; compactLabel: string }> = [
   { value: 'en', label: 'English', compactLabel: 'EN' },
-  { value: 'de', label: 'Deutsch', compactLabel: 'DE' },
-  { value: 'tr', label: 'Türkçe', compactLabel: 'TR' },
-  { value: 'es', label: 'Español', compactLabel: 'ES' },
-  { value: 'he', label: 'עברית', compactLabel: 'עברית' },
-  { value: 'zh-CN', label: '简体中文', compactLabel: '简中' },
-  { value: 'zh-HK', label: '繁體中文', compactLabel: '繁中' },
-  { value: 'ar', label: 'العربية', compactLabel: 'AR' },
-  { value: 'te', label: 'తెలుగు', compactLabel: 'TE' },
-  { value: 'fr', label: 'Français', compactLabel: 'FR' },
-  { value: 'it', label: 'Italiano', compactLabel: 'IT' },
-  { value: 'pt-BR', label: 'Português (Brasil)', compactLabel: 'PT' },
-  { value: 'ko', label: '한국어', compactLabel: 'KO' },
-  { value: 'hi', label: 'हिन्दी', compactLabel: 'HI' },
-  { value: 'id', label: 'Bahasa Indonesia', compactLabel: 'ID' },
 ];
 
 export function resolveSupportedLanguage(lang?: string): SupportedLanguage {
@@ -49,14 +19,6 @@ export function resolveSupportedLanguage(lang?: string): SupportedLanguage {
 
   const parts = value.toLowerCase().split('-');
   const base = parts[0];
-  // The only Portuguese catalogue is the Brazilian one; a bare or European tag would otherwise fall through to English.
-  if (base === 'pt') return 'pt-BR';
-  if (base === 'zh') {
-    const subtags = new Set(parts.slice(1));
-    if (subtags.has('hant') || subtags.has('hk') || subtags.has('mo') || subtags.has('tw')) return 'zh-HK';
-    return 'zh-CN';
-  }
-
   return supportedLanguages.find(supported => supported === base) ?? 'en';
 }
 

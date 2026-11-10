@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { SearchProvider } from './search.types';
-// Type-only: the module binds this class to PLUGIN_SEARCH_REGISTRY_PORT with a `useExisting` alias,
-// which TypeScript does not check, so `implements` is what keeps the two in step.
-import type { PluginSearchRegistryPort } from '../../core/plugins/plugin-host-ports';
 
 /**
  * Holds the set of registered SearchProviders and the currently active one.
@@ -10,7 +7,7 @@ import type { PluginSearchRegistryPort } from '../../core/plugins/plugin-host-po
  * active() returns null when nothing is registered → the route 501s.
  */
 @Injectable()
-export class SearchProviderRegistry implements PluginSearchRegistryPort {
+export class SearchProviderRegistry {
   private readonly providers = new Map<string, SearchProvider>();
   private activeId: string | null = null;
 

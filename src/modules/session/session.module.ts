@@ -18,7 +18,6 @@ import { SessionController } from './session.controller';
 import { WebhookModule } from '../webhook/webhook.module';
 import { StatusStoreModule } from '../status-store/status-store.module';
 import { ChatMediaModule } from '../chat-media/chat-media.module';
-import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
 
 @Module({
   // WebhookModule/StatusStoreModule/ChatMediaModule do not import SessionModule
@@ -41,11 +40,6 @@ import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
     SessionLivenessWatchdog,
     SessionOwnershipService,
     MessageProjector,
-    // Binds the core-owned plugin capability port to this module's service; resolved lazily by the
-    // plugin runtime (PluginHostServices) so its provider cycle stays broken. An alias, not a
-    // factory: Nest runs lifecycle hooks once per non-alias provider, so a factory that returned the
-    // same instance ran SessionService's onModuleInit/onApplicationBootstrap/onModuleDestroy twice.
-    { provide: PLUGIN_SESSION_PORT, useExisting: SessionService },
   ],
   exports: [SessionService, MessageProjector, SessionOwnershipService],
 })

@@ -17,7 +17,6 @@ import { MessageBatch } from './entities/message-batch.entity';
 import { SendIdempotencyKey } from './entities/send-idempotency-key.entity';
 import { SendIdempotencyService } from './idempotency/send-idempotency.service';
 import { SendIdempotencyInterceptor } from './idempotency/send-idempotency.interceptor';
-import { PLUGIN_MESSAGE_PORT } from '../../core/plugins/plugin-host-ports';
 
 @Module({
   imports: [
@@ -37,11 +36,6 @@ import { PLUGIN_MESSAGE_PORT } from '../../core/plugins/plugin-host-ports';
     SendPacingService,
     SendIdempotencyService,
     SendIdempotencyInterceptor,
-    // Binds the core-owned plugin capability port to this module's service. The plugin runtime
-    // resolves the token lazily via ModuleRef (PluginHostServices), which keeps its provider cycle
-    // broken; this adapter is how core reaches the service without importing it.
-    // An alias, not a factory, so lifecycle hooks are not dispatched twice on the same instance.
-    { provide: PLUGIN_MESSAGE_PORT, useExisting: MessageService },
   ],
   exports: [MessageService, BulkMessageService, SendPacingService, SendIdempotencyService],
 })
