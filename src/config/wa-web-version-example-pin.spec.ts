@@ -8,7 +8,7 @@ import * as path from 'path';
  * The wa-version registry withdraws old builds, and whatsapp-web.js's remote cache is non-strict:
  * a pin whose HTML it can no longer fetch is missed and silently ignored, leaving the operator on
  * the default behaviour while `Pinning WhatsApp Web version …` still claims the pin was applied.
- * `2.3000.1040641150-alpha` shipped in both `.env.example` and the troubleshooting FAQ and was
+ * `2.3000.1040641150-alpha` shipped in both `.env.reference` and the troubleshooting FAQ and was
  * withdrawn; nothing failed anywhere, which is exactly why it went unnoticed. Describing the
  * setting and pointing at the registry's `html/` folder is fine — naming a build is not.
  *
@@ -42,7 +42,7 @@ function markdownUnder(dir: string): string[] {
 
 /** Everything an operator is expected to copy from. */
 function operatorFacingFiles(): string[] {
-  return ['.env.example', ...markdownUnder('docs')];
+  return ['.env.reference', ...markdownUnder('docs')];
 }
 
 function filesNamingABuild(files: string[]): string[] {
@@ -60,7 +60,7 @@ describe('operator-facing guidance never names a WhatsApp Web build to pin', () 
   // pattern, would make the assertion above pass while checking nothing.
   it('scans a corpus that still documents the setting', () => {
     const documenting = files.filter(relativePath => read(relativePath).includes(SETTING));
-    expect(documenting).toContain('.env.example');
+    expect(documenting).toContain('.env.reference');
     expect(documenting).toContain(path.join('docs', '12-troubleshooting-faq.md'));
   });
 

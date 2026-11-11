@@ -494,7 +494,7 @@ describe('createExportStream warns about import limits for files of unreported s
   });
 });
 
-// docs/14, .env.example and the upgrade notes state these figures, and an operator sizes an import
+// docs/14, .env.reference and the upgrade notes state these figures, and an operator sizes an import
 // against them: a drifted default changes what an import is allowed to extract without a word.
 describe('storage import caps', () => {
   it('ship at the documented defaults', () => {

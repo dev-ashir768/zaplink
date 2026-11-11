@@ -244,12 +244,12 @@ describe.each(['docker-compose.yml'])('every blank forward in %s is cleared', fi
 
   // Clearing a blank forward only lets data/.env.generated win when nothing ABOVE it supplies a
   // value. `.env` sits above it and is loaded at load-env.ts:60 — after clearBlankEnv has already
-  // run at :50 — so a value shipped uncommented in `.env.example` survives `cp .env.example .env`
+  // run at :50 — so a value shipped uncommented in `.env.reference` survives `cp .env.reference .env`
   // as a permanent pin that the clear list structurally cannot reach. An empty assignment pins just
   // as hard: dotenv treats `KEY=` as present, so `DATABASE_PASSWORD=` shadows a dashboard-provisioned
   // password and the next production boot refuses to start.
-  it('ships none of them uncommented in .env.example', () => {
-    const example = fs.readFileSync(path.join(__dirname, '../../.env.example'), 'utf8');
+  it('ships none of them uncommented in .env.reference', () => {
+    const example = fs.readFileSync(path.join(__dirname, '../../.env.reference'), 'utf8');
     const uncommented = example
       .split('\n')
       .map(line => /^([A-Z0-9_]+)=/.exec(line)?.[1])
@@ -260,16 +260,16 @@ describe.each(['docker-compose.yml'])('every blank forward in %s is cleared', fi
 });
 
 /**
- * The rule above binds only the keys compose forwards blank. `.env.example`'s own header promises
+ * The rule above binds only the keys compose forwards blank. `.env.reference`'s own header promises
  * something wider — "every setting the dashboard owns is commented out" — and the dashboard owns
  * keys that have no blank forward at all (POSTGRES_BUILTIN, REDIS_BUILTIN, MINIO_BUILTIN). Those slipped
  * past the compose-derived check and shipped uncommented, pinning the matching Infrastructure control
- * for anyone who ran the documented `cp .env.example .env`.
+ * for anyone who ran the documented `cp .env.reference .env`.
  *
  * Derived from the appliers that write data/.env.generated, plus the controller's own queue write, so
  * a key added to a section is covered without anyone remembering this file exists.
  */
-describe('every key the dashboard writes is commented out in .env.example', () => {
+describe('every key the dashboard writes is commented out in .env.reference', () => {
   const sectionsSource = ['config-sections.ts', 'infra-config.controller.ts']
     .map(file => fs.readFileSync(path.join(__dirname, '../modules/infra', file), 'utf8'))
     .join('\n');
@@ -299,8 +299,8 @@ describe('every key the dashboard writes is commented out in .env.example', () =
   const uncommentedKeys = (file: string): string[] =>
     assignedKeys(fs.readFileSync(path.join(__dirname, '../..', file), 'utf8'));
 
-  it('ships none of them uncommented in .env.example', () => {
-    const uncommented = uncommentedKeys('.env.example');
+  it('ships none of them uncommented in .env.reference', () => {
+    const uncommented = uncommentedKeys('.env.reference');
     expect(uncommented).toContain('NODE_ENV'); // the file really does ship some keys uncommented
     // DATABASE_PASSWORD is the deliberate exception: docker-compose.yml interpolates it with `:?`, so
     // compose refuses to start until .env sets it, and the template ships the key for the operator to fill.
@@ -317,7 +317,7 @@ describe('every key the dashboard writes is commented out in .env.example', () =
  * message row at up to 50 MiB apiece. Neither compose file forwarded it, nor the cap, the timeout or
  * the concurrency, so an operator running the bundled stack set the value in `.env`, saw no error and
  * no log line, and kept paying for the behaviour. The only remaining path was hand-editing
- * `data/.env.generated` inside the mounted volume, which `.env.example` does not mention for these
+ * `data/.env.generated` inside the mounted volume, which `.env.reference` does not mention for these
  * keys. The sibling MEDIA_CONVERSION_* family was forwarded all along.
  */
 describe.each(['docker-compose.yml'])('%s forwards the inbound-media knobs', file => {

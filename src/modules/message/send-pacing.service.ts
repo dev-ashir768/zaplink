@@ -207,7 +207,7 @@ const LOOKUP_CHUNK = 500;
  * them can exceed its stated allowance. A Baileys product send (catalog.service.ts `sendProduct`)
  * writes no row itself but is counted through the OUTGOING row its own-send echo persists
  * (MessageProjector.handleOwnSendEcho) shortly after the send returns. Deliberate, and documented in
- * .env.example and docs/06 so the number an operator reads is the number they get.
+ * .env.reference and docs/06 so the number an operator reads is the number they get.
  * Because the row lands only after the check returns, sends admitted in the last few seconds are
  * also held in memory (see Admission), or a parallel burst would pass against one stale count. A bulk
  * item and a product send write their row only after the engine call, which can outlast that window

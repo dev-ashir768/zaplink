@@ -7,7 +7,7 @@ const yaml = require('js-yaml') as { load: (src: string) => unknown };
 
 /**
  * The storage layer reads S3_ACCESS_KEY / S3_SECRET_KEY when the canonical pair is unset, and
- * .env.example promises older setups keep working. A Compose file only passes on the variables it
+ * .env.reference promises older setups keep working. A Compose file only passes on the variables it
  * lists, so one that forwards just the canonical pair leaves such a setup without credentials.
  */
 describe.each(['docker-compose.yml'])('%s forwards the S3 credentials', file => {

@@ -14,7 +14,7 @@ describe('validateEnv', () => {
   });
 
   /**
-   * The media knobs take RAW numbers while `BODY_SIZE_LIMIT` beside them in .env.example takes a
+   * The media knobs take RAW numbers while `BODY_SIZE_LIMIT` beside them in .env.reference takes a
    * unit string. Their read sites use `Number.parseInt`, which takes the leading digits and drops
    * the unit, so `50mb` was accepted as 50: a 50-byte cap, and `30s` a 30 ms timeout. Both are
    * positive integers, so the "garbage falls back to the default" those helpers promise never
@@ -127,7 +127,7 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ NODE_ENV: 'development' })).not.toThrow();
     expect(() => validateEnv({ NODE_ENV: 'test' })).not.toThrow();
     // Unset stays legal: it is the standard Node default and every shipped deployment sets it
-    // explicitly (Dockerfile, both compose files, the Helm chart, .env.example).
+    // explicitly (Dockerfile, both compose files, the Helm chart, .env.reference).
     expect(() => validateEnv({})).not.toThrow();
   });
 

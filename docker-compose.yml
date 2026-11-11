@@ -167,7 +167,7 @@ services:
       # the companion at WhatsApp Web's first scheduled reload. Disabled by default; live statuses
       # still arrive normally. Opt in only after validating the account.
       - STATUS_SEED_ON_READY=${STATUS_SEED_ON_READY:-false}
-      # Session ownership / multi-node routing (see the "Session ownership" section of .env.example
+      # Session ownership / multi-node routing (see the "Session ownership" section of .env.reference
       # and docs/13). NODE_ID must be STABLE across restarts: the app default (the container
       # hostname) changes on every recreate, making the new container a "new node" that has to wait
       # out its previous identity's lease before re-adopting sessions.
@@ -280,7 +280,7 @@ services:
       - CSP_UPGRADE_INSECURE_REQUESTS=${CSP_UPGRADE_INSECURE_REQUESTS:-}
       # Security / boot knobs the app reads. This list is the only path into the container, so a
       # knob without a line here is inert no matter what the operator's .env says; compose-parity
-      # .spec.ts derives the required set from .env.example so a new knob cannot ship unreachable.
+      # .spec.ts derives the required set from .env.reference so a new knob cannot ship unreachable.
       - API_KEY_PEPPER=${API_KEY_PEPPER:-}
       - BOOTSTRAP_KEY_FILE=${BOOTSTRAP_KEY_FILE:-}
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-}

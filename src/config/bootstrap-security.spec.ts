@@ -455,11 +455,11 @@ describe('assertNoDefaultSecretsInProduction', () => {
     ).not.toThrow();
   });
 
-  // The scrape endpoint is public and this token is its only credential, so the value .env.example ships
+  // The scrape endpoint is public and this token is its only credential, so the value .env.reference ships
   // (a copy-paste away from production) and the known weak values must not boot. There is no length floor:
   // a short token that is not a known default keeps booting.
-  it('refuses the METRICS_TOKEN that .env.example ships, and known weak values, in production', () => {
-    const example = readFileSync(join(__dirname, '..', '..', '.env.example'), 'utf8');
+  it('refuses the METRICS_TOKEN that .env.reference ships, and known weak values, in production', () => {
+    const example = readFileSync(join(__dirname, '..', '..', '.env.reference'), 'utf8');
     const shipped = /^#?\s*METRICS_TOKEN=(.+)$/m.exec(example)?.[1];
     expect(shipped).toBeTruthy();
     for (const metricsToken of [shipped, ` ${shipped?.toUpperCase()} `, 'change-me', 'test', 'Secret']) {

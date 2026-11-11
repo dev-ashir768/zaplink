@@ -297,7 +297,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     }
   };
   // Keep this an ARRAY LITERAL even at one entry: docs-env-example.spec.ts derives the keys it
-  // requires `.env.example` to list by scanning `'KEY',` array elements in this file. Collapsing it
+  // requires `.env.reference` to list by scanning `'KEY',` array elements in this file. Collapsing it
   // into a bare checkInt('AUDIT_RETENTION_DAYS') call would silently drop the knob out of that gate.
   for (const key of [
     'AUDIT_RETENTION_DAYS', // <= 0 disables retention
@@ -417,7 +417,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     'PUPPETEER_PROTOCOL_TIMEOUT_MS',
     // The read fell back to its default on garbage, so `10s` silently meant 10000.
     'SSRF_DNS_TIMEOUT_MS',
-    // The media knobs take RAW numbers while their neighbours in .env.example and docs/12 take unit
+    // The media knobs take RAW numbers while their neighbours in .env.reference and docs/12 take unit
     // strings (`BODY_SIZE_LIMIT=25mb`), and their read sites parse with `Number.parseInt`. That
     // accepts the leading digits of a unit-suffixed value and discards the unit, so
     // `MEDIA_DOWNLOAD_MAX_BYTES=50mb` became a 50 BYTE cap and `MEDIA_DOWNLOAD_TIMEOUT_MS=30s`

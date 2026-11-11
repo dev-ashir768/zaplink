@@ -77,7 +77,7 @@ The compensating gates on the install path:
 - every lifecycle route requires an **unscoped ADMIN** key;
 - install URLs are fetched behind the SSRF guard, with redirects re-validated per hop;
 - plain-`http` URLs require a `#sha256=` content pin, and in production **every** URL
-  install does (`PLUGIN_INSTALL_REQUIRE_PIN`, opt-out documented in `.env.example`);
+  install does (`PLUGIN_INSTALL_REQUIRE_PIN`, opt-out documented in `.env.reference`);
 - the package manifest is strictly validated and symlink traps are detected at unpack.
 
 If you operate a fleet of plugins you do not fully trust, do not install them into the

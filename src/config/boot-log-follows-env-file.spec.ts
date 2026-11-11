@@ -6,7 +6,7 @@ import * as path from 'path';
  * The env loader's own boot lines are written with the log settings the env files configure.
  *
  * A bare-metal install keeps NODE_ENV, LOG_LEVEL and LOG_FORMAT in the project `.env` (the shipped
- * `.env.example` sets NODE_ENV=production there). Every later line then follows them: JSON in
+ * `.env.reference` sets NODE_ENV=production there). Every later line then follows them: JSON in
  * production, nothing below the configured level. The loader's lines must too, or a JSON log
  * pipeline receives a text line at the top of every boot, and LOG_LEVEL=error still prints info.
  */

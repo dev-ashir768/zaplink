@@ -153,7 +153,7 @@ const FORBIDDEN_PROD_SECRETS = new Set([
 ]);
 
 /**
- * The METRICS_TOKEN value .env.example ships (commented out). Kept apart from the list above, which is
+ * The METRICS_TOKEN value .env.reference ships (commented out). Kept apart from the list above, which is
  * shared by every secret: this string is a placeholder only for the scrape token, and is a publicly known
  * credential for the endpoint once someone uncomments the line unchanged.
  */
@@ -254,7 +254,7 @@ export function assertNoDefaultSecretsInProduction(env: SecretCheckEnv): void {
   const s3Exempt = env.minioBuiltIn === 'true' && namesBundledContainer('minio', env.s3Endpoint);
   if (env.storageType === 's3' && !s3Exempt) {
     // Name the canonical variables even when the value came from the legacy S3_ACCESS_KEY /
-    // S3_SECRET_KEY fallback: they are what the docs and .env.example tell an operator to set.
+    // S3_SECRET_KEY fallback: they are what the docs and .env.reference tell an operator to set.
     if (isWeak(env.s3AccessKey)) problems.push('S3_ACCESS_KEY_ID');
     if (isWeak(env.s3SecretKey)) problems.push('S3_SECRET_ACCESS_KEY');
   }
@@ -275,7 +275,7 @@ export function assertNoDefaultSecretsInProduction(env: SecretCheckEnv): void {
     problems.push('REDIS_PASSWORD');
   }
   // METRICS_TOKEN is optional too (unset leaves the public scrape endpoint disabled) and has no length
-  // floor, so only a known placeholder is refused: the .env.example value or a shared weak value. Trimmed
+  // floor, so only a known placeholder is refused: the .env.reference value or a shared weak value. Trimmed
   // like MetricsService trims it before comparing.
   const metricsToken = env.metricsToken?.trim().toLowerCase();
   if (metricsToken && (metricsToken === METRICS_TOKEN_PLACEHOLDER || FORBIDDEN_PROD_SECRETS.has(metricsToken))) {
@@ -290,7 +290,7 @@ export function assertNoDefaultSecretsInProduction(env: SecretCheckEnv): void {
   if (problems.length > 0) {
     throw new Error(
       `Refusing to start in production: insecure or default value for ${problems.join(', ')}. ` +
-        'Set strong, unique secrets (see .env.example).',
+        'Set strong, unique secrets (see .env.reference).',
     );
   }
 }

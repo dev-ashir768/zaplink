@@ -287,10 +287,10 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
   // v0.12.0, how SEND_PACING_* / MEDIA_CONVERSION_* shipped inert alongside CHAT_MEDIA_*, and how
   // the v0.20.0 WEBHOOK_SSRF_REDIRECTS / PLUGIN_INSTALL_REQUIRE_PIN opt-outs spent a release
   // unreachable from .env. Family-by-family and strict-boolean derivations only ever caught these
-  // one prefix or one type at a time, so the rule is now wholesale: every knob .env.example
+  // one prefix or one type at a time, so the rule is now wholesale: every knob .env.reference
   // documents that the app actually reads must be forwarded in BOTH compose files, unless a
   // NOT_FORWARDED entry names it with a reason. env-precedence.spec.ts covers the other direction
-  // (every blank forward must be cleared when blank, and must not ship uncommented in .env.example).
+  // (every blank forward must be cleared when blank, and must not ship uncommented in .env.reference).
   const apiForwards = (file: string): Set<string> => {
     const text = readFileSync(join(__dirname, '../../..', file), 'utf8');
     const keys = new Set<string>();
@@ -301,9 +301,9 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     return keys;
   };
 
-  /** Keys .env.example documents (commented or not): `#?KEY=`. */
+  /** Keys .env.reference documents (commented or not): `#?KEY=`. */
   const documentedKeys = (): Set<string> => {
-    const example = readFileSync(join(__dirname, '../../../.env.example'), 'utf8');
+    const example = readFileSync(join(__dirname, '../../../.env.reference'), 'utf8');
     const keys = new Set<string>();
     for (const match of example.matchAll(/^\s*#?\s*([A-Z][A-Z0-9_]{2,})=/gm)) keys.add(match[1]);
     return keys;
@@ -353,7 +353,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
       // (POSTGRES_BUILTIN is forwarded: PostgreSQL is the only database and compose always starts it.)
       REDIS_BUILTIN: 'dashboard-managed',
       MINIO_BUILTIN: 'dashboard-managed',
-      QUEUE_ENABLED: 'dashboard-managed (.env.example documents that a host value is not forwarded)',
+      QUEUE_ENABLED: 'dashboard-managed (.env.reference documents that a host value is not forwarded)',
       // A typo or an absent value leaves these at the SECURE / documented-default state, so not
       // forwarding them cannot degrade a deployment.
       WEBHOOK_SSRF_PROTECT: 'fails safe (default on)',
@@ -412,7 +412,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     expect(names.filter(name => !config.includes(`'${name}'`))).toEqual([]);
   });
 
-  // .env.example documents API_PORT as the host port Docker Compose publishes, and the README quick
+  // .env.reference documents API_PORT as the host port Docker Compose publishes, and the README quick
   // start runs the dev file, so a hardcoded 2785 there ignores the knob when that port is taken.
   it.each(['docker-compose.yml'])('%s publishes the API on the API_PORT host port', file => {
     const parsed = yaml.load(readFileSync(join(__dirname, '../../..', file), 'utf8')) as ComposeFile;

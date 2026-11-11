@@ -5,7 +5,7 @@ import { createInflightBodyBudget, InflightBodyBudget } from './inflight-body-bu
 
 // A reservation covers the transfer of a body, not the work a handler does with it afterwards. The JSON and form
 // parsers sit right behind the budget, and the request stream closes as soon as the last byte is in, so the bytes
-// a running handler holds are not counted. docs/04-security-design.md and .env.example describe it that way.
+// a running handler holds are not counted. docs/04-security-design.md and .env.reference describe it that way.
 
 const KB = 1024;
 

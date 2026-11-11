@@ -125,8 +125,8 @@ It is created automatically, is ignored by git, and is included in backups. Neve
 
 ## Configuration
 
-All settings are environment variables; [`.env.example`](./.env.example) lists every one with an
-explanation. Settings are read in this order: the process environment, then `.env`, then
+All settings are environment variables. [`.env.example`](./.env.example) has the few most people need;
+[`.env.reference`](./.env.reference) lists every one with an explanation and its default. Settings are read in this order: the process environment, then `.env`, then
 `data/.env.generated` (written by the dashboard).
 
 Commonly changed:

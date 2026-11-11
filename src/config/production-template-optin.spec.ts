@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 import { isSwaggerEnabled, isValidationErrorDetailEnabled } from './bootstrap-security';
 
 /**
- * `.env.example` is both the "copy me" template and a self-described production config — it ships
+ * `.env.reference` is both the "copy me" template and a self-described production config — it ships
  * `NODE_ENV=production` uncommented. Anything else shipped uncommented becomes a PIN the moment an
  * operator copies the file, so a setting that defaults OFF under production must not be pre-selected
  * ON in the template: copying it would silently opt a production host into the very thing the
@@ -27,7 +27,7 @@ const PRODUCTION_OFF_OPT_INS: ReadonlyArray<{
 
 /**
  * The production-off opt-ins a copied template would pre-select. Empty for a template that does not
- * declare production — the rule is about what `cp .env.example .env` pins on a production host.
+ * declare production — the rule is about what `cp .env.reference .env` pins on a production host.
  */
 function preSelectedOptIns(templateText: string): string[] {
   const env = dotenv.parse(templateText);
@@ -37,8 +37,8 @@ function preSelectedOptIns(templateText: string): string[] {
   ).map(optIn => optIn.key);
 }
 
-describe('.env.example does not pre-select a production-off opt-in', () => {
-  const templatePath = path.join(__dirname, '..', '..', '.env.example');
+describe('.env.reference does not pre-select a production-off opt-in', () => {
+  const templatePath = path.join(__dirname, '..', '..', '.env.reference');
   const template = fs.readFileSync(templatePath, 'utf8');
 
   it('pre-selects nothing that production defaults off', () => {
