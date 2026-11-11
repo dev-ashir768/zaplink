@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { BackfillLegacyMessageTypes1791300000000 } from '../1791300000000-BackfillLegacyMessageTypes';
 
 describe('BackfillLegacyMessageTypes migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     await ds.query(`CREATE TABLE "messages" ("id" varchar PRIMARY KEY NOT NULL, "type" varchar NOT NULL)`);
     const types = [

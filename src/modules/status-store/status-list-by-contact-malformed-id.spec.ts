@@ -5,6 +5,7 @@ import type { LidMappingStoreService } from '../../engine/identity/lid-mapping-s
 import { resolveJidCandidates } from '../../engine/identity/jid-candidates';
 import { StatusUpdate } from './entities/status-update.entity';
 import { StatusStoreService } from './status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const config = { get: (_key: string, def?: unknown) => def } as unknown as ConfigService;
 
@@ -19,7 +20,7 @@ describe('StatusStoreService.listByContact with an id that names no individual',
   let repository: Repository<StatusUpdate>;
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [StatusUpdate], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [StatusUpdate], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(StatusUpdate);
   });

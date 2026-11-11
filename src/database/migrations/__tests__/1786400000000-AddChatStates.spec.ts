@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddChatStates1786400000000 } from '../1786400000000-AddChatStates';
 
 describe('AddChatStates migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
   });
 
@@ -43,7 +44,7 @@ describe('AddChatStates migration', () => {
     await migration.up(runner);
 
     await runner.query(
-      `INSERT INTO "chat_states" ("sessionId", "chatId", "muteEndTime", "archived", "pinned") VALUES ('s1', '628@g.us', 1788000000000, 0, 1)`,
+      `INSERT INTO "chat_states" ("sessionId", "chatId", "muteEndTime", "archived", "pinned") VALUES ('s1', '628@g.us', 1788000000000, false, true)`,
     );
     const rows = (await runner.query(
       `SELECT "muteEndTime", "pinned" FROM "chat_states" WHERE "sessionId" = 's1'`,

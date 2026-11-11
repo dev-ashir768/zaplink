@@ -7,6 +7,7 @@ import { BaileysSessionStore } from './baileys-session-store';
 import { Session, SessionStatus } from '../../modules/session/entities/session.entity';
 import { createLogger } from '../../common/services/logger.service';
 import { ConcurrencyLimiter } from '../../common/utils/concurrency-limiter';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const PHONE_JID = '628111@s.whatsapp.net';
 const LID_JID = '111@lid';
@@ -23,7 +24,7 @@ const waitForCondition = async (predicate: () => Promise<boolean> | boolean, tim
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await predicate()) return;
-    await new Promise<void>(resolve => setImmediate(resolve));
+    await new Promise<void>(resolve => setTimeout(resolve, 5));
   }
   throw new Error('Timed out waiting for condition');
 };
@@ -40,8 +41,7 @@ describe('Baileys live edit and revoke previews across LID and phone chat keys',
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, BaileysStoredMessage],
       synchronize: true,
     }).initialize();
@@ -224,7 +224,7 @@ describe('Baileys live edit and revoke previews across LID and phone chat keys',
         },
       ],
     });
-    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setTimeout(resolve, 5));
     releaseMedia();
     await waitForCondition(
       () => (events as unknown as { inboundInFlight: Map<string, unknown> }).inboundInFlight.size === 0,
@@ -261,7 +261,7 @@ describe('Baileys live edit and revoke previews across LID and phone chat keys',
         },
       ],
     });
-    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setTimeout(resolve, 5));
     releaseMedia();
     await waitForCondition(
       () => (events as unknown as { inboundInFlight: Map<string, unknown> }).inboundInFlight.size === 0,

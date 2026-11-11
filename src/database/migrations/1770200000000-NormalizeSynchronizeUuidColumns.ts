@@ -14,8 +14,8 @@ import { assertPgcryptoOnSearchPath } from '../pgcrypto-search-path';
  *
  * Ordered immediately after the baseline (1770108659848) and before that first collision, this migration
  * converts the 9 generated-uuid PKs + 3 session-FK columns to varchar in lockstep (dropping/recreating
- * the CASCADE FKs), then sets the `gen_random_uuid()::varchar` DEFAULTs. It is a no-op on SQLite and on
- * an already-varchar (healthy) Postgres schema via a single information_schema probe.
+ * the CASCADE FKs), then sets the `gen_random_uuid()::varchar` DEFAULTs. It is a no-op on an
+ * already-varchar (healthy) Postgres schema via a single information_schema probe.
  *
  * See issue #690. Operational note: `ALTER COLUMN ... TYPE varchar` is a full-table rewrite under an
  * ACCESS EXCLUSIVE lock; for very large `messages` tables, run via the CLI (`npm run migration:run`)
@@ -24,7 +24,7 @@ import { assertPgcryptoOnSearchPath } from '../pgcrypto-search-path';
 export class NormalizeSynchronizeUuidColumns1770200000000 implements MigrationInterface {
   name = 'NormalizeSynchronizeUuidColumns1770200000000';
 
-  // The 9 generated-uuid PKs on the DATA connection. api_keys/audit_logs live on the sqlite 'main'
+  // The 9 generated-uuid PKs on the DATA connection. api_keys/audit_logs live on the 'main'
   // connection (immune). lid_mappings/ingress_events/plugin_instances use a varchar @PrimaryColumn by
   // design — do NOT add them here.
   private readonly uuidPkTables = [
@@ -50,7 +50,6 @@ export class NormalizeSynchronizeUuidColumns1770200000000 implements MigrationIn
   ];
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type !== 'postgres') return;
     // Gate: synchronize builds the WHOLE schema atomically (all-uuid, or synchronize itself errors), so a
     // single representative probe on sessions.id is sufficient to detect a drifted schema. Per-column
     // guards inside the loops below add defense-in-depth for the (non-reachable) partial-drift case.
@@ -105,7 +104,6 @@ export class NormalizeSynchronizeUuidColumns1770200000000 implements MigrationIn
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Best-effort inverse (varchar -> native uuid); only meaningful to re-enable synchronize. USING id::uuid
     // validates every value — Postgres aborts on non-uuid strings (no silent corruption).
-    if (queryRunner.dataSource.options.type !== 'postgres') return;
     if (await this.columnIsUuid(queryRunner, 'sessions', 'id')) return; // already native uuid: nothing to revert
 
     await queryRunner.query(`SET LOCAL statement_timeout = 0`);

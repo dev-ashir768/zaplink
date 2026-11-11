@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 function seed(values: Record<string, string>): void {
-  const config = { DATABASE_TYPE: 'sqlite', STORAGE_TYPE: 'local', ENGINE_TYPE: 'baileys', ...values };
+  const config = { ...database, STORAGE_TYPE: 'local', ENGINE_TYPE: 'baileys', ...values };
   actualFs.writeFileSync(
     file,
     Object.entries(config)
@@ -91,51 +91,6 @@ async function admitted<T>(body: unknown, metatype: new () => T): Promise<T> {
 async function save(body: unknown) {
   return build().controller.saveConfig(await admitted(body, SaveConfigDto));
 }
-
-it.each([true, false])('preserves the SQLite file path with an explicit type %s', explicit => {
-  seed({ DATABASE_NAME: './data/customer.sqlite' });
-  const result = build().controller.saveConfig({
-    database: explicit ? { type: 'sqlite' } : {},
-    engine: { headless: false },
-  });
-  expect(result.saved).toBe(true);
-  expect(dotenv.parse(actualFs.readFileSync(file)).DATABASE_NAME).toBe('./data/customer.sqlite');
-});
-
-describe('a SQLite file path in DATABASE_NAME', () => {
-  const stored = { DATABASE_NAME: './data/customer.sqlite' };
-  const postgres = { database: { type: 'postgres' as const, host: 'db.example.invalid', username: 'app' } };
-  const passwordless = { ...postgres, database: { ...postgres.database, password: 'DummyPassword123456' } };
-
-  it.each([
-    ['sqlite', ''],
-    ['postgres', 'appdb'],
-  ])('is reported to the form as a name only under %s', (type, name) => {
-    seed({ ...stored, DATABASE_TYPE: type, ...(type === 'postgres' ? { ...database, DATABASE_NAME: 'appdb' } : {}) });
-    expect(build().controller.getConfig().database.database).toBe(name);
-  });
-
-  it('does not become the PostgreSQL database name on a direct switch', async () => {
-    seed(stored);
-    expect((await save(passwordless)).saved).toBe(true);
-    expect(dotenv.parse(actualFs.readFileSync(file))).not.toHaveProperty('DATABASE_NAME');
-  });
-
-  it('does not become the PostgreSQL database name after a SQLite save', async () => {
-    seed(stored);
-    expect((await save({ database: { type: 'sqlite' } })).saved).toBe(true);
-    expect(dotenv.parse(actualFs.readFileSync(file)).DATABASE_NAME).toBe('./data/customer.sqlite');
-    expect((await save(passwordless)).saved).toBe(true);
-    expect(dotenv.parse(actualFs.readFileSync(file))).not.toHaveProperty('DATABASE_NAME');
-  });
-});
-
-it('drops the PostgreSQL database name when leaving PostgreSQL for SQLite', () => {
-  seed({ DATABASE_TYPE: 'postgres', DATABASE_HOST: 'db.example.invalid', DATABASE_NAME: 'zaplink' });
-  const result = build().controller.saveConfig({ database: { type: 'sqlite' } });
-  expect(result.saved).toBe(true);
-  expect(dotenv.parse(actualFs.readFileSync(file))).not.toHaveProperty('DATABASE_NAME');
-});
 
 it('preserves the old overlay after a bounded partial write failure and lets a retry succeed', async () => {
   seed({ ...database, PUPPETEER_HEADLESS: 'true' });
@@ -273,18 +228,6 @@ const invalidBootCases: Array<{
   pins: Record<string, string>;
   body: unknown;
 }> = [
-  {
-    name: 'missing PostgreSQL host and user',
-    stored: {},
-    pins: {},
-    body: { database: { type: 'postgres', password: 'DummyPassword123456' } },
-  },
-  {
-    name: 'a PostgreSQL bare name under a SQLite type pin',
-    stored: {},
-    pins: { DATABASE_TYPE: 'sqlite' },
-    body: { database: { type: 'postgres', builtIn: true } },
-  },
   { name: 'an exponent-form pool size', stored: database, pins: {}, body: { database: { poolSize: 1e21 } } },
   {
     name: 'a true TLS pin for bundled PostgreSQL',
@@ -376,12 +319,6 @@ const disabledServices: Array<{
   body: SaveConfigDto;
 }> = [
   {
-    profile: 'postgres',
-    stored: { ...database, POSTGRES_BUILTIN: 'true', DATABASE_HOST: 'postgres' },
-    pins: { DATABASE_HOST: 'postgres' },
-    body: { database: { type: 'sqlite' } },
-  },
-  {
     profile: 'minio',
     stored: {
       STORAGE_TYPE: 's3',
@@ -429,16 +366,17 @@ it.each(['QUEUE_ENABLED', 'CACHE_ENABLED'])('keeps Redis for its active %s consu
 });
 
 it('writes the same unused-profile stop to the signal-file fallback', async () => {
-  process.env.DATABASE_HOST = 'ZapLink-POSTGRES.';
-  recordPinnedEnvKeys({ DATABASE_HOST: process.env.DATABASE_HOST });
+  // Local storage leaves the bundled MinIO unused even though its host is pinned.
+  process.env.S3_ENDPOINT = 'http://ZapLink-MINIO.:9000';
+  recordPinnedEnvKeys({ S3_ENDPOINT: process.env.S3_ENDPOINT });
   const { controller, stop } = build(false);
-  expect((await controller.requestRestart({ profilesToRemove: ['postgres'] })).profilesToRemove).toEqual(['postgres']);
+  expect((await controller.requestRestart({ profilesToRemove: ['minio'] })).profilesToRemove).toEqual(['minio']);
   expect(
     (
       JSON.parse(actualFs.readFileSync(path.join(directory, 'data', '.orchestration-request.json'), 'utf8')) as {
         profilesToRemove: string[];
       }
     ).profilesToRemove,
-  ).toEqual(['postgres']);
+  ).toEqual(['minio']);
   expect(stop).not.toHaveBeenCalled();
 });

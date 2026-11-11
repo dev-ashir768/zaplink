@@ -12,9 +12,6 @@ import { assertPgcryptoOnSearchPath } from '../pgcrypto-search-path';
  *   supply the value. Without a column DEFAULT this fails with:
  *     null value in column "id" of relation "<table>" violates not-null constraint
  *
- *   This migration is a no-op on SQLite (TypeORM generates the UUID in the
- *   driver layer there, so no DB default is needed).
- *
  *   `gen_random_uuid()` is a core built-in from PostgreSQL 13; on PG <= 12 it lives
  *   in the pgcrypto extension. We therefore version-gate: on PG 13+ no extension is
  *   touched at all (the common case, and CREATE EXTENSION needs a privilege managed
@@ -31,8 +28,6 @@ export class AddUuidDefaultsForPostgres1779235200000 implements MigrationInterfa
   private readonly tables = ['sessions', 'webhooks', 'messages', 'message_batches'];
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type !== 'postgres') return;
-
     // gen_random_uuid() is a core built-in from PostgreSQL 13+, so on any modern server we need NO
     // extension — and CREATE EXTENSION requires a privilege that managed Postgres (RDS/Cloud SQL/…)
     // often withholds, so running it unconditionally crash-loops boot there. Probe the version with a
@@ -73,8 +68,6 @@ export class AddUuidDefaultsForPostgres1779235200000 implements MigrationInterfa
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type !== 'postgres') return;
-
     for (const table of this.tables) {
       const exists = await queryRunner.hasTable(table);
       if (!exists) continue;

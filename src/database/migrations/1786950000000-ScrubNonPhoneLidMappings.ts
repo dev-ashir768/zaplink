@@ -23,8 +23,7 @@ export class ScrubNonPhoneLidMappings1786950000000 implements MigrationInterface
 
   static async scrub(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('lid_mappings'))) return;
-    const notDigits =
-      queryRunner.dataSource.options.type === 'postgres' ? `"phone" !~ '^[0-9]+$'` : `"phone" GLOB '*[^0-9]*'`;
+    const notDigits = `"phone" !~ '^[0-9]+$'`;
     await queryRunner.query(`DELETE FROM "lid_mappings" WHERE ${notDigits} OR "phone" = ''`);
     if (!(await queryRunner.hasTable('messages'))) return;
     await queryRunner.query(

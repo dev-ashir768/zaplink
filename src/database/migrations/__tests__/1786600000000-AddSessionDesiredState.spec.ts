@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddSessionDesiredState1786600000000 } from '../1786600000000-AddSessionDesiredState';
 
 describe('AddSessionDesiredState migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     await ds.query(`CREATE TABLE "sessions" ("id" varchar PRIMARY KEY NOT NULL, "name" varchar NOT NULL)`);
     await ds.query(`INSERT INTO "sessions" ("id", "name") VALUES ('s1', 'main')`);

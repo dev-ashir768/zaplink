@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { Session } from './entities/session.entity';
 import { SessionService } from './session.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * PATCH /config merges into the stored blob. Two overlapping requests that each read the same blob
@@ -14,7 +15,7 @@ describe('SessionService.updateConfig under concurrent requests', () => {
   let service: SessionService;
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
     await ds.initialize();
     const attach = { attachTo: (s: Session) => s } as never;
     const unused = {} as never;
@@ -58,7 +59,7 @@ describe('SessionService.updateConfig under concurrent requests', () => {
   // The swap compares the stored text exactly, so a row not written by JSON.stringify must still update.
   it('updates a row whose stored text is not in the form this process writes', async () => {
     const { id } = await ds.getRepository(Session).save({ name: 'cfg-spaced', config: {} });
-    await ds.query(`UPDATE sessions SET config = '{ "operatorKey" : "keep" }' WHERE id = ?`, [id]);
+    await ds.query(`UPDATE sessions SET config = '{ "operatorKey" : "keep" }' WHERE id = $1`, [id]);
 
     await expect(service.updateConfig(id, { autoRejectCalls: true })).resolves.toMatchObject({ autoRejectCalls: true });
 

@@ -1,15 +1,16 @@
 import { DataSource, Repository } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { Message, MessageDirection, MessageStatus } from '../../../modules/message/entities/message.entity';
 import { ScrubRevokedMessageContent1786900000000 } from '../1786900000000-ScrubRevokedMessageContent';
 
-// A real SQLite database: the statement itself is what is under test.
+// A real Postgres database: the statement itself is what is under test.
 describe('ScrubRevokedMessageContent migration', () => {
   const migration = new ScrubRevokedMessageContent1786900000000();
   let ds: DataSource;
   let repository: Repository<Message>;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(Message);
   });
@@ -62,7 +63,7 @@ describe('ScrubRevokedMessageContent migration', () => {
   });
 
   it('skips a database without a messages table', async () => {
-    const empty = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    const empty = new DataSource({ ...pgTestOptions() });
     await empty.initialize();
     const runner = empty.createQueryRunner();
 

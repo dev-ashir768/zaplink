@@ -51,7 +51,7 @@ export const MEDIA_CAPTION_MAX_LENGTH = 1024;
 /**
  * Caps for the ids a caller chooses: a chat id and a bulk batch id. Both end up in a btree index
  * (the message chat indexes, UNIQUE(sessionId, batchId)), and PostgreSQL refuses an index entry past
- * about 2.7 KB with an error the client sees as a 500, where SQLite takes any length. A WhatsApp JID is
+ * about 2.7 KB with an error the client sees as a 500. A WhatsApp JID is
  * well under 100 characters, so 255 leaves room for every real id and matches the idempotency key cap.
  */
 export const CHAT_ID_MAX_LENGTH = 255;

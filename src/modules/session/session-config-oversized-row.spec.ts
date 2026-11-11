@@ -4,6 +4,7 @@ import { Session } from './entities/session.entity';
 import { SessionService } from './session.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { TABLE_IMPORTERS } from '../infra/table-importers';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The bound applies to a config that is created. A row that already holds more (stored before the bound existed, or
@@ -17,7 +18,7 @@ describe('a session row whose config is over the create bound', () => {
   const note = 'x'.repeat(4 * MAX_SESSION_CONFIG_BYTES);
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
     await ds.initialize();
     const attach = { attachTo: (s: Session) => s } as never;
     const unused = {} as never;

@@ -10,6 +10,7 @@ import { LidMapping } from '../../engine/identity/lid-mapping.entity';
 import { userPart } from '../../engine/identity/wa-id';
 import { StatusUpdate } from './entities/status-update.entity';
 import { StatusStoreService } from './status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /** A ConfigService stub that returns each call's default unless overridden by `overrides`. */
 function fakeConfigService(overrides: Record<string, unknown> = {}): ConfigService {
@@ -31,7 +32,7 @@ describe('StatusStoreService (ingest / list / getMedia)', () => {
 
   beforeAll(async () => {
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-store-'));
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [StatusUpdate], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [StatusUpdate], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(StatusUpdate);
     storageService = makeStorageService(path.join(baseDir, 'media'));
@@ -43,9 +44,8 @@ describe('StatusStoreService (ingest / list / getMedia)', () => {
     fs.rmSync(baseDir, { recursive: true, force: true });
   });
 
-  // SQLite serves every repository from one connection, so a transaction a save opens is shared with the
-  // writes made while it is open, and the rollback of a duplicate's unique violation would undo them too,
-  // after ingest had reported them created and the status.received webhook had gone out.
+  // The rollback of a duplicate's unique violation must not undo writes made while it was open, after
+  // ingest had reported them created and the status.received webhook had gone out.
   it('keeps a row written while a duplicate that lost the unique-key race is refused', async () => {
     const status = (waStatusId: string) => ({
       waStatusId,
@@ -433,7 +433,11 @@ describe('StatusStoreService ingest race (unique-constraint loser)', () => {
     // First findOne (top of ingest) sees nothing; the post-save-failure re-read returns the winner.
     const repo = {
       findOne: jest.fn().mockResolvedValueOnce(null).mockResolvedValue(winner),
-      save: jest.fn().mockRejectedValue(new Error('UNIQUE constraint failed')),
+      save: jest
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
+        ),
     } as unknown as Repository<StatusUpdate>;
     const service = new StatusStoreService(repo, storageService, fakeConfigService());
 
@@ -530,7 +534,7 @@ describe('StatusStoreService contact identity (read-time lid resolution)', () =>
 
   beforeEach(async () => {
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-lid-'));
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [StatusUpdate], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [StatusUpdate], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(StatusUpdate);
     storageService = makeStorageService(path.join(baseDir, 'media'));
@@ -668,7 +672,7 @@ describe('StatusStoreService.purgeExpired', () => {
 
   beforeEach(async () => {
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-purge-'));
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [StatusUpdate], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [StatusUpdate], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(StatusUpdate);
     storageService = makeStorageService(path.join(baseDir, 'media'));
@@ -775,7 +779,7 @@ describe('StatusStoreService.purgeExpired', () => {
     expect(deleteFile).toHaveBeenCalledTimes(2);
   });
 
-  /** Seed rows cheaply, in statements well under SQLite's bind-parameter ceiling. */
+  /** Seed rows cheaply, in statements well under the bind-parameter ceiling. */
   const seed = async (rows: Array<Partial<StatusUpdate>>): Promise<void> => {
     for (let i = 0; i < rows.length; i += 100) {
       await repository.insert(
@@ -853,7 +857,7 @@ describe('StatusStoreService.sweepOrphanedMedia', () => {
 
   beforeEach(async () => {
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-sweep-'));
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [StatusUpdate], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [StatusUpdate], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(StatusUpdate);
     storageService = makeStorageService(path.join(baseDir, 'media'));

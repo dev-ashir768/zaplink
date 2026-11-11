@@ -35,48 +35,6 @@ describe('data CLI DataSource', () => {
     }
   });
 
-  it('refuses to load when DATABASE_NAME resolves to the main DB file (CLI collision guard)', () => {
-    // The migration CLI never runs ConfigModule's validate(), so the SQLite main/data collision
-    // guard is applied at module load instead — data migrations must never run against the main
-    // (auth/audit) file.
-    const prevMain = process.env.MAIN_DATABASE_NAME;
-    const prevData = process.env.DATABASE_NAME;
-    process.env.MAIN_DATABASE_NAME = '/tmp/cli-guard-main.sqlite';
-    // A non-normalized relative spelling of the same file must be caught too.
-    process.env.DATABASE_NAME = '/tmp/../tmp/cli-guard-main.sqlite';
-    jest.resetModules();
-    try {
-      expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require('./data-source');
-      }).toThrow(/DATABASE_NAME/);
-    } finally {
-      if (prevMain !== undefined) process.env.MAIN_DATABASE_NAME = prevMain;
-      else delete process.env.MAIN_DATABASE_NAME;
-      if (prevData !== undefined) process.env.DATABASE_NAME = prevData;
-      else delete process.env.DATABASE_NAME;
-      jest.resetModules();
-    }
-  });
-
-  // Boot rejects a padded selector, but the CLI compared it raw: 'postgres ' from the host env, or
-  // quoted in .env, picked the SQLite options and migrated a file named after the Postgres database.
-  it.each(['postgres ', ' sqlite', 'postgre'])('refuses to load with DATABASE_TYPE %j', value => {
-    const prevType = process.env.DATABASE_TYPE;
-    process.env.DATABASE_TYPE = value;
-    jest.resetModules();
-    try {
-      expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require('./data-source');
-      }).toThrow(`DATABASE_TYPE must be "sqlite" or "postgres" (got ${JSON.stringify(value)})`);
-    } finally {
-      if (prevType !== undefined) process.env.DATABASE_TYPE = prevType;
-      else delete process.env.DATABASE_TYPE;
-      jest.resetModules();
-    }
-  });
-
   it('refuses to load a postgres CLI connection with a mixed-case POSTGRES_SCHEMA', () => {
     // search_path is unquoted (folded to lower case) while TypeORM quotes the schema, so migration DDL
     // and the ledger would land in two different schemas.

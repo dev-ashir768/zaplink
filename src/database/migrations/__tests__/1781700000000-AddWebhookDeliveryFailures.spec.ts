@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddWebhookDeliveryFailures1781700000000 } from '../1781700000000-AddWebhookDeliveryFailures';
 
 describe('AddWebhookDeliveryFailures migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
   });
 
@@ -15,7 +16,7 @@ describe('AddWebhookDeliveryFailures migration', () => {
 
   const tableExists = async (): Promise<boolean> => {
     const rows = await ds.query<{ name: string }[]>(
-      `SELECT name FROM sqlite_master WHERE type='table' AND name='webhook_delivery_failures'`,
+      `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'webhook_delivery_failures'`,
     );
     return rows.length > 0;
   };

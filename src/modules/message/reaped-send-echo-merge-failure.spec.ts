@@ -9,6 +9,7 @@ import { MessageSendService } from './message-send.service';
 import { SendPacingService } from './send-pacing.service';
 import { computeSendPacingConfig } from './send-pacing.config';
 import { PendingMessageReaperService } from './pending-message-reaper.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The pending reaper tells a stranded PENDING row from a live send by age alone, and MESSAGE_REAPER_GRACE_MS=0
@@ -34,8 +35,7 @@ describe.each([
   beforeEach(async () => {
     process.env.SIMULATE_TYPING = 'false';
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message],
       synchronize: true,
     });

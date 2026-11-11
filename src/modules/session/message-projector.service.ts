@@ -8,7 +8,6 @@ import { Session } from './entities/session.entity';
 import { Message, MessageDirection, MessageStatus } from '../message/entities/message.entity';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { KeyedMutationQueue } from '../../common/utils/keyed-mutation-queue';
-import { awaitNoOpenTransaction } from '../../common/utils/shared-connection';
 import { captureSessionWrites } from '../../common/utils/session-write-scope';
 import { SessionLidResolver } from './session-lid-resolver.service';
 import { buildMessageMetadata, REVOKED_ROW_PATCH, storableWaMessageId } from './message-row.mapper';
@@ -374,12 +373,11 @@ export class MessageProjector {
   }
 
   /**
-   * Whether the engines hold each inbound message from its arrival until its row is written. Only
-   * PostgreSQL needs it: a downloaded payload waits in memory for its asynchronous insert, while
-   * better-sqlite3 writes synchronously, so the backlog drains within the arrival's own task.
+   * Whether the engines hold each inbound message from its arrival until its row is written: a
+   * downloaded payload waits in memory for its asynchronous insert.
    */
   get holdsInbound(): boolean {
-    return this.messageRepository.manager?.connection?.options?.type === 'postgres';
+    return true;
   }
 
   /**
@@ -597,10 +595,6 @@ export class MessageProjector {
       let data = messageData;
       if (data.id && data.type !== 'revoked') {
         try {
-          const connection = this.messageRepository.manager?.connection;
-          if (connection && !(await awaitNoOpenTransaction(connection))) {
-            throw new Error('Timed out waiting for the message database transaction');
-          }
           // The unique message key bounds this read. A tombstone outlives this projector and any engine copy.
           const row = await this.messageRepository.findOne({
             where: { sessionId: id, waMessageId: data.id, type: 'revoked' },
@@ -1020,9 +1014,8 @@ export class MessageProjector {
         .finally(() => writes.close());
       // `insert()` (not `save()`) does NOT merge DB-generated columns (@PrimaryGeneratedColumn,
       // @CreateDateColumn) back onto the entity instance — so merge them explicitly here, before
-      // the `message:persisted` emit. `identifiers[0]` always carries the PK on both SQLite and
-      // Postgres; `generatedMaps[0]` adds createdAt where the driver returns it (Postgres yes;
-      // SQLite historically does not — acceptable; the PK is the load-bearing field for plugins).
+      // the `message:persisted` emit. `identifiers[0]` carries the PK; `generatedMaps[0]` adds
+      // createdAt, which Postgres returns from the insert.
       Object.assign(dbMessage, result.identifiers[0] ?? {}, result.generatedMaps?.[0] ?? {});
       return { landed: 'yes' };
     };
@@ -1315,8 +1308,8 @@ export class MessageProjector {
     // (wwjs `message` and Baileys `upsert`) converge on this persist, so one emit covers inbound.
     // The built-in FTS search provider is DB-synced and does NOT consume this; it exists for
     // plugin providers (Spec 2) + general use.
-    // Gate ONLY the hook on `persisted`: on a non-unique insert error (transient SQLITE_BUSY /
-    // lock-timeout / connection drop) the row was never stored and `dbMessage.id` is undefined,
+    // Gate ONLY the hook on `persisted`: on a non-unique insert error (transient lock-timeout /
+    // connection drop) the row was never stored and `dbMessage.id` is undefined,
     // so emitting `message:persisted` would hand plugins an id-less payload for a row that isn't
     // in the DB. The webhook/WS dispatch below stays fail-open — a real inbound message must
     // never be dropped on a transient DB failure; only the hook requires a durable row.

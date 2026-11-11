@@ -434,7 +434,7 @@ export class BaileysEvents {
 
   /**
    * Reactions, edits and deletes that reached a message still being processed where nothing is admitted before
-   * the emit (SQLite), by its id, in the order they arrived, with the timer that lets them go if the message is
+   * the emit, by its id, in the order they arrived, with the timer that lets them go if the message is
    * never handed on. The session holds no entry for such a message until it is emitted, so a reaction announced
    * earlier is stored nowhere and an edit leaves no marker: they are announced right after the emit instead (see
    * announceWhenHandedOn).

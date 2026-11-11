@@ -4,6 +4,8 @@ import { get } from 'http';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
+import { Client } from 'pg';
+import { TEST_DATABASE_URL, TEST_SCHEMA_PREFIX, testDatabaseEnv, testSchemaName } from './test-utils/pg-test-db';
 
 /**
  * The real src/main.ts, booted through ts-node in a scratch working directory with a minimal environment, and
@@ -167,16 +169,31 @@ describe('the native fault cases without a C compiler', () => {
 describePosix('process signals on the running gateway', () => {
   let root: string;
   const children: ChildProcess[] = [];
+  // Every boot runs the real migrations against the test PostgreSQL, in a schema of this file's own. Not the
+  // shared t_ prefix: the global teardown of a concurrent run drops those, and this schema must outlive the
+  // in-process DataSources that prefix is meant for.
+  const schema = `signals_${testSchemaName().slice(TEST_SCHEMA_PREFIX.length)}`;
+  const withDatabase = async (sql: string): Promise<void> => {
+    const client = new Client({ connectionString: TEST_DATABASE_URL });
+    await client.connect();
+    try {
+      await client.query(sql);
+    } finally {
+      await client.end();
+    }
+  };
 
-  beforeAll(() => {
+  beforeAll(async () => {
     root = mkdtempSync(join(tmpdir(), 'zaplink-signals-'));
+    await withDatabase(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     for (const child of children) {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
     }
     rmSync(root, { recursive: true, force: true });
+    await withDatabase(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   });
 
   /** Boots src/main.ts and resolves once the process has answered /api/health/live. */
@@ -204,6 +221,8 @@ describePosix('process signals on the running gateway', () => {
         TS_NODE_TRANSPILE_ONLY: 'true',
         LISTENERS_FILE: listenersFile,
         WATCHED_SIGNALS: JSON.stringify(WATCHED),
+        ...testDatabaseEnv(),
+        POSTGRES_SCHEMA: schema,
         ...extraEnv,
       },
       stdio: ['ignore', 'pipe', 'pipe'],

@@ -177,7 +177,7 @@ interface RefusalSample {
 const REFUSAL_AUDIT_WINDOW_MS = 60_000;
 /** Bound on the sampling map, so a churn of session ids cannot grow it without limit. */
 const MAX_REFUSAL_KEYS = 1000;
-/** Ids per IN list in a history read: SQLite binds at most 32766 variables in a statement, PostgreSQL 65535. */
+/** Ids per IN list in a history read: PostgreSQL binds at most 65535 parameters in a statement. */
 const LOOKUP_CHUNK = 500;
 
 /**
@@ -737,7 +737,7 @@ export class SendPacingService {
         // One id per user-id dialect pair, not per stored spelling: the same person reached under both
         // user-id dialects today is one chat, and the correlated lookups below match either spelling
         // (see dialectVariants — a chat known as @s.whatsapp.net is not a stranger as @c.us).
-        // REPLACE is the portable normalisation both SQLite and Postgres carry; the paired IN keeps
+        // REPLACE does the normalisation; the paired IN keeps
         // the inner side's `chatId` index usable.
         .select(`DISTINCT REPLACE(m."chatId", '@s.whatsapp.net', '@c.us')`, 'chatId')
         .where('m.sessionId = :sessionId', { sessionId })
@@ -913,8 +913,7 @@ const DAY_MS = 86_400_000;
 
 /**
  * SQL for both user-id spellings of `<alias>."chatId"`, for use as an `IN (…)` list. The same idea
- * as {@link dialectVariants}, expressed portably: REPLACE exists on SQLite and Postgres alike, and
- * for a non-user id (a group, a lid) both branches collapse to the raw value.
+ * as {@link dialectVariants}, expressed in SQL with REPLACE; for a non-user id (a group, a lid) both branches collapse to the raw value.
  */
 const DIALECT_PAIR = (alias: string): string =>
   `REPLACE(${alias}."chatId", '@s.whatsapp.net', '@c.us'), REPLACE(${alias}."chatId", '@c.us', '@s.whatsapp.net')`;

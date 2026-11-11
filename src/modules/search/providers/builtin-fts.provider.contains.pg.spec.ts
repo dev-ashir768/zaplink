@@ -1,45 +1,46 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
 import { BadRequestException, NotImplementedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { join } from 'path';
 import { BuiltInFtsProvider, TRIGRAM_BUILD_LOCK, TRIGRAM_BUILD_LOCK_KEY } from './builtin-fts.provider';
+import { testDatabaseEnv } from '../../../test-utils/pg-test-db';
+
+const testEnv = testDatabaseEnv();
+const testServer = {
+  host: testEnv.DATABASE_HOST,
+  port: Number(testEnv.DATABASE_PORT),
+  username: testEnv.DATABASE_USERNAME,
+  password: testEnv.DATABASE_PASSWORD,
+};
 
 /**
  * Postgres runtime coverage for match=contains: the pg_trgm/unaccent schema buildContainsIndex creates
- * when SEARCH_CONTAINS_ENABLED is on, queried through BuiltInFtsProvider. Companion to the SQLite spec
- * (builtin-fts.provider.contains.spec.ts); asserts the same contract (substring, case- and
- * accent-insensitive, every term required, short terms narrowing, literal wildcards) plus what only
- * Postgres has: the term rule pg_trgm imposes, the CONCURRENTLY build and its lock, and the indexes
+ * when SEARCH_CONTAINS_ENABLED is on, queried through BuiltInFtsProvider: substring, case- and
+ * accent-insensitive, every term required, short terms narrowing, literal wildcards, the term rule pg_trgm imposes, the CONCURRENTLY build and its lock, and the indexes
  * actually answering the query.
  *
  * `messages` comes from the real data migration chain, on a scratch database of its own, so the plans
  * below are chosen among the indexes production has (IDX_messages_createdAt among them), not among the
- * ones a hand-made table happens to carry. Skipped unless DATABASE_TYPE=postgres; connects with
- * DATABASE_HOST/PORT/USERNAME/PASSWORD/NAME, and the role must be allowed to create databases and the
- * two extensions (the CI postgres:16 service's owner role is).
+ * ones a hand-made table happens to carry. The scratch databases live on the test server
+ * (TEST_DATABASE_URL), whose role must be allowed to create databases and the two extensions; they are
+ * dropped afterwards.
  */
-const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 
 /** Named for the suite so a crashed run leaves an obvious orphan rather than a mystery database. */
-const SCRATCH_DB = 'zaplink_contains_search_probe';
+const SCRATCH_DB = `zaplink_contains_search_probe_${process.pid}`;
 /** The same, created with a C ctype. */
-const SCRATCH_C_DB = 'zaplink_contains_search_probe_c';
+const SCRATCH_C_DB = `zaplink_contains_search_probe_c_${process.pid}`;
 
 const connection = (database: string): DataSourceOptions => ({
   type: 'postgres',
-  host: process.env.DATABASE_HOST || 'localhost',
-  port: Number(process.env.DATABASE_PORT || 5432),
-  username: process.env.DATABASE_USERNAME || 'zaplink',
-  password: process.env.DATABASE_PASSWORD || 'zaplink',
+  ...testServer,
   database,
 });
 
 const containsOn = new ConfigService({ search: { containsEnabled: true } });
 
-(POSTGRES_ENABLED ? describe : describe.skip)('BuiltInFtsProvider match=contains (postgres)', () => {
+describe('BuiltInFtsProvider match=contains (postgres)', () => {
   let admin: DataSource;
   let ds: DataSource;
 
@@ -60,7 +61,7 @@ const containsOn = new ConfigService({ search: { containsEnabled: true } });
     )[0];
 
   beforeAll(async () => {
-    admin = new DataSource(connection(process.env.DATABASE_NAME || 'zaplink'));
+    admin = new DataSource(connection(testEnv.DATABASE_NAME));
     await admin.initialize();
     await admin.query(`DROP DATABASE IF EXISTS "${SCRATCH_DB}"`);
     await admin.query(`CREATE DATABASE "${SCRATCH_DB}"`);
@@ -268,7 +269,7 @@ const containsOn = new ConfigService({ search: { containsEnabled: true } });
       }
     });
 
-    it('transliterates letters SQLite leaves alone, which docs/26 lists as a dialect difference', async () => {
+    it('transliterates letters such as Ł and ß', async () => {
       await insert('m5', 's1', 'Shipped from Łódź to the Straße', 50);
       expect((await provider.search({ q: 'lodz', match: 'contains' })).hits.map(h => h.messageId)).toEqual(['m5']);
       expect((await provider.search({ q: 'strasse', match: 'contains' })).hits.map(h => h.messageId)).toEqual(['m5']);

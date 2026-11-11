@@ -1,10 +1,8 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
-import { DataSource, EntitySchema, LessThan } from 'typeorm';
+import { DataSource, LessThan } from 'typeorm';
 import type { ClientBase } from 'pg';
 import { assertDataConnectionUtc, postgresUtcExtra } from './postgres-utc';
-import { InfraDataService, sqliteDatetimeColumns, toSqliteDatetime } from '../modules/infra/infra-data.service';
+import { InfraDataService } from '../modules/infra/infra-data.service';
 import { Session, SessionStatus } from '../modules/session/entities/session.entity';
 import { Webhook } from '../modules/webhook/entities/webhook.entity';
 import { Message, MessageDirection, MessageStatus } from '../modules/message/entities/message.entity';
@@ -24,6 +22,7 @@ import { StatusUpdate } from '../modules/status-store/entities/status-update.ent
 import { AutomationRule } from './retained-entities/automation-rule.entity';
 import { StatsService } from '../modules/stats/stats.service';
 import type { MigrationTables } from '../modules/infra/migration-tables.types';
+import { pgTestOptions, TEST_DATABASE_URL } from '../test-utils/pg-test-db';
 
 /**
  * Runtime proof of the UTC pin against a real PostgreSQL, with the process deliberately OFF UTC.
@@ -33,13 +32,11 @@ import type { MigrationTables } from '../modules/infra/migration-tables.types';
  * every restore and a retention window measured a cutoff that never happened. Everything here fails by
  * exactly that offset if any one of the three pins (bind, parse, session) is removed.
  *
- * Gating: mirrors the repo's PG harness convention (DATABASE_TYPE=postgres, the "Test (PostgreSQL
- * migrations)" CI job); the CI step additionally sets TZ, which the first test asserts rather than
- * trusts, because on a UTC host every assertion below would hold for the wrong reason.
+ * The process must run off UTC (TZ), which the first test asserts rather than trusts, because on a
+ * UTC host every assertion below would hold for the wrong reason.
  */
-const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 
-// Fixed uuids: every primary key on this connection is a real uuid column.
+// Fixed uuid-shaped ids.
 const SESSION_ID = '11111111-1111-4111-8111-111111111111';
 const OLD_ID = '22222222-2222-4222-8222-222222222222';
 const YOUNG_ID = '33333333-3333-4333-8333-333333333333';
@@ -68,43 +65,9 @@ const ENTITIES = [
   AutomationRule,
 ];
 
-/**
- * The `sessions` table as a SQLite deployment holds it: TypeORM's own `datetime` text for the
- * create/update dates, and plain `text` for the columns DateTransformer writes as ISO. Spelled out
- * rather than reusing the entity classes because those resolve their column types from DATABASE_TYPE
- * at import time, which is `postgres` for this suite.
- */
-const SqliteSession = new EntitySchema<Record<string, unknown>>({
-  name: 'SqliteSession',
-  tableName: 'sessions',
-  columns: {
-    id: { primary: true, type: 'varchar' },
-    name: { type: 'varchar' },
-    status: { type: 'varchar' },
-    phone: { type: 'varchar', nullable: true },
-    pushName: { type: 'varchar', nullable: true },
-    config: { type: 'text' },
-    proxyUrl: { type: 'varchar', nullable: true },
-    proxyType: { type: 'varchar', nullable: true },
-    connectedAt: { type: 'text', nullable: true },
-    lastActiveAt: { type: 'text', nullable: true },
-    createdAt: { type: 'datetime', createDate: true },
-    updatedAt: { type: 'datetime', updateDate: true },
-  },
-});
-
-(POSTGRES_ENABLED ? describe : describe.skip)('postgres UTC pin (real server, non-UTC process)', () => {
+describe('postgres UTC pin (real server, non-UTC process)', () => {
   let ds: DataSource;
-  let sqlite: DataSource;
   let infra: InfraDataService;
-
-  const connectionOptions = {
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
 
   // exportData only reads dataDatabase.type; stats reads its memo TTL, which 0 disables so a second
   // call re-queries instead of replaying the first answer.
@@ -114,37 +77,24 @@ const SqliteSession = new EntitySchema<Record<string, unknown>>({
   };
 
   beforeAll(async () => {
-    const admin = new DataSource({ type: 'postgres', ...connectionOptions });
-    await admin.initialize();
-    await admin.query('DROP SCHEMA IF EXISTS public CASCADE');
-    await admin.query('CREATE SCHEMA public');
-    await admin.destroy();
-
+    // pgTestOptions pins the connection exactly as the app's data connection does (postgresUtcExtra).
     ds = new DataSource({
-      type: 'postgres',
-      ...connectionOptions,
+      ...pgTestOptions(),
       entities: ENTITIES,
       synchronize: true,
-      extra: postgresUtcExtra(),
     });
     await ds.initialize();
     infra = new InfraDataService(cfg as never, ds, undefined, undefined, undefined, undefined);
-
-    sqlite = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [SqliteSession] });
-    await sqlite.initialize();
-    await sqlite.synchronize();
   }, 120_000);
 
   afterAll(async () => {
     if (ds?.isInitialized) await ds.destroy();
-    if (sqlite?.isInitialized) await sqlite.destroy();
   });
 
   beforeEach(async () => {
     await ds.query('DELETE FROM messages');
     await ds.query('DELETE FROM webhook_outbox_events');
     await ds.query('DELETE FROM sessions');
-    await sqlite.query('DELETE FROM sessions');
   });
 
   /** A session whose app-written columns hold a known instant; `createdAt` comes from DEFAULT now(). */
@@ -182,7 +132,7 @@ const SqliteSession = new EntitySchema<Record<string, unknown>>({
     // column, whose OID (1115) keeps pg-types' array parser.
     const arrays: unknown[] = await ds.query(
       `SELECT table_name, column_name FROM information_schema.columns
-       WHERE table_schema = 'public' AND udt_name IN ('_timestamp', '_timestamptz')`,
+       WHERE table_schema = current_schema() AND udt_name IN ('_timestamp', '_timestamptz')`,
     );
     expect(arrays).toEqual([]);
   });
@@ -196,7 +146,7 @@ const SqliteSession = new EntitySchema<Record<string, unknown>>({
     // DEFAULT now() run an hour ahead of what the driver reads back for the other half.
     const london = new DataSource({
       type: 'postgres',
-      ...connectionOptions,
+      url: TEST_DATABASE_URL,
       extra: { ...postgresUtcExtra(), onConnect: (c: ClientBase) => c.query("SET TIME ZONE 'Europe/London'"), max: 1 },
     });
     await london.initialize();
@@ -283,80 +233,6 @@ const SqliteSession = new EntitySchema<Record<string, unknown>>({
     expect((await rawSession()).connected).toBe('2026-01-01 00:00:00');
   });
 
-  it('restores a SQLite-made archive onto postgres at the same instant', async () => {
-    // Written by a real SQLite data connection below, which is what a SQLite deployment's export holds:
-    // `datetime` text for the create/update dates, DateTransformer's ISO text for the rest.
-    const repo = sqlite.getRepository(SqliteSession);
-    await repo.save({
-      id: SESSION_ID,
-      name: 'session-s1',
-      status: 'ready',
-      phone: null,
-      pushName: null,
-      config: '{}',
-      proxyUrl: null,
-      proxyType: null,
-      connectedAt: new Date('2026-01-01T00:00:00.000Z').toISOString(),
-      lastActiveAt: null,
-    });
-    const archivedRows: Array<Record<string, unknown>> = await sqlite.query('SELECT * FROM sessions');
-    const [archived] = archivedRows;
-    expect(archived.createdAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{3})?$/);
-
-    expect(await infra.importData({ tables: { sessions: [archived] } as never })).toMatchObject({
-      imported: true,
-      warnings: [],
-    });
-
-    const restored = await ds.getRepository(Session).findOneByOrFail({ id: SESSION_ID });
-    expect(restored.connectedAt?.toISOString()).toBe('2026-01-01T00:00:00.000Z');
-    expect(restored.createdAt.getTime()).toBe(
-      new Date(`${(archived.createdAt as string).replace(' ', 'T')}Z`).getTime(),
-    );
-  });
-
-  it('restores a postgres-made archive onto SQLite at the same instant', async () => {
-    const connectedAt = new Date('2026-01-01T00:00:00.000Z');
-    await seedSession(SESSION_ID, connectedAt);
-    const created = (await ds.getRepository(Session).findOneByOrFail({ id: SESSION_ID })).createdAt;
-
-    const archive = JSON.parse(JSON.stringify(await infra.exportData())) as { tables: MigrationTables };
-    const row = archive.tables.sessions[0] as unknown as Record<string, unknown>;
-
-    // The two steps importData takes on a SQLite target, with its own helpers: normalise the archived
-    // `datetime` columns, then bind through the `$N` rewrite the SQLite path uses.
-    const datetimeColumns = sqliteDatetimeColumns(sqlite).get('sessions') ?? [];
-    expect(datetimeColumns).toContain('createdAt');
-    const normalised = Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [key, datetimeColumns.includes(key) ? toSqliteDatetime(value) : value]),
-    );
-    await sqlite.query(
-      `INSERT INTO sessions (id, name, status, phone, "pushName", config, "proxyUrl", "proxyType", "connectedAt", "lastActiveAt", "createdAt", "updatedAt")
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        normalised.id,
-        normalised.name,
-        normalised.status,
-        normalised.phone ?? null,
-        normalised.pushName ?? null,
-        normalised.config,
-        normalised.proxyUrl ?? null,
-        normalised.proxyType ?? null,
-        normalised.connectedAt ?? null,
-        normalised.lastActiveAt ?? null,
-        normalised.createdAt,
-        normalised.updatedAt,
-      ],
-    );
-
-    const storedRows: Array<Record<string, string>> = await sqlite.query(
-      'SELECT "connectedAt", "createdAt" FROM sessions',
-    );
-    const [stored] = storedRows;
-    expect(stored.connectedAt).toBe('2026-01-01T00:00:00.000Z');
-    expect(new Date(`${stored.createdAt.replace(' ', 'T')}Z`).getTime()).toBe(created.getTime());
-  });
-
   it('deletes exactly the rows a retention window names', async () => {
     const outbox = ds.getRepository(WebhookOutboxEvent);
     const hoursFromCutoff = (hours: number): string =>
@@ -427,7 +303,6 @@ const SqliteSession = new EntitySchema<Record<string, unknown>>({
   });
 
   it('re-keys a name-keyed chat state on restore over a uuid sessions.id', async () => {
-    // synchronize gives sessions.id a native uuid type, which has no `=` against the varchar key.
     await ds.query('DELETE FROM chat_states');
     const session = await seedSession(SESSION_ID, new Date('2026-01-01T00:00:00.000Z'));
     const chats = ds.getRepository(ChatState);

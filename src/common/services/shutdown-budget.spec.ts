@@ -35,9 +35,8 @@ describe('shutdown time budget', () => {
     AUTOSTART_SHUTDOWN_WAIT_MS +
     DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS +
     ApiKeyUsageTracker.SHUTDOWN_FLUSH_TIMEOUT_MS;
-  const withPlugins = base;
   const clustered =
-    withPlugins +
+    base +
     MAX_WORKER_CLOSE_WAIT_MS +
     QUEUE_CLOSE_TIMEOUT_MS * QUEUE_COUNT +
     THROTTLER_REDIS_QUIT_TIMEOUT_MS +
@@ -45,7 +44,7 @@ describe('shutdown time budget', () => {
     WS_REDIS_QUIT_TIMEOUT_MS;
 
   it('sums to the documented totals', () => {
-    expect([base, withPlugins, clustered]).toEqual([28_000, 28_000, 46_000]);
+    expect([base, clustered]).toEqual([28_000, 46_000]);
   });
 
   it('registers one queue module per queue name, so the queue stage is counted per queue', () => {
@@ -64,7 +63,7 @@ describe('shutdown time budget', () => {
     expect(
       reserveMs >= MIN_RESERVE_MS
         ? 'ok'
-        : `reserve ${reserveMs} ms < ${MIN_RESERVE_MS} ms: raise SHUTDOWN_KILL_DEADLINE_MS, both compose files and the chart in step`,
+        : `reserve ${reserveMs} ms < ${MIN_RESERVE_MS} ms: raise SHUTDOWN_KILL_DEADLINE_MS and docker-compose.yml in step`,
     ).toBe('ok');
   });
 
@@ -83,7 +82,7 @@ describe('shutdown time budget', () => {
   // dumb-init is PID 1 as root and gosu then runs node as uid 997. A root process without CAP_KILL can only
   // signal its own uid, so a cap_drop ALL stack that does not re-add KILL never delivers SIGTERM to node:
   // every stop waits out the whole kill deadline and ends in SIGKILL with no teardown at all.
-  it.each(['docker-compose.yml', 'docker-compose.dev.yml'])('%s re-adds KILL so dumb-init can signal node', file => {
+  it.each(['docker-compose.yml'])('%s re-adds KILL so dumb-init can signal node', file => {
     const compose = yaml.load(readFileSync(join(root, file), 'utf8')) as {
       services: Record<string, { container_name?: string; cap_drop?: string[]; cap_add?: string[] }>;
     };

@@ -136,7 +136,9 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
       .sort();
     expect([...MANAGED_DOCKER_PROFILES].sort()).toEqual(builtin);
     for (const profile of MANAGED_DOCKER_PROFILES) {
-      expect(compose.services[profile].profiles).toContain(profile);
+      // PostgreSQL is the only supported database, so compose always starts it (no profile).
+      if (profile === 'postgres') expect(compose.services[profile].profiles).toBeUndefined();
+      else expect(compose.services[profile].profiles).toContain(profile);
     }
   });
 
@@ -216,12 +218,12 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     expect(cfg.Env).toEqual(['POSTGRES_USER=zaplink', 'POSTGRES_PASSWORD=zaplink', 'POSTGRES_DB=zaplink']);
     const env = compose.services.postgres.environment!;
     // Compose is the manual operator path: same user/db defaults, but deliberately NO default
-    // password (the image fails fast on an empty one). The orchestrated built-in path instead
+    // password (`:?` makes compose refuse to start without one). The orchestrated built-in path instead
     // provisions the fixed credential the production boot guard exempts for the built-in,
     // internal-host deployment (see the getContainerSpec docblock).
     expect(env.POSTGRES_USER).toBe('${DATABASE_USERNAME:-zaplink}');
     expect(env.POSTGRES_DB).toBe('${DATABASE_NAME:-zaplink}');
-    expect(env.POSTGRES_PASSWORD).toBe('${DATABASE_PASSWORD:-}');
+    expect(env.POSTGRES_PASSWORD).toBe('${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}');
   });
 
   it('postgres: initializes the role with the password the app will dial with', async () => {
@@ -348,7 +350,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     'docker-compose.yml': {
       // Owned by the dashboard's Infrastructure page, which writes data/.env.generated on the mounted
       // volume — that file IS read inside the container, so these are settable, just not via .env.
-      POSTGRES_BUILTIN: 'dashboard-managed',
+      // (POSTGRES_BUILTIN is forwarded: PostgreSQL is the only database and compose always starts it.)
       REDIS_BUILTIN: 'dashboard-managed',
       MINIO_BUILTIN: 'dashboard-managed',
       QUEUE_ENABLED: 'dashboard-managed (.env.example documents that a host value is not forwarded)',
@@ -357,19 +359,9 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
       WEBHOOK_SSRF_PROTECT: 'fails safe (default on)',
       ALLOW_DEV_API_KEY: 'refused outright in production',
     },
-    'docker-compose.dev.yml': {
-      POSTGRES_BUILTIN: 'dashboard-managed',
-      REDIS_BUILTIN: 'dashboard-managed',
-      MINIO_BUILTIN: 'dashboard-managed',
-      QUEUE_ENABLED: 'dashboard-managed (.env.example documents that a host value is not forwarded)',
-      WEBHOOK_SSRF_PROTECT: 'fails safe (default on)',
-      // The dev stack manages no built-in datastores; its daemon is the host's local socket, and a
-      // stray DOCKER_HOST would point the app at an unrelated daemon.
-      DOCKER_HOST: 'local socket is the dev default (production pins its socket-proxy)',
-    },
   };
 
-  it.each(['docker-compose.yml', 'docker-compose.dev.yml'])(
+  it.each(['docker-compose.yml'])(
     '%s forwards every documented knob the app reads, or names it in the allowlist',
     file => {
       const documented = documentedKeys();
@@ -400,7 +392,7 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
       readFileSync(join(__dirname, '../../../Dockerfile'), 'utf8'),
     )?.[1];
     expect(imageValue).toBeDefined();
-    for (const file of ['docker-compose.yml', 'docker-compose.dev.yml']) {
+    for (const file of ['docker-compose.yml']) {
       const line = readFileSync(join(__dirname, '../../..', file), 'utf8')
         .split('\n')
         .find(l => l.trim().startsWith('- PUPPETEER_EXECUTABLE_PATH='));
@@ -422,13 +414,13 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
 
   // .env.example documents API_PORT as the host port Docker Compose publishes, and the README quick
   // start runs the dev file, so a hardcoded 2785 there ignores the knob when that port is taken.
-  it.each(['docker-compose.yml', 'docker-compose.dev.yml'])('%s publishes the API on the API_PORT host port', file => {
+  it.each(['docker-compose.yml'])('%s publishes the API on the API_PORT host port', file => {
     const parsed = yaml.load(readFileSync(join(__dirname, '../../..', file), 'utf8')) as ComposeFile;
     const api = Object.values(parsed.services).find(service => service.container_name === 'zaplink-api');
     expect(api?.ports).toEqual([expect.stringMatching(/:\$\{API_PORT:-2785\}:2785$/)]);
   });
 
-  it('zaplink-api uses the same readiness healthcheck in both compose files', () => {
+  it('zaplink-api uses the readiness healthcheck in docker-compose.yml', () => {
     const root = join(__dirname, '../../..');
     const apiHealthcheck = (file: string): string[] | undefined => {
       const parsed = yaml.load(readFileSync(join(root, file), 'utf8')) as ComposeFile;
@@ -437,7 +429,6 @@ describe('DockerService managed specs ↔ docker-compose.yml parity', () => {
     };
     const url = 'http://localhost:2785/api/health/ready';
     expect(apiHealthcheck('docker-compose.yml')).toEqual(['CMD', 'curl', '-f', url]);
-    expect(apiHealthcheck('docker-compose.dev.yml')).toEqual(apiHealthcheck('docker-compose.yml'));
   });
 
   // Both compose files pin PORT=2785, but the image also runs on its own (`docker run -e PORT=8080`),

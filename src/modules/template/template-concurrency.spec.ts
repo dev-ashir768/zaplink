@@ -4,6 +4,7 @@ import { TemplateService } from './template.service';
 import { Template } from './entities/template.entity';
 import { Session, SessionStatus } from '../session/entities/session.entity';
 import { UpdateTemplateDto } from './dto';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const deferred = () => {
   let resolve!: () => void;
@@ -21,8 +22,7 @@ describe('concurrent template edits', () => {
 
   beforeEach(async () => {
     database = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Template],
       synchronize: true,
       logging: false,

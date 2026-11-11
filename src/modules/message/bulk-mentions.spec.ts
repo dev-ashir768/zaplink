@@ -8,6 +8,7 @@ import { MessageBatch } from './entities/message-batch.entity';
 import { Message } from './entities/message.entity';
 import type { MessageService } from './message.service';
 import type { SendPacingService } from './send-pacing.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('bulk mentions', () => {
   let db: DataSource;
@@ -16,8 +17,7 @@ describe('bulk mentions', () => {
   let hooks: HookManager;
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, MessageBatch, Session],
       synchronize: true,
     }).initialize();

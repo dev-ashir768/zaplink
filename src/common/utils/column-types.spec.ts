@@ -20,14 +20,4 @@ describe('cross-DB column type helpers (data connection dialect)', () => {
     expect(jsonColumnType()).toBe('simple-json');
     expect(dateColumnType()).toBe('timestamp');
   });
-
-  it('resolves SQLite types when DATABASE_TYPE is sqlite or unset', () => {
-    process.env.DATABASE_TYPE = 'sqlite';
-    expect(jsonColumnType()).toBe('simple-json');
-    expect(dateColumnType()).toBe('text');
-
-    delete process.env.DATABASE_TYPE;
-    expect(jsonColumnType()).toBe('simple-json');
-    expect(dateColumnType()).toBe('text');
-  });
 });

@@ -27,6 +27,7 @@ import type {
   StoredChatMessage,
   StoredChatMessageLookup,
 } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The messages table outlives an unlink, so a session linked to another number still holds the rows of the
@@ -102,7 +103,7 @@ describe('the stored message a chat write is keyed to', () => {
   }
 
   beforeEach(async () => {
-    db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+    db = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await db.initialize();
     messages = db.getRepository(Message);
     lookup = undefined;

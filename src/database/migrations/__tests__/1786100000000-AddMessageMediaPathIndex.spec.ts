@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddMessageMediaPathIndex1786100000000 } from '../1786100000000-AddMessageMediaPathIndex';
 
 describe('AddMessageMediaPathIndex migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     // Post-AddMessageMediaArchive shape of the messages table (only the columns this index needs).
     await ds.query(
@@ -24,8 +25,26 @@ describe('AddMessageMediaPathIndex migration', () => {
     await ds.destroy();
   });
 
+  // Postgres EXPLAIN on one connection with sequential scans (and bitmap scans) disabled, so the
+  // plan names the index a tiny test table would otherwise skip in favour of a scan.
+  const explain = async (sql: string, params: unknown[] = []): Promise<string> => {
+    const qr = ds.createQueryRunner();
+    try {
+      await qr.query('SET enable_seqscan = off');
+      await qr.query('SET enable_bitmapscan = off');
+      const rows = (await qr.query(`EXPLAIN ${sql}`, params)) as Array<{ 'QUERY PLAN': string }>;
+      return rows.map(r => r['QUERY PLAN']).join(' | ');
+    } finally {
+      await qr.query('RESET enable_seqscan');
+      await qr.query('RESET enable_bitmapscan');
+      await qr.release();
+    }
+  };
+
   const indexNames = async (): Promise<string[]> => {
-    const rows = await ds.query<{ name: string }[]>(`PRAGMA index_list("messages")`);
+    const rows = await ds.query<{ name: string }[]>(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages'`,
+    );
     return rows.map(r => r.name).sort();
   };
 
@@ -52,11 +71,10 @@ describe('AddMessageMediaPathIndex migration', () => {
     const runner = ds.createQueryRunner();
     await new AddMessageMediaPathIndex1786100000000().up(runner);
 
-    const plan = await ds.query<{ detail: string }[]>(
-      `EXPLAIN QUERY PLAN SELECT "mediaPath" FROM "messages" WHERE "mediaPath" IN ('media/0.bin', 'media/20.bin')`,
+    const detail = await explain(
+      `SELECT "mediaPath" FROM "messages" WHERE "mediaPath" IN ('media/0.bin', 'media/20.bin')`,
     );
-    const detail = plan.map(r => r.detail).join(' ');
     expect(detail).toContain('IDX_messages_mediaPath');
-    expect(detail).not.toContain('SCAN');
+    expect(detail).not.toContain('Seq Scan');
   });
 });

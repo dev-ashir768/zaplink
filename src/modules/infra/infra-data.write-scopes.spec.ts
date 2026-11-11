@@ -28,6 +28,7 @@ import { SendPacingService } from '../message/send-pacing.service';
 import type { MessageService } from '../message/message.service';
 import type { SessionService } from '../session/session.service';
 import { captureSessionWrites } from '../../common/utils/session-write-scope';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const deferred = () => {
   let resolve!: () => void;
@@ -56,7 +57,7 @@ describe('import-data and the writes of the sessions it removes', () => {
       return Promise.resolve({ stopped: ids, notRunning: [], failed: [] });
     },
   };
-  const cfg = { get: (key: string, fallback?: unknown) => (key === 'dataDatabase.type' ? 'sqlite' : fallback) };
+  const cfg = { get: (key: string, fallback?: unknown) => (key === 'dataDatabase.type' ? 'postgres' : fallback) };
   const newService = (ownership?: object) =>
     new InfraDataService(cfg as never, ds, undefined, sessionService as never, undefined, ownership as never);
   const importNow = (options: ImportOptions, tables: Partial<MigrationTables> = onlyS2, ownership?: object) =>
@@ -80,7 +81,7 @@ describe('import-data and the writes of the sessions it removes', () => {
     }
   };
   const batchRow = (id: string) => ds.getRepository(MessageBatch).findOneByOrFail({ id });
-  // Every runner this test sees: better-sqlite3 hands out one per DataSource, so prepare it once.
+  // Every runner this test sees, each prepared once.
   const onRunner = (prepare: (runner: QueryRunner) => void) => {
     const prepared = new WeakSet<object>();
     const realCreate = ds.createQueryRunner.bind(ds);
@@ -128,8 +129,7 @@ describe('import-data and the writes of the sessions it removes', () => {
     engine.sendTextMessage.mockReset().mockResolvedValue({ id: 'sent-1', timestamp: 1 });
     engine.sendImageMessage.mockReset().mockResolvedValue({ id: 'sent-2', timestamp: 1 });
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [
         Session,
         Webhook,
@@ -295,26 +295,6 @@ describe('import-data and the writes of the sessions it removes', () => {
         return importNow({ stopOrphans: true });
       },
     ],
-    [
-      'another transaction opened while the writes drained',
-      () => {
-        onRunner(runner => {
-          let opened = false;
-          const query = runner.query.bind(runner);
-          runner.query = (async (...args: Parameters<typeof query>) => {
-            const rows: unknown = await query(...args);
-            if (!opened && /^SELECT id FROM sessions/.test(args[0])) {
-              opened = true;
-              // Someone else's transaction on the one connection, rolled back once the import has refused.
-              await runner.startTransaction();
-              setTimeout(() => void runner.rollbackTransaction(), 20);
-            }
-            return rows;
-          }) as typeof runner.query;
-        });
-        return importNow({ stopOrphans: true });
-      },
-    ],
   ])('an import that ends without committing: %s', (_exit, run) => {
     it('fails the unfinished batch of the session it meant to remove and reopens its writes', async () => {
       const batch = await parkBatch();
@@ -333,70 +313,19 @@ describe('import-data and the writes of the sessions it removes', () => {
     });
   });
 
-  // On SQLite a transaction someone else opens while the import drains is open on the import's connection
-  // too. Failing the batch inside it would tie the fail to that transaction's outcome.
-  it.each([['rolls back'], ['commits']])(
-    'fails the batch of an import refused for a transaction opened while it drained, which then %s',
-    async outcome => {
-      const entered = deferred();
-      const finish = deferred();
-      const messages = ds.getRepository(Message);
-      const save = messages.save.bind(messages);
-      jest.spyOn(messages, 'save').mockImplementationOnce(async message => {
-        entered.resolve();
-        await finish.promise;
-        return save(message);
-      });
-      const sending = sender.sendText('s1', { chatId: 'first@c.us', text: 'hello' }).catch((error: unknown) => error);
-      await entered.promise;
-      const batch = await parkBatch();
-      const importing = importNow({ stopOrphans: true }).catch((error: unknown) => error);
-      await new Promise<void>(setImmediate);
-      const outer = ds.createQueryRunner();
-      await outer.connect();
-      await outer.startTransaction();
-      finish.resolve();
-      // The drained write has landed and the import has refused by the time a timer runs.
-      await new Promise(resolve => setTimeout(resolve, 20));
-      await (outcome === 'commits' ? outer.commitTransaction() : outer.rollbackTransaction());
+  describe.each<[string, () => Promise<unknown>]>([['would orphan a running engine', () => importNow({})]])(
+    'an import refused before it starts because it %s',
+    (_reason, run) => {
+      it('leaves the writes of every session alone', async () => {
+        const before = captureSessionWrites(ds, 's1');
 
-      expect(await importing).toMatchObject({ response: { code: 'IMPORT_NESTED_TRANSACTION' } });
-      await batch.finish();
-      await sending;
-      const row = await batchRow(batch.id);
-      expect(row.status).toBe(BatchStatus.FAILED);
-      expect(JSON.stringify(row.messages)).not.toContain('MEDIA-PAYLOAD');
-      expect(engine.sendTextMessage).not.toHaveBeenCalled();
-      expect(await ds.getRepository(Session).count()).toBe(2);
-      expect(current('s1')).toBe(true);
+        await expect(run()).rejects.toMatchObject({ status: 409 });
+
+        expect(() => before.assertCurrent()).not.toThrow();
+        before.close();
+      });
     },
   );
-
-  describe.each<[string, () => Promise<unknown>]>([
-    ['would orphan a running engine', () => importNow({})],
-    [
-      'finds another transaction holding the connection',
-      async () => {
-        const outer = ds.createQueryRunner();
-        await outer.connect();
-        await outer.startTransaction();
-        try {
-          return await importNow({ stopOrphans: true });
-        } finally {
-          await outer.rollbackTransaction();
-        }
-      },
-    ],
-  ])('an import refused before it starts because it %s', (_reason, run) => {
-    it('leaves the writes of every session alone', async () => {
-      const before = captureSessionWrites(ds, 's1');
-
-      await expect(run()).rejects.toMatchObject({ status: 409 });
-
-      expect(() => before.assertCurrent()).not.toThrow();
-      before.close();
-    });
-  });
 
   it('leaves a removed session whose engine force keeps running writable, and its batch running', async () => {
     const batch = await parkBatch();

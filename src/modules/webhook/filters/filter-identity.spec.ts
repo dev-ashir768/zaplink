@@ -8,6 +8,7 @@ import { WebhookDeliveryFailure } from '../entities/webhook-delivery-failure.ent
 import { WebhookDeliveryService } from '../webhook-delivery.service';
 import { WebhookOutboxService } from '../webhook-outbox.service';
 import { WebhookFilters } from './filter-types';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 
 const LID = '484848@lid';
 const P = '628111@c.us';
@@ -24,8 +25,7 @@ describe('Identity readers after a peer changes a mapping', () => {
 
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [LidMapping],
       synchronize: true,
     }).initialize();

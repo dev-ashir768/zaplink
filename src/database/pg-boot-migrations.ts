@@ -2,8 +2,6 @@ import { Client, ClientConfig } from 'pg';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { createLogger } from '../common/services/logger.service';
 import { assertDataConnectionUtc, postgresUtcExtra } from './postgres-utc';
-import { DeduplicateTerminalWebhookFailures1787200000000 } from './migrations/1787200000000-DeduplicateTerminalWebhookFailures';
-import { repairSqliteMessageFts } from './sqlite-message-fts';
 
 const logger = createLogger('PgBootMigrations');
 
@@ -11,10 +9,7 @@ const logger = createLogger('PgBootMigrations');
 // advisory lock, so replicas that boot at the same time serialize instead of racing DDL against
 // the shared migrations ledger: the lock holder applies the chain while every other process waits
 // inside pg_advisory_lock, then sees a filled ledger and applies nothing. This replaces TypeORM's
-// built-in migrationsRun for that connection only (it has no cross-process serialization); the
-// sqlite connection without synchronize keeps @nestjs/typeorm's default construction + initialize
-// path; with synchronize (the dev and e2e setup) it is initialized here, the terminal-failure dedupe
-// runs, and only then does the schema sync.
+// built-in migrationsRun, which has no cross-process serialization.
 //
 // Lock key in the two-int4 form — exact in JavaScript (a single bigint key would exceed
 // Number.MAX_SAFE_INTEGER). The values are fixed so every process and version agrees:
@@ -40,11 +35,9 @@ type PostgresOptions = Extract<DataSourceOptions, { type: 'postgres' }>;
 /**
  * dataSourceFactory for the 'data' connection. Postgres boot migrations execute here, under the
  * advisory lock, BEFORE the DataSource is handed to any provider — same ordering the built-in
- * migrationsRun gave (it finished inside DataSource.initialize()). SQLite with synchronize is
- * initialized here, deduplicates terminal webhook failures and then synchronizes; other non-postgres
- * options take @nestjs/typeorm's default path: construct only, let the wrapper initialize. The
- * wrapper also skips its own initialize() for the postgres branch because the DataSource comes
- * back already initialized, and keeps applying retryAttempts/retryDelay to this whole factory.
+ * migrationsRun gave (it finished inside DataSource.initialize()). The wrapper skips
+ * its own initialize() because the DataSource comes back already initialized, and keeps applying
+ * retryAttempts/retryDelay to this whole factory.
  *
  * It is also where the postgres data connection's UTC pin is applied and then verified, for the same
  * reason: this is the only place that connection is constructed at runtime.
@@ -55,32 +48,6 @@ export async function createBootDataSource(
 ): Promise<DataSource> {
   const createDataSource = deps.createDataSource ?? (opts => new DataSource(opts));
   const createLockClient = deps.createLockClient ?? createPgLockClient;
-
-  if (options?.type === 'better-sqlite3' && options.synchronize) {
-    const dataSource = createDataSource({ ...options, synchronize: false });
-    try {
-      await dataSource.initialize();
-      const runner = dataSource.createQueryRunner();
-      try {
-        if (await runner.hasTable('webhook_delivery_failures')) {
-          await new DeduplicateTerminalWebhookFailures1787200000000().up(runner);
-        }
-      } finally {
-        await runner.release();
-      }
-      await dataSource.synchronize();
-      // synchronize rebuilds `messages` without its rowids, so the index it kept can now name other messages.
-      // Never fail boot over the index: if this repair fails, the search provider's own start-up check re-indexes
-      // what it finds orphaned, and the next boot repairs the rest.
-      await repairSqliteMessageFts(dataSource).catch((error: unknown) =>
-        logger.error(`Failed to repair the SQLite message full-text index: ${String(error)}`),
-      );
-      return dataSource;
-    } catch (error) {
-      if (dataSource.isInitialized) await dataSource.destroy().catch(() => undefined);
-      throw error;
-    }
-  }
 
   if (options?.type !== 'postgres') {
     // useFactory always resolves a full options object; the optional parameter is the library's

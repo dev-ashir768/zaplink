@@ -226,8 +226,8 @@ describe('TemplateService', () => {
 
   describe('name uniqueness', () => {
     const uniqueViolation = (): Error =>
-      Object.assign(new Error('SQLITE_CONSTRAINT: UNIQUE constraint failed: templates.sessionId, templates.name'), {
-        code: 'SQLITE_CONSTRAINT',
+      Object.assign(new Error('duplicate key value violates unique constraint "UQ_templates_sessionId_name"'), {
+        code: '23505',
       });
 
     it('translates a duplicate-name violation on create into 409 Conflict', async () => {

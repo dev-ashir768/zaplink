@@ -4,6 +4,7 @@ import { join, relative, sep } from 'path';
 import { DataSource } from 'typeorm';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import { ApiKey, ApiKeyRole } from './entities/api-key.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The usage-stat write must carry usage state and nothing else.
@@ -169,7 +170,7 @@ describe('API-key usage count at a window boundary', () => {
   let ds: DataSource;
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [ApiKey], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [ApiKey], synchronize: true });
     await ds.initialize();
   });
 

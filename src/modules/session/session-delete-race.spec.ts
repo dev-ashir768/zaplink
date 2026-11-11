@@ -31,6 +31,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { WebhookService } from '../webhook/webhook.service';
 import { HookManager } from '../../core/hooks';
 import { StatusStoreService } from '../status-store/status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const entities = [
   Session,
@@ -82,7 +83,7 @@ describe('A session being deleted', () => {
     new ConfigService({ session: { nodeId, leaseTtlMs: 60_000, leaseHeartbeatMs: 20_000 } });
 
   beforeEach(async () => {
-    db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities, synchronize: true });
+    db = new DataSource({ ...pgTestOptions(), entities, synchronize: true });
     await db.initialize();
     engineFactory = {
       create: jest.fn().mockImplementation(makeEngine),

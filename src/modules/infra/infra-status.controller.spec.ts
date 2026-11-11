@@ -36,6 +36,7 @@ import {
   type PinState,
   type ServiceName,
 } from '../../../test/fixtures/builtin-mode-cases';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('InfraStatusController.getStatus DB health (active SELECT 1 probe, not just isInitialized)', () => {
   const build = (query: jest.Mock) => {
@@ -374,7 +375,11 @@ describe('InfraStatusController.getStatus envPinned', () => {
         redis: { enabled: true, builtIn: true },
         storage: { type: 's3', builtIn: true },
       },
-      { database: { type: 'sqlite' }, redis: { enabled: false }, storage: { type: 'local', localPath: './data/m' } },
+      {
+        database: { ...pgTestOptions() },
+        redis: { enabled: false },
+        storage: { type: 'local', localPath: './data/m' },
+      },
     ];
     const written = new Set<string>();
     for (const payload of payloads) {

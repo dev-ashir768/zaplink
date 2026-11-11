@@ -1,6 +1,7 @@
 import { DataSource, Repository } from 'typeorm';
 import { ChatState } from './baileys-chat-state.entity';
 import { ChatStateStoreService } from './baileys-chat-state-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const SID = 'session-a';
 const PHONE = '22222@s.whatsapp.net';
@@ -12,7 +13,7 @@ describe('Chat state after a failed write', () => {
   let states: ChatStateStoreService;
 
   beforeEach(async () => {
-    db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [ChatState], synchronize: true });
+    db = new DataSource({ ...pgTestOptions(), entities: [ChatState], synchronize: true });
     await db.initialize();
     repo = db.getRepository(ChatState);
     states = new ChatStateStoreService(repo);

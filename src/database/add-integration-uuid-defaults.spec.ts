@@ -32,13 +32,6 @@ const sqlOf = (qr: ReturnType<typeof makeQueryRunner>): string[] =>
 describe('AddIntegrationUuidDefaults migration', () => {
   const migration = new AddIntegrationUuidDefaults1782300000000();
 
-  it('is a no-op on SQLite — issues no query and never probes tables', async () => {
-    const qr = makeQueryRunner('sqlite', new Set(TABLES));
-    await migration.up(qr as never);
-    expect(qr.query).not.toHaveBeenCalled();
-    expect(qr.hasTable).not.toHaveBeenCalled();
-  });
-
   it('sets gen_random_uuid() DEFAULT on both integration tables on PG 13+ (no pgcrypto touched)', async () => {
     const qr = makeQueryRunner('postgres', new Set(TABLES), 150000);
     await migration.up(qr as never);
@@ -69,14 +62,11 @@ describe('AddIntegrationUuidDefaults migration', () => {
     expect(sql).not.toContain('ALTER TABLE "integration_delivery_failures"');
   });
 
-  it('drops the defaults on down() (Postgres only)', async () => {
+  it('drops the defaults on down()', async () => {
     const pg = makeQueryRunner('postgres', new Set(TABLES));
     await migration.down(pg as never);
     for (const t of TABLES) {
       expect(sqlOf(pg).join('\n')).toContain(`ALTER TABLE "${t}" ALTER COLUMN "id" DROP DEFAULT`);
     }
-    const sqlite = makeQueryRunner('sqlite', new Set(TABLES));
-    await migration.down(sqlite as never);
-    expect(sqlite.query).not.toHaveBeenCalled();
   });
 });

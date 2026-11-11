@@ -1,16 +1,17 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddMessagesCreatedAtIndex1785123853000 } from '../1785123853000-AddMessagesCreatedAtIndex';
 
 describe('AddMessagesCreatedAtIndex migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     // Pre-migration shape: the messages table with only the composite (sessionId, createdAt).
     await ds.query(
       `CREATE TABLE "messages" ("id" varchar PRIMARY KEY NOT NULL, "sessionId" varchar NOT NULL, ` +
-        `"direction" varchar NOT NULL DEFAULT ('outgoing'), "createdAt" datetime NOT NULL DEFAULT (datetime('now')))`,
+        `"direction" varchar NOT NULL DEFAULT ('outgoing'), "createdAt" timestamp NOT NULL DEFAULT now())`,
     );
     await ds.query(`CREATE INDEX "IDX_399833392126349ef0b04b9bed" ON "messages" ("sessionId", "createdAt")`);
     // A few hundred rows spread over 60 days so the planner sees a real range predicate.
@@ -26,8 +27,26 @@ describe('AddMessagesCreatedAtIndex migration', () => {
     await ds.destroy();
   });
 
+  // Postgres EXPLAIN on one connection with sequential scans (and bitmap scans) disabled, so the
+  // plan names the index a tiny test table would otherwise skip in favour of a scan.
+  const explain = async (sql: string, params: unknown[] = []): Promise<string> => {
+    const qr = ds.createQueryRunner();
+    try {
+      await qr.query('SET enable_seqscan = off');
+      await qr.query('SET enable_bitmapscan = off');
+      const rows = (await qr.query(`EXPLAIN ${sql}`, params)) as Array<{ 'QUERY PLAN': string }>;
+      return rows.map(r => r['QUERY PLAN']).join(' | ');
+    } finally {
+      await qr.query('RESET enable_seqscan');
+      await qr.query('RESET enable_bitmapscan');
+      await qr.release();
+    }
+  };
+
   const indexNames = async (): Promise<string[]> => {
-    const rows = await ds.query<{ name: string }[]>(`PRAGMA index_list("messages")`);
+    const rows = await ds.query<{ name: string }[]>(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages'`,
+    );
     return rows.map(r => r.name).sort();
   };
 
@@ -57,11 +76,10 @@ describe('AddMessagesCreatedAtIndex migration', () => {
     await new AddMessagesCreatedAtIndex1785123853000().up(runner);
 
     const since = new Date(Date.now() - 86400000).toISOString().replace('T', ' ').slice(0, 23);
-    const plan = await ds.query<{ detail: string }[]>(
-      `EXPLAIN QUERY PLAN SELECT "direction", COUNT(*) FROM "messages" WHERE "createdAt" >= '${since}' GROUP BY "direction"`,
+    const plan = await explain(
+      `SELECT "direction", COUNT(*) FROM "messages" WHERE "createdAt" >= '${since}' GROUP BY "direction"`,
     );
-    expect(plan.map(p => p.detail).join(' | ')).toMatch(
-      /SEARCH messages USING (COVERING )?INDEX IDX_messages_createdAt/,
-    );
+    expect(plan).toContain('IDX_messages_createdAt');
+    expect(plan).not.toContain('Seq Scan');
   });
 });

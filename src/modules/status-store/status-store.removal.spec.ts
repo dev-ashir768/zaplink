@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { StorageService } from '../../common/storage/storage.service';
 import { StatusUpdate } from './entities/status-update.entity';
 import { StatusStoreService } from './status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const POSTER = '628111@c.us';
 const media = { mimetype: 'image/jpeg', data: Buffer.from('jpeg bytes').toString('base64') };
@@ -29,7 +30,7 @@ describe('StatusStoreService.removeRevoked', () => {
 
   beforeEach(async () => {
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-removal-'));
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [StatusUpdate], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [StatusUpdate], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(StatusUpdate);
     const values: Record<string, unknown> = {

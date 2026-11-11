@@ -7,8 +7,9 @@ import {
   SEND_IDEMPOTENCY_TTL_MS,
   SendIdempotencyService,
 } from './send-idempotency.service';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 
-describe('SendIdempotencyService (sqlite)', () => {
+describe('SendIdempotencyService', () => {
   let ds: DataSource;
   let repo: Repository<SendIdempotencyKey>;
   let service: SendIdempotencyService;
@@ -16,8 +17,7 @@ describe('SendIdempotencyService (sqlite)', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [SendIdempotencyKey],
       synchronize: true,
     });
@@ -146,7 +146,7 @@ describe('SendIdempotencyService (sqlite)', () => {
 
   it('rethrows a storage error that is not a duplicate key', async () => {
     await ds.query('DROP TABLE "send_idempotency_keys"');
-    await expect(service.claim(input)).rejects.toThrow(/no such table/);
+    await expect(service.claim(input)).rejects.toThrow(/does not exist/);
   });
 
   // The sweep is the only cleanup for keys that are never claimed again: without it every distinct

@@ -128,7 +128,7 @@ export default () => ({
   },
 
   // Global message search. Opt-out via SEARCH_ENABLED=false. Provider defaults to 'auto' (the
-  // built-in DB full-text provider — Postgres tsvector/GIN, SQLite FTS5); 'none' disables the
+  // built-in DB full-text provider — Postgres tsvector/GIN); 'none' disables the
   // /search route + module at runtime while keeping the config namespace loaded. match=contains is
   // opt-in (SEARCH_CONTAINS_ENABLED=true): its trigram index costs about three times the message text.
   search: {
@@ -138,8 +138,7 @@ export default () => ({
   },
 
   // Dashboard statistics. The /stats aggregates run GROUP BY scans over the whole messages
-  // table (synchronously on the event loop with the default SQLite backend), so responses are
-  // memoized in-process for this TTL to keep dashboard polling from re-running the scans on
+  // table, so responses are memoized in-process for this TTL to keep dashboard polling from re-running the scans on
   // every request. 0 disables the memo.
   stats: {
     cacheTtlMs: parseInt(process.env.STATS_CACHE_TTL_MS || '30000', 10),
@@ -172,12 +171,8 @@ export default () => ({
     enabled: process.env.CACHE_ENABLED === 'true',
   },
 
-  // Main Database configuration (always SQLite for boot config)
+  // Main (auth/audit) connection: same Postgres database as dataDatabase, its own migration chain.
   database: {
-    type: 'sqlite' as const,
-    // SQLite file for the auth/audit DB. Overridable (e.g. e2e points it at a temp file) so tests
-    // never write api keys into the developer's ./data/main.sqlite.
-    database: process.env.MAIN_DATABASE_NAME || './data/main.sqlite',
     // Schema management for the auth/audit DB. By default the main-owned migrations run at boot
     // (they also adopt a file an earlier release built with synchronize); run them by hand with
     // `npm run migration:run:main` (or `migration:run:main:prod` for the compiled image), since the
@@ -187,22 +182,18 @@ export default () => ({
     logging: process.env.DATABASE_LOGGING === 'true',
   },
 
-  // Data Storage Database configuration (pluggable: SQLite, PostgreSQL, etc.)
+  // Data database (PostgreSQL)
   dataDatabase: {
-    type: process.env.DATABASE_TYPE || 'sqlite',
-    // SQLite path (used when type is sqlite)
-    database: process.env.DATABASE_NAME || './data/zaplink.sqlite',
-    // Postgres database NAME (used when type is postgres). Resolved from the same
-    // DATABASE_NAME env as the migration CLI (data-source.ts) so the runtime factory and
-    // migrations never target different databases. Distinct sqlite-vs-pg defaults.
+    type: 'postgres' as const,
+    // Database name. The migration CLI (data-source.ts) reads the same DATABASE_NAME.
     name: process.env.DATABASE_NAME || 'zaplink',
-    // PostgreSQL schema (used when type is postgres). Default 'public' preserves the historical
+    // PostgreSQL schema. Default 'public' preserves the historical
     // behavior; set POSTGRES_SCHEMA to place ZapLink's tables + the TypeORM migration ledger in a
     // dedicated schema (e.g. a managed-Postgres project schema, or to isolate ZapLink from other
     // apps sharing the database). The schema must already exist — a missing one fails fast at
-    // migration time rather than silently falling back to public. SQLite ignores this.
+    // migration time rather than silently falling back to public.
     schema: process.env.POSTGRES_SCHEMA || 'public',
-    // PostgreSQL/MySQL connection (used when type is postgres/mysql)
+    // Connection
     host: process.env.DATABASE_HOST || 'localhost',
     port: parseInt(process.env.DATABASE_PORT || '5432', 10),
     username: process.env.DATABASE_USERNAME,

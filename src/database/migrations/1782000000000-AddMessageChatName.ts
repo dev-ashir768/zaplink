@@ -5,8 +5,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * chat (contact pushName, group name, etc) at the time the message was received/sent, enabling
  * stats endpoints to display readable names instead of raw JIDs.
  *
- * Hand-authored because `synchronize` is off for the `data` connection on PostgreSQL (and optional
- * on SQLite via DATABASE_SYNCHRONIZE=false). Idempotent: checks for column existence first.
+ * Hand-authored because `synchronize` is off for the `data` connection . Idempotent: checks for column
+ * existence first.
  */
 export class AddMessageChatName1782000000000 implements MigrationInterface {
   name = 'AddMessageChatName1782000000000';

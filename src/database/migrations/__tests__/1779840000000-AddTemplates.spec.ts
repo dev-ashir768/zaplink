@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddTemplates1779840000000 } from '../1779840000000-AddTemplates';
 
 describe('AddTemplates migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     // up() declares a CASCADE FK to sessions; create a minimal stand-in (mirrors the sibling specs).
     await ds.query(`CREATE TABLE "sessions" ("id" varchar PRIMARY KEY NOT NULL)`);
@@ -16,7 +17,9 @@ describe('AddTemplates migration', () => {
   });
 
   const tableExists = async (): Promise<boolean> => {
-    const rows = await ds.query<unknown[]>(`SELECT name FROM sqlite_master WHERE type='table' AND name='templates'`);
+    const rows = await ds.query<unknown[]>(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'templates'`,
+    );
     return rows.length === 1;
   };
 
@@ -27,7 +30,7 @@ describe('AddTemplates migration', () => {
     await migration.up(runner);
     expect(await tableExists()).toBe(true);
     const index = (await runner.query(
-      `SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_templates_sessionId'`,
+      `SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'IDX_templates_sessionId'`,
     )) as unknown[];
     expect(index).toHaveLength(1);
 
@@ -44,7 +47,7 @@ describe('AddTemplates migration', () => {
     await ds.query(
       `CREATE TABLE "templates" ("id" varchar PRIMARY KEY NOT NULL, "sessionId" varchar NOT NULL, ` +
         `"name" varchar(100) NOT NULL, "body" text NOT NULL, "header" text, "footer" text, ` +
-        `"createdAt" datetime NOT NULL, "updatedAt" datetime NOT NULL)`,
+        `"createdAt" timestamp NOT NULL, "updatedAt" timestamp NOT NULL)`,
     );
     await ds.query(`CREATE UNIQUE INDEX "IDX_templates_session_name" ON "templates" ("sessionId", "name")`);
 

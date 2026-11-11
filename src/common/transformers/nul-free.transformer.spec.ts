@@ -5,6 +5,7 @@ import { IntegrationDeliveryFailure } from '../../database/retained-entities/int
 import { WebhookDeliveryFailure } from '../../modules/webhook/entities/webhook-delivery-failure.entity';
 import { Session } from '../../modules/session/entities/session.entity';
 import { readyRowUpdate } from '../../modules/session/session-engine-lifecycle.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // PostgreSQL rejects U+0000 in text and varchar, so free text from WhatsApp, a plugin error or a webhook
 // receiver that carried one failed its write there and the row was lost. SQLite stores it, which makes
@@ -15,8 +16,7 @@ describe('free-text columns drop NUL characters on write', () => {
 
   beforeAll(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, StatusUpdate, IntegrationDeliveryFailure, WebhookDeliveryFailure, Session],
       synchronize: true,
     });

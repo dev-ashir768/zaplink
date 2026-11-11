@@ -9,6 +9,7 @@ import type { WebhookService } from '../webhook/webhook.service';
 import type { HookManager } from '../../core/hooks';
 import type { StatusStoreService } from '../status-store/status-store.service';
 import type { SessionLidResolver } from './session-lid-resolver.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * `sessions.lastActiveAt` is read only by the session response (`lastActive`). Writing it, and with it the
@@ -23,8 +24,7 @@ describe('session activity writes during a message burst', () => {
 
   it('stamps the session row once for a burst of messages', async () => {
     db = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });

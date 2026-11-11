@@ -6,7 +6,7 @@ import { Session } from '../../modules/session/entities/session.entity';
  * (via BufferJSON) so reply/forward/react/delete can resolve the original message/key by id across
  * restarts. Engine-specific — lives in the engine layer, not the neutral `messages` table.
  *
- * The `session` relation declares the CASCADE FK so both the `synchronize:true` SQLite path and
+ * The `session` relation declares the CASCADE FK so both the `synchronize:true` path and
  * the migration path clean up stored messages when the parent session row is deleted.
  */
 @Entity('baileys_stored_messages')

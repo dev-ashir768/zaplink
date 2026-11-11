@@ -3,13 +3,14 @@ import { DataSource, DeleteQueryBuilder, Repository } from 'typeorm';
 import { BaileysStoredMessage } from './baileys-stored-message.entity';
 import { BaileysMessageStoreService } from './baileys-message-store.service';
 import { Session, SessionStatus } from '../../modules/session/entities/session.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('BaileysMessageStoreService', () => {
   let ds: DataSource;
   let repo: Repository<BaileysStoredMessage>;
   let service: BaileysMessageStoreService;
 
-  // Seed a sessions row so FK constraints (if SQLite enables them) resolve correctly.
+  // Seed a sessions row so FK constraints resolve correctly.
   const seedSession = async (id: string): Promise<void> => {
     await ds.getRepository(Session).save(
       ds.getRepository(Session).create({
@@ -29,10 +30,7 @@ describe('BaileysMessageStoreService', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
-      // Session must be present so the @ManyToOne relation metadata resolves and synchronize
-      // can emit the CASCADE FK on the baileys_stored_messages table.
+      ...pgTestOptions(),
       entities: [BaileysStoredMessage, Session],
       synchronize: true,
     });
@@ -104,13 +102,8 @@ describe('BaileysMessageStoreService', () => {
 
   /**
    * Regression test — drives eviction through the REAL put() path so the stored
-   * createdAt value comes from the upsert payload (millisecond precision), not from
-   * SQLite's datetime('now') (second precision). Without the `createdAt: new Date()`
-   * fix in put(), the string comparison '…:XX' < '…:XX.000' evaluates TRUE for every
-   * same-second row, and enforceLimit() deletes ALL rows instead of keeping the cap.
-   *
-   * This test MUST FAIL against the old code (no explicit createdAt in upsert) and
-   * PASS with the fix.
+   * createdAt value comes from the upsert payload, the same value enforceLimit() binds,
+   * and enforceLimit() keeps the cap instead of deleting every row.
    */
   it('eviction via put() keeps exactly the cap — never wipes the store', async () => {
     process.env.BAILEYS_MESSAGE_STORE_LIMIT = '3';
@@ -204,20 +197,16 @@ describe('BaileysMessageStoreService', () => {
     expect(left.map(r => r.waMessageId).sort()).toEqual(['NEW', 'Wc', 'Wd']);
     // The range delete must be bounded by (createdAt, id) on the index, not walk the whole session.
     expect(deletes).toHaveLength(1);
-    const [sql, params] = deletes[0];
-    const detail = (await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${sql}`, params))
-      .map(r => r.detail)
-      .join(' | ');
-    expect(detail).toMatch(/IDX_baileys_stored_messages_session_created_id \(sessionId=\? AND \(createdAt,id\)/);
+    const [sql] = deletes[0];
+    expect(sql).toMatch(/createdAt",\s*("[^"]+"\.)?"id"\)\s*<=\s*\(\$\d+,\s*\$\d+\)/);
   });
 
   // Issue #319 — an orphaned adapter (its session was deleted/recreated during reconnect
   // churn) keeps receiving messages.upsert and calls put() under a sessionId that no longer
-  // has a parent row. The FK then fails (SQLITE_CONSTRAINT in prod) on EVERY message, the
+  // has a parent row. The FK then fails (23503 in prod) on EVERY message, the
   // store stays empty, and reply/forward/react/delete-by-id can never resolve the message.
   // put() must tolerate the absent parent — skip the write instead of throwing per message.
   it('skips persisting (no throw) when the parent session row is absent (orphaned adapter; #319)', async () => {
-    await ds.query('PRAGMA foreign_keys = ON'); // faithfully reproduce production FK enforcement
     // No seedSession('orphan') — the parent is gone.
     await expect(service.put('orphan', msg('M1'))).resolves.toBeUndefined();
     expect(await repo.count({ where: { sessionId: 'orphan' } })).toBe(0);
@@ -225,7 +214,7 @@ describe('BaileysMessageStoreService', () => {
 
   it('still rethrows a non-FK persistence error (does not swallow real failures)', async () => {
     await seedSession('s1');
-    const boom = Object.assign(new Error('disk full'), { code: 'SQLITE_FULL' });
+    const boom = Object.assign(new Error('disk full'), { code: '53100' });
     jest.spyOn(repo, 'upsert').mockRejectedValueOnce(boom);
     await expect(service.put('s1', msg('M1'))).rejects.toThrow('disk full');
   });

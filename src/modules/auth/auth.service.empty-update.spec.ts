@@ -4,6 +4,7 @@ import { ApiKey, ApiKeyRole } from './entities/api-key.entity';
 import { AuthService } from './auth.service';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import type { UpdateApiKeyDto } from './dto/api-key.dto';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * Pins the empty-body semantics of update() against a REAL better-sqlite3 DataSource. Every
@@ -19,8 +20,7 @@ describe('AuthService update with an empty DTO', () => {
 
   beforeAll(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [ApiKey],
       synchronize: true,
     });

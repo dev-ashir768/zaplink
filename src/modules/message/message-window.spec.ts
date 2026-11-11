@@ -5,6 +5,7 @@ import { MessageService } from './message.service';
 import { Message, MessageDirection } from './entities/message.entity';
 import { parseMessageWindow, validateMessageWindow } from './message-window';
 import { AddMessageWindowIndexes1790812800000 } from '../../database/migrations/1790812800000-AddMessageWindowIndexes';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('message-time selection', () => {
   let ds: DataSource;
@@ -21,8 +22,7 @@ describe('message-time selection', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
       logging: ['query'],
@@ -186,36 +186,14 @@ describe('message-time selection', () => {
     expect(page.messages.map(m => m.type)).toEqual(['image']);
   });
 
-  it.each([
-    [{ orderBy: 'timestamp' }, 'IDX_messages_session_timestamp_id'],
-    [{ orderBy: 'timestamp', chatId: '100@g.us' }, 'IDX_messages_session_chat_timestamp_id'],
-    [{ orderBy: 'timestamp', direction: MessageDirection.INCOMING }, 'IDX_messages_session_direction_timestamp_id'],
-  ] as const)('seeks the bounded time window through its compound index (%p)', async (options, index) => {
-    await service.getMessages('s1', { ...options, since: 1000_000, until: 1060_000 });
-    const page = queries.find(q => q.sql.includes('ORDER BY') && q.sql.includes('LIMIT'))!;
-    const plan = await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${page.sql}`, page.params);
-    expect(plan.map((r: { detail: string }) => r.detail).join(' ')).toContain(index);
-    expect(plan.map((r: { detail: string }) => r.detail).join(' ')).not.toContain('TEMP B-TREE');
-  });
-
-  // A user chat expands to several id candidates (one per dialect). SQLite has no planner statistics
-  // here, so a plain sort key makes it walk the session's whole time index and filter the chat row by
-  // row; the unary plus on the key makes it seek the chat index and sort only that chat's rows.
-  it('seeks the chat index, not the session time index, for a user chat with several id candidates', async () => {
-    await service.getMessages('s1', { orderBy: 'timestamp', chatId: '1001@c.us', since: 1000_000, until: 1060_000 });
-    const page = queries.find(q => q.sql.includes('ORDER BY') && q.sql.includes('LIMIT'))!;
-    const plan = await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${page.sql}`, page.params);
-    const details = plan.map((r: { detail: string }) => r.detail).join(' ');
-    expect(details).toContain('IDX_messages_session_chat_timestamp_id');
-    expect(details).not.toContain('IDX_messages_session_timestamp_id');
-  });
-
   it('migration preserves rows when applied and reverted', async () => {
     const runner = ds.createQueryRunner();
     const migration = new AddMessageWindowIndexes1790812800000();
     await migration.up(runner);
     await migration.up(runner);
-    const indexes = (await runner.query('PRAGMA index_list(messages)')) as Array<{ name: string }>;
+    const indexes = (await runner.query(
+      "SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages'",
+    )) as Array<{ name: string }>;
     const names = indexes.map(r => r.name);
     expect(names.filter((n: string) => n.startsWith('IDX_messages_session_')).sort()).toEqual([
       'IDX_messages_session_chat_timestamp_id',
@@ -224,7 +202,9 @@ describe('message-time selection', () => {
     ]);
     await migration.down(runner);
     expect(await ds.getRepository(Message).count()).toBe(241);
-    const reverted = (await runner.query('PRAGMA index_list(messages)')) as Array<{ name: string }>;
+    const reverted = (await runner.query(
+      "SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages'",
+    )) as Array<{ name: string }>;
     expect(reverted.some(row => row.name.startsWith('IDX_messages_session_'))).toBe(false);
     await migration.up(runner);
     await runner.release();

@@ -6,14 +6,12 @@ import { In, IsNull, LessThan, LessThanOrEqual, MoreThan, Not, Or, Repository, E
 import { Session } from './entities/session.entity';
 import { createLogger } from '../../common/services/logger.service';
 import { DateTransformer } from '../../common/transformers/date.transformer';
-import { awaitNoOpenTransaction, SHARED_CONNECTION_DIALECTS } from '../../common/utils/shared-connection';
 
 /**
  * Bind a lease timestamp the way the column stores it.
  *
- * Raw SQL bypasses the column's transformer, and the stored form is not a Date on every dialect —
- * SQLite keeps an ISO string — so an untransformed parameter compares against the wrong
- * representation and the clause silently never matches.
+ * Raw SQL bypasses the column's transformer, so the parameter is passed through it explicitly to
+ * compare against the stored representation.
  */
 function leaseParam(at: Date): string | Date {
   // `to` is declared to accept a nullable Date and so returns a nullable union; a real Date always
@@ -54,11 +52,6 @@ export class SessionOwnershipService {
   /** Notified when this process takes a session over from a node whose lease lapsed. See onAdoption. */
   private onAdopted?: { run: (sessionId: string, manager?: EntityManager) => Promise<unknown>; transactional: boolean };
 
-  /**
-   * How many callers are currently telling renew() that an empty/blank result is NOT evidence of
-   * loss. A counter rather than a flag so overlapping spans cannot resume each other early.
-   */
-  private lossDetectionSuspended = 0;
   /** Answers "does anything still run for this id here?" — consulted by renew(). See setEngineLiveness. */
   private engineLiveness?: (sessionId: string) => boolean;
   /**
@@ -263,7 +256,6 @@ export class SessionOwnershipService {
   async release(sessionId: string, ownsClaim?: () => boolean): Promise<void> {
     if (ownsClaim) {
       const dataSource = this.sessions.manager.connection;
-      if (!(await awaitNoOpenTransaction(dataSource))) throw new Error('Another database transaction stayed open');
       await dataSource.transaction(async manager => {
         // A delete releases only its captured ownership, even when a peer's newer lease has expired.
         const { affected } = await manager
@@ -389,7 +381,6 @@ export class SessionOwnershipService {
   ): Promise<T> {
     if (!this.onAdopted?.transactional) return work(this.sessions);
     const dataSource = this.sessions.manager.connection;
-    if (!(await awaitNoOpenTransaction(dataSource))) throw new Error('Another database transaction stayed open');
     return dataSource.transaction(manager => work(manager.getRepository(Session), manager));
   }
 
@@ -404,44 +395,12 @@ export class SessionOwnershipService {
       });
     };
     if (manager && handler.transactional) {
-      if (SHARED_CONNECTION_DIALECTS.has(manager.connection.options.type)) {
-        // SQLite statement errors keep the transaction usable. Rolling back a savepoint would also
-        // undo unrelated writes that used this shared connection while cleanup awaited its queries.
-        try {
-          await handler.run(sessionId, manager);
-        } catch (error) {
-          failed(error);
-        }
-      } else {
-        await manager.transaction(nested => handler.run(sessionId, nested)).catch(failed);
-      }
+      await manager.transaction(nested => handler.run(sessionId, nested)).catch(failed);
     } else {
       void Promise.resolve()
         .then(() => handler.run(sessionId))
         .catch(failed);
     }
-  }
-
-  /**
-   * Tell renew() that "this node no longer holds the row" is currently uninformative, and get back
-   * the release. Held by a replace-all data import across its whole transaction.
-   *
-   * Why it is needed: on SQLite every TypeORM query runner shares ONE connection, so a heartbeat
-   * tick can execute INSIDE the import's open transaction, after its DELETE and before its
-   * re-inserts commit, and see no rows at all. Concluding loss there tears down engines that never
-   * stopped — and does so even when the import later rolls back and every row comes straight back.
-   *
-   * Returns a release rather than exposing a resume(), so the count cannot be unbalanced by a caller
-   * that forgets which spans it opened; releasing the same token twice is a no-op.
-   */
-  suspendLossDetection(): () => void {
-    this.lossDetectionSuspended++;
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.lossDetectionSuspended--;
-    };
   }
 
   /**
@@ -506,11 +465,6 @@ export class SessionOwnershipService {
       return;
     }
 
-    // Re-checked HERE, after the queries above rather than only at entry: the tick this protects
-    // against is precisely one that was already in flight when the import took the token, so an
-    // entry-only check would let it through. Renewing was harmless; concluding loss is not.
-    if (this.lossDetectionSuspended > 0) return;
-
     // Only a claim this tick actually read can be lost. One released during the queries (a stop) is
     // gone on purpose, and one released and claimed again (a stop, then a start) may have been read
     // in between: neither was taken by a peer.
@@ -547,12 +501,6 @@ export class SessionOwnershipService {
    * Reported once per process. Detection only: nothing is refused on it.
    */
   private noteForeignRenewals(rows: Array<Pick<Session, 'id' | 'leaseExpiresAt'>>): void {
-    if (this.lossDetectionSuspended > 0) {
-      // An import is rewriting the table under this tick; start over once it is done.
-      this.lastSeenLease.clear();
-      this.foreignStreak.clear();
-      return;
-    }
     const now = Date.now();
     const seen = new Set<string>();
     const flagged: string[] = [];

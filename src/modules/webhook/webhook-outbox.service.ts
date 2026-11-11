@@ -92,9 +92,8 @@ export class WebhookOutboxService implements OnModuleInit, OnModuleDestroy {
    */
   async open(row: Omit<ReplayableDelivery, 'id' | 'attempts'> & { deliveryId: string }): Promise<void> {
     try {
-      // A bare INSERT, not save(): save() wraps it in a transaction, and on SQLite's single shared
-      // connection the rollback of the unique violation expected here would also discard any other
-      // write made while it was open.
+      // A bare INSERT, not save(): save() would wrap it in a transaction it does not need, and the
+      // unique violation is expected here.
       await this.outbox.insert({
         webhookId: row.webhookId,
         sessionId: row.sessionId,
@@ -141,7 +140,7 @@ export class WebhookOutboxService implements OnModuleInit, OnModuleDestroy {
   /**
    * Unsettled rows older than the staleness window; queued jobs are checked before replay.
    *
-   * A stored payload that does not parse (an imported or hand-edited row on SQLite, where it is text)
+   * A stored payload that does not parse (an imported or hand-edited row)
    * fails the read of every page it sits in, so no row behind it would ever be replayed. When the page
    * read fails it is read again row by row, an unreadable row is logged and skipped, and `onScanned`
    * receives the last id the page covered so a caller's cursor passes the unreadable rows too.

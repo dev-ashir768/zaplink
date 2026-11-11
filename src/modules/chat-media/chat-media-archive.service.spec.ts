@@ -12,6 +12,7 @@ import { KeyedMutationQueue } from '../../common/utils/keyed-mutation-queue';
 import { MessageSendService } from '../message/message-send.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { updateMessageMetadata } from '../message/message-metadata';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /** A ConfigService stub that returns each call's default unless overridden by `overrides`. */
 function fakeConfigService(overrides: Record<string, unknown> = {}): ConfigService {
@@ -57,7 +58,7 @@ describe('ChatMediaArchiveService', () => {
 
   beforeAll(async () => {
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-chat-media-'));
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(Message);
     storageService = new StorageService(
@@ -194,7 +195,7 @@ describe('ChatMediaArchiveService', () => {
       jest.spyOn(repository, 'update').mockImplementation((where, patch) => {
         if (!mergeFailed && patch.metadata && typeof where === 'object' && where !== null && 'waMessageId' in where) {
           mergeFailed = true;
-          return Promise.reject(new Error('SQLITE_BUSY'));
+          return Promise.reject(new Error('Connection terminated unexpectedly'));
         }
         return update(where, patch);
       });
@@ -566,7 +567,7 @@ describe('ChatMediaArchiveService', () => {
   describe('purgeExpired', () => {
     /** Age a row past the retention window (@CreateDateColumn ignores writes on insert). */
     const backdate = (id: string, daysAgo: number): Promise<unknown> =>
-      repository.query('UPDATE messages SET createdAt = ? WHERE id = ?', [
+      repository.query('UPDATE messages SET "createdAt" = $1 WHERE id = $2', [
         new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString(),
         id,
       ]);
@@ -620,7 +621,7 @@ describe('ChatMediaArchiveService', () => {
 
   describe('purgeExpired batching (backlog safety)', () => {
     const backdate = (id: string, daysAgo: number): Promise<unknown> =>
-      repository.query('UPDATE messages SET createdAt = ? WHERE id = ?', [
+      repository.query('UPDATE messages SET "createdAt" = $1 WHERE id = $2', [
         new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString(),
         id,
       ]);
@@ -638,7 +639,7 @@ describe('ChatMediaArchiveService', () => {
     }
 
     // Explicit timeout: this is the one case in the file that seeds four figures of rows and drives
-    // them through real SQLite and a real temp filesystem, so it is genuinely slow rather than
+    // them through a real database and a real temp filesystem, so it is genuinely slow rather than
     // waiting on anything. Jest's 5s default left no headroom for that work once the rest of the
     // suite was running beside it, and it timed out on every full-suite run while passing whenever
     // the file was run alone — a failure that reported itself as a product bug and was not one.
@@ -693,7 +694,7 @@ describe('ChatMediaArchiveService', () => {
           })),
         );
       }
-      await repository.query('UPDATE messages SET createdAt = ?', [
+      await repository.query('UPDATE messages SET "createdAt" = $1', [
         new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
       ]);
       const del = jest
@@ -714,25 +715,6 @@ describe('ChatMediaArchiveService', () => {
       expect(del.mock.calls[515][0]).toBe(`${CHAT_MEDIA_PREFIX}bad/0.png`);
       del.mockRestore();
     }, 30_000);
-
-    it('does not plan the batch select as a walk of the whole table on SQLite', async () => {
-      // Ordering by the bare primary key lets SQLite satisfy ORDER BY from its autoindex and then
-      // visit every row in the table, which blocks the event loop on every tick once the backlog is
-      // drained. The plan must start from the createdAt range instead.
-      await seedExpired(1);
-      const runner = Object.getPrototypeOf(ds.createQueryRunner()) as {
-        query: (sql: string, params?: unknown[]) => Promise<unknown>;
-      };
-      const query = jest.spyOn(runner, 'query');
-
-      await enabled({ 'chatMedia.ttlDays': 7 }).purgeExpired(Date.now());
-
-      const select = query.mock.calls.find(([sql]) => /^SELECT/i.test(sql) && /LIMIT/i.test(sql));
-      query.mockRestore();
-      expect(select).toBeDefined();
-      const plan = await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${select![0]}`, select![1]);
-      expect(plan.map(p => p.detail).join('\n')).not.toMatch(/SCAN .*sqlite_autoindex_messages/);
-    });
 
     it('stops instead of spinning when every delete in a batch fails', async () => {
       await seedExpired(3);
@@ -833,7 +815,7 @@ describe('ChatMediaArchiveService', () => {
 
   describe('sweep scheduling', () => {
     const backdate = (id: string, daysAgo: number): Promise<unknown> =>
-      repository.query('UPDATE messages SET createdAt = ? WHERE id = ?', [
+      repository.query('UPDATE messages SET "createdAt" = $1 WHERE id = $2', [
         new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString(),
         id,
       ]);
@@ -896,27 +878,39 @@ describe('ChatMediaArchiveService', () => {
         mediaMimetype: 'image/png',
       });
       await backdate(row.id, 10);
-      jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
+      // Only the interval is faked: the pg pool needs real timeouts for its round trips.
+      jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick', 'setTimeout', 'clearTimeout', 'queueMicrotask'] });
       let releaseDelete: () => void = () => undefined;
-      const del = jest
-        .spyOn(storageService, 'deleteFile')
-        .mockImplementationOnce(() => new Promise<void>(resolve => (releaseDelete = resolve)));
+      let deleteStarted!: () => void;
+      const deleting = new Promise<void>(resolve => (deleteStarted = resolve));
+      const del = jest.spyOn(storageService, 'deleteFile').mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            releaseDelete = resolve;
+            deleteStarted();
+          }),
+      );
       const svc = build({ 'chatMedia.ttlDays': 7 });
       const sweep = jest.spyOn(svc, 'sweepOrphanedMedia').mockResolvedValue(0);
       const select = jest.spyOn(repository, 'createQueryBuilder');
+      const purge = jest.spyOn(svc, 'purgeExpired');
       try {
         svc.onModuleInit();
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+        // The batch select is a real database round trip; wait until the purge holds the delete.
+        await deleting;
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
         expect(select).toHaveBeenCalledTimes(1);
 
         releaseDelete();
+        // The database round trips after the delete take real time; let the first purge finish.
+        await purge.mock.results[0].value;
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
         expect(select.mock.calls.length).toBeGreaterThan(1);
       } finally {
         svc.onModuleDestroy();
         releaseDelete();
-        [del, sweep, select].forEach(spy => spy.mockRestore());
+        [del, sweep, select, purge].forEach(spy => spy.mockRestore());
         jest.useRealTimers();
       }
     });

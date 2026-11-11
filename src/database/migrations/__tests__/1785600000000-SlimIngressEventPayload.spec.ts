@@ -1,15 +1,16 @@
 import { DataSource, QueryRunner } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddIntegrationFabric1781900000000 } from '../1781900000000-AddIntegrationFabric';
 import { WidenIngressDedupKey1782100000000 } from '../1782100000000-WidenIngressDedupKey';
 import { AddIngressEventDispatchState1785112230000 } from '../1785112230000-AddIngressEventDispatchState';
 import { SlimIngressEventPayload1785600000000 } from '../1785600000000-SlimIngressEventPayload';
 
-describe('SlimIngressEventPayload migration (sqlite)', () => {
+describe('SlimIngressEventPayload migration ', () => {
   let ds: DataSource;
   let runner: QueryRunner;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [], migrations: [] });
+    ds = new DataSource({ ...pgTestOptions(), entities: [], migrations: [] });
     await ds.initialize();
     runner = ds.createQueryRunner();
     await new AddIntegrationFabric1781900000000().up(runner);
@@ -23,12 +24,16 @@ describe('SlimIngressEventPayload migration (sqlite)', () => {
   });
 
   const columns = async (): Promise<Array<{ name: string; notnull: number }>> =>
-    (await runner.query(`PRAGMA table_info("ingress_events")`)) as Array<{ name: string; notnull: number }>;
+    (
+      (await runner.query(
+        `SELECT column_name AS name, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'ingress_events'`,
+      )) as Array<{ name: string; is_nullable: string }>
+    ).map(c => ({ name: c.name, notnull: c.is_nullable === 'NO' ? 1 : 0 }));
 
   const insertEvent = (id: string, dispatchState: string | null, payload = '{"rawBody":"x"}') =>
     runner.query(
       `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","dispatchState","createdAt") ` +
-        `VALUES ('${id}','inst','plug','${id}','chatwoot','${payload}',${dispatchState === null ? 'NULL' : `'${dispatchState}'`},datetime('now'))`,
+        `VALUES ('${id}','inst','plug','${id}','chatwoot','${payload}',${dispatchState === null ? 'NULL' : `'${dispatchState}'`},now())`,
     );
 
   const payloadOf = async (id: string): Promise<string | null> => {
@@ -57,13 +62,12 @@ describe('SlimIngressEventPayload migration (sqlite)', () => {
     expect(await payloadOf('legacy-1')).toBeNull();
     expect(await payloadOf('failed-1')).toBeNull();
 
-    const count = (await runner.query(`SELECT COUNT(*) AS n FROM "ingress_events"`)) as Array<{ n: number }>;
-    expect(count[0].n).toBe(4);
+    const count = (await runner.query(`SELECT COUNT(*) AS n FROM "ingress_events"`)) as Array<{ n: string }>;
+    expect(Number(count[0].n)).toBe(4);
 
-    // The rebuild recreates all three indexes (the sqlite_autoindex_* entries come from the
-    // varchar PRIMARY KEY itself, on both the old and the rebuilt table — excluded here).
+    // The in-place ALTER keeps all three indexes (the primary-key index is excluded here).
     const indexes = (await runner.query(
-      `SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='ingress_events' AND name NOT LIKE 'sqlite_autoindex%' ORDER BY name`,
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'ingress_events' AND indexname NOT LIKE 'PK%' AND indexname NOT LIKE '%_pkey' ORDER BY indexname`,
     )) as Array<{ name: string }>;
     expect(indexes.map(i => i.name)).toEqual([
       'IDX_ingress_events_createdAt',
@@ -77,7 +81,7 @@ describe('SlimIngressEventPayload migration (sqlite)', () => {
     await mig.up(runner);
     await runner.query(
       `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","payloadHash","dispatchState","createdAt") ` +
-        `VALUES ('live-1','inst','plug','live-1','chatwoot','{"rawBody":"y"}','hash-y','pending',datetime('now'))`,
+        `VALUES ('live-1','inst','plug','live-1','chatwoot','{"rawBody":"y"}','hash-y','pending',now())`,
     );
 
     await mig.up(runner); // no-op
@@ -101,7 +105,7 @@ describe('SlimIngressEventPayload migration (sqlite)', () => {
     expect(await payloadOf('pending-1')).toBe('{"rawBody":"x"}');
 
     const indexes = (await runner.query(
-      `SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='ingress_events' AND name NOT LIKE 'sqlite_autoindex%' ORDER BY name`,
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'ingress_events' AND indexname NOT LIKE 'PK%' AND indexname NOT LIKE '%_pkey' ORDER BY indexname`,
     )) as Array<{ name: string }>;
     expect(indexes.map(i => i.name)).toEqual([
       'IDX_ingress_events_createdAt',

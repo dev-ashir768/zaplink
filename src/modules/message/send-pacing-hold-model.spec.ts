@@ -5,6 +5,27 @@ import { SendPacingService, type SettleAdmission } from './send-pacing.service';
 import { Message } from './entities/message.entity';
 import { Session } from '../session/entities/session.entity';
 import { computeSendPacingConfig } from './send-pacing.config';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
+
+// Only the clock is faked: the pg pool needs real timers to connect and run queries.
+const fakeClockOnly = (now: Date): void => {
+  jest
+    .useFakeTimers({
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'queueMicrotask',
+        'hrtime',
+        'performance',
+      ],
+    })
+    .setSystemTime(now);
+};
 
 /**
  * Seeded interleavings of single sends, bulk items, hand-backs, unknown outcomes and rows landing late,
@@ -55,7 +76,7 @@ describe('send pacing hold model', () => {
   const insertRow = (chatId: string): Promise<unknown> =>
     ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES (?,?,?,'a','b','text','outgoing',?)`,
+       VALUES ($1,$2,$3,'a','b','text','outgoing',$4)`,
       [`r${seq++}`, 's1', chatId, new Date().toISOString()],
     );
 
@@ -89,10 +110,9 @@ describe('send pacing hold model', () => {
   };
 
   beforeEach(async () => {
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(NOW);
+    fakeClockOnly(NOW);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });
@@ -103,7 +123,7 @@ describe('send pacing hold model', () => {
     for (const chatId of KNOWN) {
       await ds.query(
         `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-         VALUES (?,'s1',?,'a','b','text','incoming',?)`,
+         VALUES ($1,'s1',$2,'a','b','text','incoming',$3)`,
         [`seed-${chatId}`, chatId, new Date(NOW.getTime() - 5 * 86_400_000).toISOString()],
       );
     }

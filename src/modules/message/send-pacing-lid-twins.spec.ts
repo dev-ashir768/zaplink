@@ -10,6 +10,7 @@ import { LidMapping } from '../../engine/identity/lid-mapping.entity';
 import { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import { SendPacingService } from './send-pacing.service';
 import { computeSendPacingConfig, type SendPacingConfig } from './send-pacing.config';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * Both engines store a one-to-one chat under the id WhatsApp delivers it with, and for a contact that moved to a
@@ -18,21 +19,10 @@ import { computeSendPacingConfig, type SendPacingConfig } from './send-pacing.co
  * filter reads), the two are one contact, and the cold-reachout rule has to see it: a reply to someone who wrote
  * first is never counted and never refused, whichever form the history or the reply uses.
  *
- * Real tables and the real lid store. SQLite in memory; on PostgreSQL (DATABASE_TYPE=postgres, the test-postgres
- * job) a schema of its own. Rows go in through the repositories with generated ids and Date values, which both
- * dialects take.
+ * Real tables and the real lid store, in a PostgreSQL schema of its own. Rows go in through the repositories with
+ * generated ids and Date values.
  */
 describe('cold-reachout rule for a contact stored under both its phone and its lid', () => {
-  const pg = process.env.DATABASE_TYPE === 'postgres';
-  const server = {
-    type: 'postgres' as const,
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
-
   const DAY_MS = 86_400_000;
   const NOW = new Date('2026-08-03T12:00:00.000Z');
   const YESTERDAY = '2026-08-02T09:00:00.000Z';
@@ -47,7 +37,6 @@ describe('cold-reachout rule for a contact stored under both its phone and its l
   const OTHER_STRANGER = '6289900000002@c.us';
 
   let ds: DataSource;
-  let schema = '';
   let messages: Repository<Message>;
   let sessions: Repository<Session>;
   let lids: Repository<LidMapping>;
@@ -66,11 +55,6 @@ describe('cold-reachout rule for a contact stored under both its phone and its l
     logSchemaBuild: () => undefined,
     logMigration: () => undefined,
     log: () => undefined,
-  };
-
-  const onServer = async (sql: string): Promise<void> => {
-    const admin = await new DataSource(server).initialize();
-    await admin.query(sql).finally(() => admin.destroy());
   };
 
   const add = (chatId: string, at: string, direction = MessageDirection.OUTGOING): Promise<unknown> =>
@@ -159,30 +143,13 @@ describe('cold-reachout rule for a contact stored under both its phone and its l
       ],
     });
     const entities = [Message, Session, LidMapping];
-    if (pg) {
-      schema = `pacing_lid_${randomUUID().replace(/-/g, '')}`;
-      await onServer(`CREATE SCHEMA "${schema}"`);
-    }
-    ds = await new DataSource(
-      pg
-        ? {
-            ...server,
-            schema,
-            extra: { options: `-c search_path=${schema},public` },
-            entities,
-            synchronize: true,
-            logging: ['query'],
-            logger: recorder,
-          }
-        : {
-            type: 'better-sqlite3',
-            database: ':memory:',
-            entities,
-            synchronize: true,
-            logging: ['query'],
-            logger: recorder,
-          },
-    ).initialize();
+    ds = await new DataSource({
+      ...pgTestOptions(),
+      entities,
+      synchronize: true,
+      logging: ['query'],
+      logger: recorder,
+    }).initialize();
     messages = ds.getRepository(Message);
     sessions = ds.getRepository(Session);
     lids = ds.getRepository(LidMapping);
@@ -199,7 +166,6 @@ describe('cold-reachout rule for a contact stored under both its phone and its l
     jest.useRealTimers();
     jest.restoreAllMocks();
     await ds.destroy();
-    if (pg) await onServer(`DROP SCHEMA "${schema}" CASCADE`);
   });
 
   describe('the check of a single send', () => {

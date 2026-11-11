@@ -324,7 +324,7 @@ describe('createBootDataSource (postgres boot migrations)', () => {
   });
 
   it('keeps the default @nestjs/typeorm path for non-postgres options (no lock, no initialize)', async () => {
-    const sqliteOptions: DataSourceOptions = { type: 'better-sqlite3', database: './data/zaplink.sqlite' };
+    const otherOptions = { type: 'mysql', database: 'other' } as DataSourceOptions;
     const dataSource = {
       initialize: jest.fn(() => Promise.resolve()),
       runMigrations: jest.fn(() => Promise.resolve()),
@@ -335,12 +335,12 @@ describe('createBootDataSource (postgres boot migrations)', () => {
       createLockClient: jest.fn(),
     };
 
-    const returned = await createBootDataSource(sqliteOptions, deps);
+    const returned = await createBootDataSource(otherOptions, deps);
 
     // Untouched options, uninitialized DataSource (the wrapper's initialize keeps running the
     // connection's own migrationsRun), and no advisory-lock client is ever built.
     expect(returned).toBe(dataSource);
-    expect(deps.createDataSource).toHaveBeenCalledWith(sqliteOptions);
+    expect(deps.createDataSource).toHaveBeenCalledWith(otherOptions);
     expect(deps.createLockClient).not.toHaveBeenCalled();
     expect(dataSource.initialize).not.toHaveBeenCalled();
   });

@@ -11,9 +11,7 @@ import { MigrationInterface, QueryRunner, TableUnique } from 'typeorm';
  * with the intended `(session_id, batch_id)` namespace — cross-session reuse is allowed, same-session
  * reuse stays a violation (a DB backstop behind the app's clean 400).
  *
- * Uses the TypeORM schema API rather than raw SQL so the SQLite path (which cannot `ALTER TABLE DROP
- * CONSTRAINT`) is handled by TypeORM's table rebuild, while Postgres gets plain `ALTER TABLE`. Both
- * the lookup and the guards make it idempotent. Hand-authored because `synchronize` is off for the
+ * Uses the TypeORM schema API rather than raw SQL (plain `ALTER TABLE` on Postgres). Both the lookup and the guards make it idempotent. Hand-authored because `synchronize` is off for the
  * `data` connection.
  */
 export class ScopeBatchIdUniqueToSession1781800000000 implements MigrationInterface {

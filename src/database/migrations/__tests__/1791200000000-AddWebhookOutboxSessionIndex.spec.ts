@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddWebhookOutboxEvents1786200000000 } from '../1786200000000-AddWebhookOutboxEvents';
 import { AddWebhookOutboxSessionIndex1791200000000 } from '../1791200000000-AddWebhookOutboxSessionIndex';
 
@@ -8,7 +9,7 @@ describe('AddWebhookOutboxSessionIndex migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     const runner = ds.createQueryRunner();
     await new AddWebhookOutboxEvents1786200000000().up(runner);
@@ -27,8 +28,26 @@ describe('AddWebhookOutboxSessionIndex migration', () => {
     await ds.destroy();
   });
 
+  // Postgres EXPLAIN on one connection with sequential and bitmap scans disabled, so the plan names the
+  // index a small test table would otherwise skip in favour of a scan.
+  const explain = async (sql: string): Promise<string> => {
+    const qr = ds.createQueryRunner();
+    try {
+      await qr.query('SET enable_seqscan = off');
+      await qr.query('SET enable_bitmapscan = off');
+      const rows = (await qr.query(`EXPLAIN ${sql}`)) as Array<{ 'QUERY PLAN': string }>;
+      return rows.map(r => r['QUERY PLAN']).join(' | ');
+    } finally {
+      await qr.query('RESET enable_seqscan');
+      await qr.query('RESET enable_bitmapscan');
+      await qr.release();
+    }
+  };
+
   const indexNames = async (): Promise<string[]> => {
-    const rows = await ds.query<{ name: string }[]>(`PRAGMA index_list("webhook_outbox_events")`);
+    const rows = await ds.query<{ name: string }[]>(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'webhook_outbox_events'`,
+    );
     return rows.map(r => r.name).sort();
   };
 
@@ -60,15 +79,15 @@ describe('AddWebhookOutboxSessionIndex migration', () => {
   });
 
   it('serves the per-session lookup of a session delete', async () => {
-    const lookup = `EXPLAIN QUERY PLAN SELECT "id" FROM "webhook_outbox_events" WHERE "sessionId" = 'sess-1' LIMIT 500`;
+    const lookup = `SELECT "id" FROM "webhook_outbox_events" WHERE "sessionId" = 'sess-1' LIMIT 500`;
 
     // Baseline: with no index on sessionId the lookup reads the whole table.
-    const before = (await ds.query<{ detail: string }[]>(lookup)).map(r => r.detail).join(' ');
+    const before = await explain(lookup);
     expect(before).not.toContain(INDEX);
 
     await new AddWebhookOutboxSessionIndex1791200000000().up(ds.createQueryRunner());
 
-    const after = (await ds.query<{ detail: string }[]>(lookup)).map(r => r.detail).join(' ');
+    const after = await explain(lookup);
     expect(after).toContain(INDEX);
   });
 });

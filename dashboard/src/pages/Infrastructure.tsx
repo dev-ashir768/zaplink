@@ -28,8 +28,6 @@ import { Modal } from '../components/Modal';
 import { useToast } from '../hooks/useToast';
 import './Infrastructure.css';
 
-import sqliteIcon from '../assets/icons/sqlite.svg';
-import postgresIcon from '../assets/icons/postgresql.svg';
 import folderIcon from '../assets/icons/folder.svg';
 import s3Icon from '../assets/icons/s3.svg';
 
@@ -70,7 +68,7 @@ const nextBootHost = (profile: string, config: SavedConfig): string =>
  * the restart starts rather than stops, so the host sent beside it does not matter.
  */
 function writtenHost(profile: string, sent: SaveConfigPayload): string | undefined {
-  if (profile === 'postgres') return sent.database?.type === 'sqlite' ? '' : sent.database?.host;
+  if (profile === 'postgres') return sent.database?.host;
   if (profile === 'minio') return sent.storage?.type === 'local' ? '' : sent.storage?.s3Endpoint;
   // Consumer pins and the retained cache profile decide whether Redis is unused below.
   return sent.redis?.host;
@@ -453,195 +451,166 @@ export function Infrastructure() {
               <Database size={20} />
               <h2>{t('infrastructure.database.title')}</h2>
             </div>
-            <span className={`status-indicator ${infraStatus.database.type === 'postgres' ? 'connected' : 'sqlite'}`}>
-              ● {infraStatus.database.type === 'postgres' ? 'PostgreSQL' : 'SQLite'}
-            </span>
+            <span className="status-indicator connected">● PostgreSQL</span>
           </div>
           {settingNote('DATABASE_TYPE', infraStatus.database.type, savedConfig?.database.type)}
 
-          <div className="radio-group">
-            <label className={`radio-option ${configForm.dbConfig.type === 'sqlite' ? 'selected' : ''}`}>
-              <input
-                type="radio"
-                name="dbType"
-                checked={configForm.dbConfig.type === 'sqlite'}
-                onChange={() => configForm.updateDbConfig('type', 'sqlite')}
-              />
-              <img src={sqliteIcon} alt="" className="watermark-icon" />
-              <span>{t('infrastructure.database.sqlite')}</span>
-              <small>{t('infrastructure.database.sqliteDesc')}</small>
-            </label>
-            <label className={`radio-option ${configForm.dbConfig.type === 'postgres' ? 'selected' : ''}`}>
-              <input
-                type="radio"
-                name="dbType"
-                checked={configForm.dbConfig.type === 'postgres'}
-                onChange={() => configForm.updateDbConfig('type', 'postgres')}
-              />
-              <img src={postgresIcon} alt="" className="watermark-icon" />
-              <span>{t('infrastructure.database.postgres')}</span>
-              <small>{t('infrastructure.database.postgresDesc')}</small>
-            </label>
-          </div>
-
-          {configForm.dbConfig.type === 'postgres' && (
-            <>
-              <div className="toggle-row toggle-row-spaced">
-                <div className="toggle-info">
-                  <span id="toggle-db-builtin">{t('infrastructure.database.useBuiltIn')}</span>
-                  <small>{t('infrastructure.database.builtInDesc')}</small>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    aria-labelledby="toggle-db-builtin"
-                    checked={configForm.dbConfig.builtIn}
-                    onChange={e => configForm.updateDbConfig('builtIn', e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
+          <>
+            <div className="toggle-row toggle-row-spaced">
+              <div className="toggle-info">
+                <span id="toggle-db-builtin">{t('infrastructure.database.useBuiltIn')}</span>
+                <small>{t('infrastructure.database.builtInDesc')}</small>
               </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  aria-labelledby="toggle-db-builtin"
+                  checked={configForm.dbConfig.builtIn}
+                  onChange={e => configForm.updateDbConfig('builtIn', e.target.checked)}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            </div>
 
-              {builtInNote(
-                infraStatus.database.type === 'postgres' && savedConfig.database.type === 'postgres',
-                infraStatus.database.builtIn,
-                savedBuiltIn(savedConfig.database, infraStatus.database.builtIn),
-                namesBundledContainer('postgres', infraStatus.database.host),
-              )}
-              {pinNote('DATABASE_HOST')}
-              {flagPinNote('POSTGRES_BUILTIN', 'postgres')}
-              {configForm.dbConfig.builtIn && builtInDetailNotes('postgres')}
+            {builtInNote(
+              infraStatus.database.type === 'postgres' && savedConfig.database.type === 'postgres',
+              infraStatus.database.builtIn,
+              savedBuiltIn(savedConfig.database, infraStatus.database.builtIn),
+              namesBundledContainer('postgres', infraStatus.database.host),
+            )}
+            {pinNote('DATABASE_HOST')}
+            {flagPinNote('POSTGRES_BUILTIN', 'postgres')}
+            {configForm.dbConfig.builtIn && builtInDetailNotes('postgres')}
 
-              {!configForm.dbConfig.builtIn && (
-                <div className="config-form">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="infra-1">{t('common.host')}</label>
-                      <input
-                        id="infra-1"
-                        type="text"
-                        value={configForm.dbConfig.host}
-                        onChange={e => configForm.updateDbConfig('host', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group small">
-                      <label htmlFor="infra-2">{t('common.port')}</label>
-                      <input
-                        id="infra-2"
-                        type="text"
-                        value={configForm.dbConfig.port}
-                        onChange={e => configForm.updateDbConfig('port', e.target.value)}
-                      />
-                    </div>
+            {!configForm.dbConfig.builtIn && (
+              <div className="config-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-1">{t('common.host')}</label>
+                    <input
+                      id="infra-1"
+                      type="text"
+                      value={configForm.dbConfig.host}
+                      onChange={e => configForm.updateDbConfig('host', e.target.value)}
+                    />
                   </div>
-                  {pinNote('DATABASE_PORT')}
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="infra-3">{t('common.username')}</label>
-                      <input
-                        id="infra-3"
-                        type="text"
-                        value={configForm.dbConfig.username}
-                        onChange={e => configForm.updateDbConfig('username', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="infra-4">{t('common.password')}</label>
-                      <input
-                        id="infra-4"
-                        type="password"
-                        autoComplete="new-password"
-                        value={configForm.dbConfig.password}
-                        onChange={e => configForm.updateDbConfig('password', e.target.value)}
-                      />
-                    </div>
+                  <div className="form-group small">
+                    <label htmlFor="infra-2">{t('common.port')}</label>
+                    <input
+                      id="infra-2"
+                      type="text"
+                      value={configForm.dbConfig.port}
+                      onChange={e => configForm.updateDbConfig('port', e.target.value)}
+                    />
                   </div>
-                  {pinNote('DATABASE_USERNAME')}
-                  {pinNote('DATABASE_PASSWORD')}
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="infra-5">{t('infrastructure.database.dbName')}</label>
-                      <input
-                        id="infra-5"
-                        type="text"
-                        value={configForm.dbConfig.database}
-                        onChange={e => configForm.updateDbConfig('database', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group small">
-                      <label htmlFor="infra-6">{t('infrastructure.database.poolSize')}</label>
-                      <input
-                        id="infra-6"
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={Number.isNaN(configForm.dbConfig.poolSize) ? '' : configForm.dbConfig.poolSize}
-                        onChange={e => {
-                          // An emptied field stays NaN and is left out of the save; a typed size is kept
-                          // inside the range the field offers.
-                          const size = parseInt(e.target.value);
-                          configForm.updateDbConfig(
-                            'poolSize',
-                            Number.isNaN(size) ? size : Math.min(50, Math.max(1, size)),
-                          );
-                        }}
-                      />
-                    </div>
+                </div>
+                {pinNote('DATABASE_PORT')}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-3">{t('common.username')}</label>
+                    <input
+                      id="infra-3"
+                      type="text"
+                      value={configForm.dbConfig.username}
+                      onChange={e => configForm.updateDbConfig('username', e.target.value)}
+                    />
                   </div>
-                  {pinNote('DATABASE_NAME')}
-                  {pinNote('DATABASE_POOL_SIZE')}
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="infra-7">{t('infrastructure.database.schema')}</label>
-                      <input
-                        id="infra-7"
-                        type="text"
-                        value={configForm.dbConfig.schema}
-                        onChange={e => configForm.updateDbConfig('schema', e.target.value)}
-                        placeholder="public"
-                      />
-                      <small>{t('infrastructure.database.schemaDesc')}</small>
-                    </div>
+                  <div className="form-group">
+                    <label htmlFor="infra-4">{t('common.password')}</label>
+                    <input
+                      id="infra-4"
+                      type="password"
+                      autoComplete="new-password"
+                      value={configForm.dbConfig.password}
+                      onChange={e => configForm.updateDbConfig('password', e.target.value)}
+                    />
                   </div>
-                  {pinNote('POSTGRES_SCHEMA')}
+                </div>
+                {pinNote('DATABASE_USERNAME')}
+                {pinNote('DATABASE_PASSWORD')}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-5">{t('infrastructure.database.dbName')}</label>
+                    <input
+                      id="infra-5"
+                      type="text"
+                      value={configForm.dbConfig.database}
+                      onChange={e => configForm.updateDbConfig('database', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group small">
+                    <label htmlFor="infra-6">{t('infrastructure.database.poolSize')}</label>
+                    <input
+                      id="infra-6"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={Number.isNaN(configForm.dbConfig.poolSize) ? '' : configForm.dbConfig.poolSize}
+                      onChange={e => {
+                        // An emptied field stays NaN and is left out of the save; a typed size is kept
+                        // inside the range the field offers.
+                        const size = parseInt(e.target.value);
+                        configForm.updateDbConfig(
+                          'poolSize',
+                          Number.isNaN(size) ? size : Math.min(50, Math.max(1, size)),
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+                {pinNote('DATABASE_NAME')}
+                {pinNote('DATABASE_POOL_SIZE')}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-7">{t('infrastructure.database.schema')}</label>
+                    <input
+                      id="infra-7"
+                      type="text"
+                      value={configForm.dbConfig.schema}
+                      onChange={e => configForm.updateDbConfig('schema', e.target.value)}
+                      placeholder="public"
+                    />
+                    <small>{t('infrastructure.database.schemaDesc')}</small>
+                  </div>
+                </div>
+                {pinNote('POSTGRES_SCHEMA')}
+                <div className="toggle-row">
+                  <div className="toggle-info">
+                    <span id="toggle-db-ssl">{t('infrastructure.database.ssl')}</span>
+                    <small>{t('infrastructure.database.sslDesc')}</small>
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      aria-labelledby="toggle-db-ssl"
+                      checked={configForm.dbConfig.sslEnabled}
+                      onChange={e => configForm.updateDbConfig('sslEnabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                {pinNote('DATABASE_SSL')}
+                {configForm.dbConfig.sslEnabled && (
                   <div className="toggle-row">
                     <div className="toggle-info">
-                      <span id="toggle-db-ssl">{t('infrastructure.database.ssl')}</span>
-                      <small>{t('infrastructure.database.sslDesc')}</small>
+                      <span id="toggle-db-ssl-reject">{t('infrastructure.database.sslRejectUnauthorized')}</span>
+                      <small>{t('infrastructure.database.sslRejectUnauthorizedDesc')}</small>
                     </div>
                     <label className="toggle-switch">
                       <input
                         type="checkbox"
-                        aria-labelledby="toggle-db-ssl"
-                        checked={configForm.dbConfig.sslEnabled}
-                        onChange={e => configForm.updateDbConfig('sslEnabled', e.target.checked)}
+                        aria-labelledby="toggle-db-ssl-reject"
+                        checked={configForm.dbConfig.sslRejectUnauthorized}
+                        onChange={e => configForm.updateDbConfig('sslRejectUnauthorized', e.target.checked)}
                       />
                       <span className="toggle-slider"></span>
                     </label>
                   </div>
-                  {pinNote('DATABASE_SSL')}
-                  {configForm.dbConfig.sslEnabled && (
-                    <div className="toggle-row">
-                      <div className="toggle-info">
-                        <span id="toggle-db-ssl-reject">{t('infrastructure.database.sslRejectUnauthorized')}</span>
-                        <small>{t('infrastructure.database.sslRejectUnauthorizedDesc')}</small>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          aria-labelledby="toggle-db-ssl-reject"
-                          checked={configForm.dbConfig.sslRejectUnauthorized}
-                          onChange={e => configForm.updateDbConfig('sslRejectUnauthorized', e.target.checked)}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-                  )}
-                  {configForm.dbConfig.sslEnabled && pinNote('DATABASE_SSL_REJECT_UNAUTHORIZED')}
-                </div>
-              )}
-            </>
-          )}
+                )}
+                {configForm.dbConfig.sslEnabled && pinNote('DATABASE_SSL_REJECT_UNAUTHORIZED')}
+              </div>
+            )}
+          </>
 
           <div className="empty-state-card">
             <Database size={32} className="empty-state-icon success" />
@@ -953,7 +922,7 @@ export function Infrastructure() {
             {(() => {
               // S3 running but the backend isn't reachable → warn instead of a misleading green.
               const s3Unreachable = infraStatus.storage.type === 's3' && infraStatus.storage.s3Available === false;
-              const cls = infraStatus.storage.type !== 's3' ? 'sqlite' : s3Unreachable ? 'disconnected' : 'connected';
+              const cls = infraStatus.storage.type !== 's3' ? 'neutral' : s3Unreachable ? 'disconnected' : 'connected';
               return (
                 <span className={`status-indicator ${cls}`}>
                   ●{' '}

@@ -140,7 +140,7 @@ describe('SessionProxyInterceptor', () => {
     // answer 500 before the checks of a start, stop or delete that answer a retryable 503 were reached.
     it.each([
       ['a lost connection', new Error('Connection terminated unexpectedly')],
-      ['lock contention', Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' })],
+      ['connection exhaustion', Object.assign(new Error('sorry, too many clients already'), { code: '53300' })],
     ])('answers a retryable 503 when the owner lookup fails on %s', async (_label, failure) => {
       const { interceptor, context, next, handle, findOne } = build({});
       findOne.mockRejectedValueOnce(failure);

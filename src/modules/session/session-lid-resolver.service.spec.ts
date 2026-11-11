@@ -7,9 +7,11 @@ import { LidMapping } from '../../engine/identity/lid-mapping.entity';
 import { Session } from './entities/session.entity';
 import { ChatScopeService } from '../auth/chat-scope.service';
 import { LidNotMappedError } from '../../common/errors/lid-not-mapped.error';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
+// Background writes run real Postgres round trips, so give them wall-clock time, not just event-loop turns.
 const settle = async () => {
-  for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve));
+  for (let i = 0; i < 10; i++) await new Promise(resolve => setTimeout(resolve, 10));
 };
 
 describe('SessionLidResolver', () => {
@@ -408,8 +410,7 @@ describe('SessionLidResolver over the shared lid table', () => {
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [LidMapping, Session],
       synchronize: true,
     }).initialize();

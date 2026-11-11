@@ -479,12 +479,6 @@ describe('assertNoDefaultSecretsInProduction', () => {
     }
   });
 
-  it('allows the default sqlite + local-storage prod setup (no secrets needed)', () => {
-    expect(() =>
-      assertNoDefaultSecretsInProduction({ nodeEnv: 'production', databaseType: 'sqlite', storageType: 'local' }),
-    ).not.toThrow();
-  });
-
   it('allows prod with strong, unique secrets', () => {
     expect(() =>
       assertNoDefaultSecretsInProduction({
@@ -494,17 +488,6 @@ describe('assertNoDefaultSecretsInProduction', () => {
         storageType: 's3',
         s3AccessKey: 'AKIA-not-default-123',
         s3SecretKey: 'long-random-secret-value-098',
-      }),
-    ).not.toThrow();
-  });
-
-  it('does not check the DB password when using sqlite', () => {
-    // DATABASE_PASSWORD is irrelevant for sqlite, so a leftover default must not block boot.
-    expect(() =>
-      assertNoDefaultSecretsInProduction({
-        nodeEnv: 'production',
-        databaseType: 'sqlite',
-        databasePassword: 'zaplink',
       }),
     ).not.toThrow();
   });

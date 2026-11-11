@@ -23,8 +23,8 @@ const DEFAULT_ORPHAN_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_ORPHAN_GRACE_MS = 60 * 60 * 1000;
 /** How often the retention purge sweeps archived files past their TTL. */
 const PURGE_INTERVAL_MS = 15 * 60 * 1000;
-/** Rows cleared per purge statement. Keeps the id list far below the drivers' bind-parameter
- *  ceilings (SQLite 32766, Postgres 65535) and bounds how much work one failure can undo. */
+/** Rows cleared per purge statement. Keeps the id list far below Postgres' bind-parameter
+ *  ceiling (65535) and bounds how much work one failure can undo. */
 const PURGE_BATCH_SIZE = 500;
 /** Cap on batches per run, so one tick cannot monopolise the process draining a huge backlog;
  *  whatever is left is picked up by the next scheduled run. */
@@ -267,19 +267,13 @@ export class ChatMediaArchiveService implements OnModuleInit, OnModuleDestroy {
     // Batched, not one pass. The archive's default TTL is 0 (keep forever), so the first run after
     // an operator sets a retention can face an arbitrarily large backlog. Unbatched that backlog
     // broke three ways at once: tens of thousands of concurrent deletes, and a single
-    // `UPDATE ... WHERE id IN (...)` past the driver's bind-parameter ceiling (SQLite 32766, Postgres
-    // 65535) that throws AFTER the files are already gone, leaving rows pointing at deleted files and
+    // `UPDATE ... WHERE id IN (...)` past Postgres' bind-parameter ceiling (65535) that throws AFTER the files are already gone, leaving rows pointing at deleted files and
     // every later tick repeating the same failure. Draining in bounded batches keeps each statement
     // small and makes partial progress durable. The batches walk the rows by id, resuming across runs,
     // so rows whose delete keeps failing are stepped over instead of being re-selected ahead of every
     // newer row. A batch in which every delete fails ends the run: a missing file already counts as
     // deleted, so that means the store is down, and walking on would only repeat the failure.
-    //
-    // On SQLite the walk orders by `+id`: a bare `id` lets the planner satisfy ORDER BY from the
-    // primary-key autoindex and visit every row of the table, even with nothing to purge, and
-    // better-sqlite3 runs that scan on the event loop. The unary plus starts the plan from the
-    // createdAt range instead. Postgres rejects unary plus on a uuid and plans this well as it is.
-    const isSqlite = ['sqlite', 'better-sqlite3'].includes(this.repository.manager.connection.options.type);
+
     let after = this.purgeCursor;
     this.purgeCursor = undefined;
     for (let batch = 0; batch < PURGE_MAX_BATCHES_PER_RUN; batch++) {
@@ -289,10 +283,7 @@ export class ChatMediaArchiveService implements OnModuleInit, OnModuleDestroy {
         .where('m.mediaPath IS NOT NULL')
         .andWhere('m.createdAt < :cutoff', { cutoff });
       if (after) qb.andWhere('m.id > :after', { after });
-      const expired = await qb
-        .orderBy(isSqlite ? '+m.id' : 'm.id', 'ASC')
-        .limit(PURGE_BATCH_SIZE)
-        .getMany();
+      const expired = await qb.orderBy('m.id', 'ASC').limit(PURGE_BATCH_SIZE).getMany();
       if (expired.length === 0) break;
       after = expired[expired.length - 1].id;
 
@@ -342,11 +333,9 @@ export class ChatMediaArchiveService implements OnModuleInit, OnModuleDestroy {
    * no base64, but a long quoted text or many reactions can still take its metadata past the size checked in bulk,
    * and nothing caps it: reactions accumulate per sender and a quoted body is whatever the sender sent. A row over
    * that size is usually an inline copy of the default mode, which never carries the marker. The bulk statement
-   * reads only its size, through OCTET_LENGTH, which SQLite answers from the record header (testing the value
-   * itself there made SQLite load it whole). It is then looked up on its own in the database instead of being read
-   * and rewritten by the compare-and-set. That lookup scans the row's whole metadata, once per expired row, and
-   * better-sqlite3 answers it without a turn of the event loop, so the loop gets one before each lookup rather than
-   * being held for the batch. A shutdown that lands in one of those turns stops the loop and leaves the remaining
+   * reads only its size, through OCTET_LENGTH. It is then looked up on its own in the database instead of being read
+   * and rewritten by the compare-and-set. That lookup scans the row's whole metadata, once per expired row, and the
+   * loop yields before each lookup rather than holding the batch. A shutdown that lands in one of those turns stops the loop and leaves the remaining
    * rows for the next run. Returns the ids whose marker is still there.
    */
   private async dropArchivedMarkers(ids: string[]): Promise<Set<string>> {

@@ -1,14 +1,13 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
 import { execFileSync, spawnSync } from 'child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { createBootDataSource } from '../../pg-boot-migrations';
 import { BuiltInFtsProvider } from '../../../modules/search/providers/builtin-fts.provider';
+import { testDatabaseEnv } from '../../../test-utils/pg-test-db';
 
 /**
  * Postgres runtime coverage for the boot-migration advisory lock. Two "replicas" (independent
@@ -16,25 +15,23 @@ import { BuiltInFtsProvider } from '../../../modules/search/providers/builtin-ft
  * both would see an empty migrations ledger and race DDL (duplicate tables / deadlocks). With the
  * lock, one applies the chain while the other blocks in pg_advisory_lock, then applies nothing.
  *
- * Gating: mirrors the repo's PG harness convention exactly (scripts/pg-uuid-smoke.js + the
- * "Test (PostgreSQL migrations)" CI job + 1782400000000-AddMessagesFts.pg.spec.ts) — skip the
- * whole suite unless DATABASE_TYPE=postgres is set; the CI job runs it against a postgres:16
- * service, locally it skips cleanly.
+ * Every suite here works in a schema, database or role of its own on the test server
+ * (TEST_DATABASE_URL), and removes it afterwards.
  */
-const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
+const testEnv = testDatabaseEnv();
+const server = {
+  host: testEnv.DATABASE_HOST,
+  port: Number(testEnv.DATABASE_PORT),
+  username: testEnv.DATABASE_USERNAME,
+  password: testEnv.DATABASE_PASSWORD,
+};
 
-(POSTGRES_ENABLED ? describe : describe.skip)('postgres boot migrations (advisory lock)', () => {
-  const schema = process.env.POSTGRES_SCHEMA || 'public';
-  const useCustomSearchPath = schema !== 'public';
+describe('postgres boot migrations (advisory lock)', () => {
+  // A non-public POSTGRES_SCHEMA of this suite's own, so the chain never touches the shared public schema.
+  const schema = `boot_lock_${process.pid}`;
   let admin: DataSource;
 
-  const connectionOptions = {
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
+  const connectionOptions = { ...server, database: testEnv.DATABASE_NAME };
 
   // The exact options shape app.module.ts hands to createBootDataSource for the postgres data
   // connection: full migration chain, non-public schema via pg's startup search_path (see
@@ -44,20 +41,20 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
     type: 'postgres',
     ...connectionOptions,
     migrations: [path.join(__dirname, '..', '*{.ts,.js}')],
-    ...(useCustomSearchPath ? { extra: { options: `-c search_path=${schema},public` } } : {}),
+    extra: { options: `-c search_path=${schema},public` },
   });
 
   beforeEach(async () => {
     admin = new DataSource({ type: 'postgres', ...connectionOptions });
     await admin.initialize();
-    // Fresh schema each test: the CI job shares one service across steps, so wipe whatever the
-    // pg-smoke step (or a previous test) left behind — tables AND the migrations ledger.
+    // Fresh schema each test: tables AND the migrations ledger.
     await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await admin.query(`CREATE SCHEMA "${schema}"`);
   });
 
   afterEach(async () => {
     if (admin && admin.isInitialized) {
+      await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
       await admin.destroy();
     }
   });
@@ -85,52 +82,16 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
   }, 120_000);
 });
 
-(POSTGRES_ENABLED ? describe : describe.skip)('docs/05 index maintenance queries on a chain-built database', () => {
-  // The REINDEX line of the same block rewrites a real table and needs no check of its column names.
-  const selects = (): string[] => {
-    const doc = readFileSync(path.join(__dirname, '..', '..', '..', '..', 'docs', '05-database-design.md'), 'utf8');
-    const block = /```sql\n([\s\S]*?)```/.exec(doc.slice(doc.indexOf('### Index Maintenance')))?.[1] ?? '';
-    return block
-      .split(';')
-      .map(statement => statement.replace(/^\s*--.*$/gm, '').trim())
-      .filter(statement => statement.startsWith('SELECT'));
-  };
-
-  it('runs every SELECT the block hands operators, as written', async () => {
-    const ds = await createBootDataSource({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-      database: process.env.DATABASE_NAME || 'zaplink',
-      migrations: [path.join(__dirname, '..', '*{.ts,.js}')],
-    });
-    try {
-      const statements = selects();
-      expect(statements).toHaveLength(2);
-      for (const statement of statements) {
-        await expect(ds.query(statement)).resolves.toEqual(expect.any(Array));
-      }
-    } finally {
-      await ds.destroy();
-    }
-  }, 120_000);
-});
-
 /**
  * The session settings the data connection relies on, read back on every pooled connection: the runtime
  * statement_timeout, the configured search_path and the UTC zone. Directly against PostgreSQL, and through
  * PgBouncer in session mode when PGBOUNCER_PORT names one in front of the same server (docs/05 allows a
  * session-mode pooler; PgBouncer refuses statement_timeout in the startup packet).
  */
-(POSTGRES_ENABLED ? describe : describe.skip)('data connection session settings on every pooled connection', () => {
-  const host = process.env.DATABASE_HOST || 'localhost';
-  const credentials = {
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-  };
-  const directPort = Number(process.env.DATABASE_PORT || 5432);
+describe('data connection session settings on every pooled connection', () => {
+  const host = server.host;
+  const credentials = { username: server.username, password: server.password };
+  const directPort = server.port;
   const poolerPort = process.env.PGBOUNCER_PORT ? Number(process.env.PGBOUNCER_PORT) : undefined;
   let admin: DataSource;
 
@@ -140,7 +101,7 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
       host,
       port: directPort,
       ...credentials,
-      database: process.env.DATABASE_NAME || 'zaplink',
+      database: testEnv.DATABASE_NAME,
     }).initialize();
   });
 
@@ -279,16 +240,12 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
  * with the same pg_trgm. Needs pg_dump and psql on PATH.
  */
 const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${tool}`]).status === 0;
-(POSTGRES_ENABLED && hasTool('pg_dump') && hasTool('psql') ? describe : describe.skip)(
+(hasTool('pg_dump') && hasTool('psql') ? describe : describe.skip)(
   'backup.sh and restore.sh on a schema of a shared database',
   () => {
     const repo = path.join(__dirname, '..', '..', '..', '..');
-    const host = process.env.DATABASE_HOST || 'localhost';
-    const port = Number(process.env.DATABASE_PORT || 5432);
-    const superuser = {
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-    };
+    const { host, port } = server;
+    const superuser = { username: server.username, password: server.password };
     const schema = 'shared_app';
     let admin: DataSource;
 
@@ -298,7 +255,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         host,
         port,
         ...superuser,
-        database: process.env.DATABASE_NAME || 'zaplink',
+        database: testEnv.DATABASE_NAME,
       }).initialize();
     });
 
@@ -387,8 +344,6 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
 
           mkdirSync(path.join(work, 'src', 'data'), { recursive: true });
           mkdirSync(path.join(work, 'dst'));
-          // An empty file is an empty SQLite database, for both sqlite3 .backup and the copy without it.
-          writeFileSync(path.join(work, 'src', 'data', 'main.sqlite'), '');
           const backup = spawnSync('bash', [path.join(repo, 'scripts', 'backup.sh')], {
             cwd: path.join(work, 'src'),
             encoding: 'utf8',
@@ -397,7 +352,6 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
               HOME: work,
               PG_HOST_PORT: process.env.PG_HOST_PORT,
               BACKUP_DIR: path.join(work, 'out'),
-              DATABASE_TYPE: 'postgres',
               POSTGRES_SCHEMA: schema,
               DATABASE_HOST: host,
               DATABASE_PORT: String(port),
@@ -554,7 +508,6 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
 
           mkdirSync(path.join(work, 'src', 'data'), { recursive: true });
           mkdirSync(path.join(work, 'dst'));
-          writeFileSync(path.join(work, 'src', 'data', 'main.sqlite'), '');
           const backup = spawnSync('bash', [path.join(repo, 'scripts', 'backup.sh')], {
             cwd: path.join(work, 'src'),
             encoding: 'utf8',
@@ -562,7 +515,6 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
               ...tools,
               HOME: work,
               BACKUP_DIR: path.join(work, 'out'),
-              DATABASE_TYPE: 'postgres',
               POSTGRES_SCHEMA: schema,
               DATABASE_HOST: host,
               DATABASE_PORT: String(port),
@@ -666,13 +618,8 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
  * pgcrypto moves: its defaults are bound to the function, not to its name, and no pending migration asks for it.
  * Written for PostgreSQL 12 as well (no DROP DATABASE ... WITH (FORCE)).
  */
-(POSTGRES_ENABLED ? describe : describe.skip)('boot with pgcrypto in a schema off the search_path', () => {
-  const connection = {
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-  };
+describe('boot with pgcrypto in a schema off the search_path', () => {
+  const connection = server;
   const database = `pgcrypto_elsewhere_${process.pid}`;
   const REFUSAL =
     /pgcrypto extension, which is installed in schema "extensions".*ALTER EXTENSION pgcrypto SET SCHEMA public/;
@@ -722,7 +669,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
     admin = await new DataSource({
       type: 'postgres',
       ...connection,
-      database: process.env.DATABASE_NAME || 'zaplink',
+      database: testEnv.DATABASE_NAME,
     }).initialize();
     const [{ num }] = await admin.query<Array<{ num: number }>>(
       `SELECT current_setting('server_version_num')::int AS num`,

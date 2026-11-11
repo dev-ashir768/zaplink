@@ -3,11 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { mkdtempSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import { DataSource, DataSourceOptions, EntityManager, Repository } from 'typeorm';
-import { postgresUtcExtra } from '../../database/postgres-utc';
 import { SessionService } from './session.service';
 import { SessionEngineLifecycle } from './session-engine-lifecycle.service';
 import { SessionErrorStore } from './session-error-store.service';
@@ -21,7 +17,6 @@ import { Message } from '../message/entities/message.entity';
 import { BulkMessageService } from '../message/bulk-message.service';
 import { BatchStatus, MessageBatch } from '../message/entities/message-batch.entity';
 import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.entity';
-import { WebhookOutboxService } from '../webhook/webhook-outbox.service';
 import { Webhook } from '../webhook/entities/webhook.entity';
 import { WebhookOutboxEvent } from '../webhook/entities/webhook-outbox-event.entity';
 import { WebhookDeliveryFailure } from '../webhook/entities/webhook-delivery-failure.entity';
@@ -42,6 +37,7 @@ import { WebhookService } from '../webhook/webhook.service';
 import { HookManager } from '../../core/hooks';
 import { StatusStoreService } from '../status-store/status-store.service';
 import { SessionTakeoverService } from '../takeover/session-takeover.service';
+import { pgTestOptions, testSchemaName } from '../../test-utils/pg-test-db';
 
 const entities = [
   Session,
@@ -102,14 +98,13 @@ const inbound: IncomingMessage = {
 
 /**
  * Two nodes sharing one database, each on its own connection with the real SessionService, lifecycle and
- * ownership service; engines, gateway and webhook sender are fakes. SQLite runs on a file, PostgreSQL in a
- * schema of its own (DATABASE_TYPE=postgres). Node A's delete is held at the session:deleted hook: its
+ * ownership service; engines, gateway and webhook sender are fakes. Both share one PostgreSQL schema of
+ * their own. Node A's delete is held at the session:deleted hook: its
  * engine is gone and the rows it removes are still there.
  */
 describe('A session deleted on one node while a peer shares the database', () => {
-  const pg = process.env.DATABASE_TYPE === 'postgres';
   let options: DataSourceOptions;
-  let dir: string | undefined;
+  let schema: string;
   let a: Node;
   let b: Node;
   let deletion: Promise<void> | undefined;
@@ -182,27 +177,11 @@ describe('A session deleted on one node while a peer shares the database', () =>
   }
 
   beforeEach(async () => {
-    if (pg) {
-      options = {
-        type: 'postgres',
-        host: process.env.DATABASE_HOST || 'localhost',
-        port: Number(process.env.DATABASE_PORT || 5432),
-        username: process.env.DATABASE_USERNAME || 'zaplink',
-        password: process.env.DATABASE_PASSWORD || 'zaplink',
-        database: process.env.DATABASE_NAME || 'zaplink',
-        schema: `session_delete_claim_${randomUUID().replace(/-/g, '')}`,
-        entities,
-        extra: postgresUtcExtra(),
-      };
-      const setup = await new DataSource(options).initialize();
-      await setup.query(`CREATE SCHEMA "${options.schema}"`);
-      await setup.synchronize();
-      await setup.destroy();
-    } else {
-      dir = mkdtempSync(join(tmpdir(), 'zaplink-delete-claim-'));
-      options = { type: 'better-sqlite3', database: join(dir, 'data.sqlite'), entities };
-      await (await new DataSource({ ...options, synchronize: true }).initialize()).destroy();
-    }
+    schema = testSchemaName();
+    await (await new DataSource({ ...pgTestOptions(schema), entities, synchronize: true }).initialize()).destroy();
+    // The schema exists now, so the nodes name it: their statements then carry it, which the lock-wait probes
+    // below match on in pg_stat_activity.
+    options = { ...pgTestOptions(schema), schema, entities };
     a = await bootNode('node-a');
     b = await bootNode('node-b');
   });
@@ -214,11 +193,9 @@ describe('A session deleted on one node while a peer shares the database', () =>
     jest.restoreAllMocks();
     for (const node of [a, b]) {
       await node.service.onModuleDestroy();
-      if (pg && node === b) await node.db.query(`DROP SCHEMA "${(options as { schema: string }).schema}" CASCADE`);
+      if (node === b) await node.db.query(`DROP SCHEMA "${schema}" CASCADE`);
       await node.db.destroy();
     }
-    if (dir) rmSync(dir, { recursive: true, force: true });
-    dir = undefined;
   });
 
   /** A session with one stored message, written the way node A sees it. */
@@ -878,7 +855,7 @@ describe('A session deleted on one node while a peer shares the database', () =>
     }
   });
 
-  (pg ? it : it.skip).each(['stop', 'claim'])(
+  it.each(['stop', 'claim'])(
     'yields admission after an accepted peer %s commits while it waits for a row lock',
     async action => {
       const expires = new Date(Date.now() + 500);
@@ -2096,95 +2073,91 @@ describe('A session deleted on one node while a peer shares the database', () =>
     },
   );
 
-  it.each(
-    (pg
-      ? [
-          ['before release', false],
-          ['before release', true],
-          ['owner row', false],
-          ['owner row', true],
-        ]
-      : [
-          ['before release', false],
-          ['before release', true],
-        ]) as Array<[string, boolean]>,
-  )('keeps a later local start when delete cleanup waits at %s with pending claim %s', async (phase, pending) => {
-    const id = await seed({ status: SessionStatus.DISCONNECTED });
-    const sessions = a.db.getRepository(Session);
-    const reached = deferred();
-    const go = deferred();
-    const claimed = deferred();
-    const answer = deferred();
-    const release = a.ownership.release.bind(a.ownership);
-    const transaction = a.db.transaction.bind(a.db);
-    a.hooks.execute.mockRejectedValueOnce(new Error('hook unavailable'));
-    jest.spyOn(a.ownership, 'release').mockImplementationOnce(async (...args) => {
-      if (phase === 'before release') {
-        reached.resolve();
-        await go.promise;
-      } else {
-        jest.spyOn(a.db, 'transaction').mockImplementationOnce((async (
-          run: (manager: import('typeorm').EntityManager) => Promise<void>,
-        ) =>
-          transaction(async manager => {
-            const builder = manager.createQueryBuilder.bind(manager);
-            jest.spyOn(manager, 'createQueryBuilder').mockImplementation((() => {
-              const query = builder();
-              const update = query.update.bind(query);
-              jest.spyOn(query, 'update').mockImplementation((() => {
-                const updated = update(Session);
-                const execute = updated.execute.bind(updated);
-                jest.spyOn(updated, 'execute').mockImplementationOnce(async () => {
-                  reached.resolve();
-                  await go.promise;
-                  return execute();
-                });
-                return updated;
-              }) as typeof query.update);
-              return query;
-            }) as typeof manager.createQueryBuilder);
-            return run(manager);
-          })) as typeof transaction);
+  it.each([
+    ['before release', false],
+    ['before release', true],
+    ['owner row', false],
+    ['owner row', true],
+  ] as Array<[string, boolean]>)(
+    'keeps a later local start when delete cleanup waits at %s with pending claim %s',
+    async (phase, pending) => {
+      const id = await seed({ status: SessionStatus.DISCONNECTED });
+      const sessions = a.db.getRepository(Session);
+      const reached = deferred();
+      const go = deferred();
+      const claimed = deferred();
+      const answer = deferred();
+      const release = a.ownership.release.bind(a.ownership);
+      const transaction = a.db.transaction.bind(a.db);
+      a.hooks.execute.mockRejectedValueOnce(new Error('hook unavailable'));
+      jest.spyOn(a.ownership, 'release').mockImplementationOnce(async (...args) => {
+        if (phase === 'before release') {
+          reached.resolve();
+          await go.promise;
+        } else {
+          jest.spyOn(a.db, 'transaction').mockImplementationOnce((async (
+            run: (manager: import('typeorm').EntityManager) => Promise<void>,
+          ) =>
+            transaction(async manager => {
+              const builder = manager.createQueryBuilder.bind(manager);
+              jest.spyOn(manager, 'createQueryBuilder').mockImplementation((() => {
+                const query = builder();
+                const update = query.update.bind(query);
+                jest.spyOn(query, 'update').mockImplementation((() => {
+                  const updated = update(Session);
+                  const execute = updated.execute.bind(updated);
+                  jest.spyOn(updated, 'execute').mockImplementationOnce(async () => {
+                    reached.resolve();
+                    await go.promise;
+                    return execute();
+                  });
+                  return updated;
+                }) as typeof query.update);
+                return query;
+              }) as typeof manager.createQueryBuilder);
+              return run(manager);
+            })) as typeof transaction);
+        }
+        return release(...args);
+      });
+      const outcome = a.service.delete(id).catch((error: unknown) => error);
+      deletion = outcome.then(() => undefined);
+      await reached.promise;
+      const original = await sessions.findOneByOrFail({ id });
+      if (pending) {
+        const claim = a.ownership.claim.bind(a.ownership);
+        jest.spyOn(a.ownership, 'claim').mockImplementationOnce(async next => {
+          const result = await claim(next);
+          claimed.resolve();
+          await answer.promise;
+          return result;
+        });
       }
-      return release(...args);
-    });
-    const outcome = a.service.delete(id).catch((error: unknown) => error);
-    deletion = outcome.then(() => undefined);
-    await reached.promise;
-    const original = await sessions.findOneByOrFail({ id });
-    if (pending) {
-      const claim = a.ownership.claim.bind(a.ownership);
-      jest.spyOn(a.ownership, 'claim').mockImplementationOnce(async next => {
-        const result = await claim(next);
-        claimed.resolve();
-        await answer.promise;
-        return result;
-      });
-    }
-    const starting = a.service.start(id, { explicit: true });
-    try {
-      if (pending) await claimed.promise;
-      else await starting;
-      go.resolve();
-      expect(await outcome).toBeInstanceOf(Error);
-      expect(await sessions.findOneByOrFail({ id })).toMatchObject({
-        nodeId: 'node-a',
-        claimedAt: original.claimedAt,
-      });
-      answer.resolve();
-      await starting;
-      expect(a.service.getEngine(id)).toBe(a.engines[0]);
-      expect((await sessions.findOneByOrFail({ id })).desiredState).toBeNull();
-      await a.ownership.renew();
-      expect((await sessions.findOneByOrFail({ id })).nodeId).toBe('node-a');
-    } finally {
-      go.resolve();
-      answer.resolve();
-      await starting;
-    }
-  });
+      const starting = a.service.start(id, { explicit: true });
+      try {
+        if (pending) await claimed.promise;
+        else await starting;
+        go.resolve();
+        expect(await outcome).toBeInstanceOf(Error);
+        expect(await sessions.findOneByOrFail({ id })).toMatchObject({
+          nodeId: 'node-a',
+          claimedAt: original.claimedAt,
+        });
+        answer.resolve();
+        await starting;
+        expect(a.service.getEngine(id)).toBe(a.engines[0]);
+        expect((await sessions.findOneByOrFail({ id })).desiredState).toBeNull();
+        await a.ownership.renew();
+        expect((await sessions.findOneByOrFail({ id })).nodeId).toBe('node-a');
+      } finally {
+        go.resolve();
+        answer.resolve();
+        await starting;
+      }
+    },
+  );
 
-  (pg ? it : it.skip)('holds the owner row for each delete batch while other sessions can start', async () => {
+  it('holds the owner row for each delete batch while other sessions can start', async () => {
     const id = await seed({ status: SessionStatus.DISCONNECTED });
     const otherId = await seed({ status: SessionStatus.DISCONNECTED });
     const sessions = a.db.getRepository(Session);
@@ -2243,7 +2216,7 @@ describe('A session deleted on one node while a peer shares the database', () =>
       for (let i = 0; i < 100; i++) {
         const rows = await b.db.query<Array<{ waiting: boolean }>>(
           'SELECT true AS waiting FROM pg_stat_activity WHERE wait_event_type = $1 AND query LIKE $2',
-          ['Lock', `%${(options as { schema: string }).schema}%`],
+          ['Lock', `%${schema}%`],
         );
         if (rows.length) {
           waiting = true;
@@ -2627,7 +2600,7 @@ describe('A session deleted on one node while a peer shares the database', () =>
     expect(await rowsOf(id)).toEqual(gone);
   });
 
-  (pg ? it : it.skip)('rechecks its captured ownership after the row fence returns', async () => {
+  it('rechecks its captured ownership after the row fence returns', async () => {
     jest.useFakeTimers({
       doNotFake: [
         'nextTick',
@@ -2791,73 +2764,70 @@ describe('A session deleted on one node while a peer shares the database', () =>
       await deletion;
     }
   });
-  (pg ? it : it.skip).each([false, true])(
-    'rechecks initial intent after the real row lock with takeover=%s',
-    async takeover => {
-      const id = await seed({ status: SessionStatus.DISCONNECTED });
-      const reached = deferred(),
-        go = deferred();
-      const transact = a.db.transaction.bind(a.db);
-      jest.spyOn(a.db, 'transaction').mockImplementationOnce((async (
-        run: (manager: import('typeorm').EntityManager) => Promise<void>,
-      ) => {
-        reached.resolve();
-        await go.promise;
-        return transact(run);
-      }) as typeof transact);
-      const deleting = a.service.delete(id).catch((error: unknown) => error);
-      await reached.promise;
-      const lock = b.db.createQueryRunner();
-      const peerRepo = b.db.getRepository(Session);
-      const oldManager = peerRepo.manager;
-      await lock.connect();
-      await lock.startTransaction();
-      await lock.manager.getRepository(Session).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
-      try {
-        go.resolve();
-        let waiting = false;
-        for (let i = 0; i < 100; i++) {
-          const rows = await b.db.query<Array<{ waiting: boolean }>>(
-            'SELECT true AS waiting FROM pg_stat_activity WHERE wait_event_type = $1 AND query LIKE $2',
-            ['Lock', `%${(options as { schema: string }).schema}%`],
-          );
-          if (rows.length) {
-            waiting = true;
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, 10));
+  it.each([false, true])('rechecks initial intent after the real row lock with takeover=%s', async takeover => {
+    const id = await seed({ status: SessionStatus.DISCONNECTED });
+    const reached = deferred(),
+      go = deferred();
+    const transact = a.db.transaction.bind(a.db);
+    jest.spyOn(a.db, 'transaction').mockImplementationOnce((async (
+      run: (manager: import('typeorm').EntityManager) => Promise<void>,
+    ) => {
+      reached.resolve();
+      await go.promise;
+      return transact(run);
+    }) as typeof transact);
+    const deleting = a.service.delete(id).catch((error: unknown) => error);
+    await reached.promise;
+    const lock = b.db.createQueryRunner();
+    const peerRepo = b.db.getRepository(Session);
+    const oldManager = peerRepo.manager;
+    await lock.connect();
+    await lock.startTransaction();
+    await lock.manager.getRepository(Session).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+    try {
+      go.resolve();
+      let waiting = false;
+      for (let i = 0; i < 100; i++) {
+        const rows = await b.db.query<Array<{ waiting: boolean }>>(
+          'SELECT true AS waiting FROM pg_stat_activity WHERE wait_event_type = $1 AND query LIKE $2',
+          ['Lock', `%${schema}%`],
+        );
+        if (rows.length) {
+          waiting = true;
+          break;
         }
-        expect(waiting).toBe(true);
-        if (takeover) {
-          await lock.manager.update(Session, id, { leaseExpiresAt: lapsed() });
-          Object.assign(peerRepo, { manager: lock.manager });
-          await b.service.start(id, { explicit: true });
-          expect(b.service.getEngine(id)).toBe(b.engines[0]);
-          Object.assign(peerRepo, { manager: oldManager });
-        }
-        await lock.commitTransaction();
-        const result = await deleting;
-        if (takeover) {
-          expect(result).toBeInstanceOf(ConflictException);
-          expect(await rowsOf(id)).toMatchObject({ sessions: 1, messages: 1 });
-          expect(await b.db.getRepository(Session).findOneByOrFail({ id })).toMatchObject({
-            nodeId: 'node-b',
-            desiredState: null,
-          });
-          expect(a.hooks.execute.mock.calls.some(([event]) => event === 'session:deleted')).toBe(false);
-        } else {
-          expect(result).toBeUndefined();
-          expect(await rowsOf(id)).toMatchObject({ sessions: 0, messages: 0 });
-        }
-      } finally {
-        Object.assign(peerRepo, { manager: oldManager });
-        go.resolve();
-        if (lock.isTransactionActive) await lock.rollbackTransaction();
-        await lock.release();
-        await deleting;
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
-    },
-  );
+      expect(waiting).toBe(true);
+      if (takeover) {
+        await lock.manager.update(Session, id, { leaseExpiresAt: lapsed() });
+        Object.assign(peerRepo, { manager: lock.manager });
+        await b.service.start(id, { explicit: true });
+        expect(b.service.getEngine(id)).toBe(b.engines[0]);
+        Object.assign(peerRepo, { manager: oldManager });
+      }
+      await lock.commitTransaction();
+      const result = await deleting;
+      if (takeover) {
+        expect(result).toBeInstanceOf(ConflictException);
+        expect(await rowsOf(id)).toMatchObject({ sessions: 1, messages: 1 });
+        expect(await b.db.getRepository(Session).findOneByOrFail({ id })).toMatchObject({
+          nodeId: 'node-b',
+          desiredState: null,
+        });
+        expect(a.hooks.execute.mock.calls.some(([event]) => event === 'session:deleted')).toBe(false);
+      } else {
+        expect(result).toBeUndefined();
+        expect(await rowsOf(id)).toMatchObject({ sessions: 0, messages: 0 });
+      }
+    } finally {
+      Object.assign(peerRepo, { manager: oldManager });
+      go.resolve();
+      if (lock.isTransactionActive) await lock.rollbackTransaction();
+      await lock.release();
+      await deleting;
+    }
+  });
 
   it('does not replace newer local ownership when an older failed own renewal returns', async () => {
     const id = await seed({ status: SessionStatus.DISCONNECTED });
@@ -3058,13 +3028,13 @@ describe('A session deleted on one node while a peer shares the database', () =>
       let peerClaim: Promise<boolean> | undefined;
       try {
         await reached.promise;
-        if (pg) {
+        {
           peerClaim = b.ownership.claim(id);
           let waiting = false;
           for (let i = 0; i < 100; i++) {
             const rows = await b.db.query<Array<{ waiting: boolean }>>(
               'SELECT true AS waiting FROM pg_stat_activity WHERE wait_event_type = $1 AND query LIKE $2',
-              ['Lock', `%${(options as { schema: string }).schema}%`],
+              ['Lock', `%${schema}%`],
             );
             if (rows.length) {
               waiting = true;
@@ -3073,15 +3043,10 @@ describe('A session deleted on one node while a peer shares the database', () =>
             await new Promise(resolve => setTimeout(resolve, 10));
           }
           expect(waiting).toBe(true);
-        } else {
-          expect(
-            (a.db.driver as unknown as { databaseConnection: { inTransaction: boolean } }).databaseConnection
-              .inTransaction,
-          ).toBe(true);
         }
         go.resolve();
         expect(await pending).not.toBeInstanceOf(Error);
-        if (peerClaim) expect(await peerClaim).toBe(operation !== 'claim');
+        expect(await peerClaim).toBe(operation !== 'claim');
         const retired = await batches.findOneByOrFail({ id: old.id });
         expect(retired.status).toBe(BatchStatus.FAILED);
         expect(JSON.stringify(retired.messages)).not.toContain('T0xE');
@@ -3156,76 +3121,11 @@ describe('A session deleted on one node while a peer shares the database', () =>
         desiredState: operation === 'stop' ? 'stopped' : null,
       });
       const retained = await batches.findOneByOrFail({ id: old.id });
-      expect(retained.status).toBe(pg ? BatchStatus.PROCESSING : BatchStatus.FAILED);
-      if (pg) expect(JSON.stringify(retained.messages)).toContain('T0xE');
-      else expect(JSON.stringify(retained.messages)).not.toContain('T0xE');
+      expect(retained.status).toBe(BatchStatus.PROCESSING);
+      expect(JSON.stringify(retained.messages)).toContain('T0xE');
     },
   );
-  (pg ? it.skip : it).each(['start', 'prepare', 'claim'] as const)(
-    'keeps acknowledged local %s writes when adoption SQL cleanup fails',
-    async admission => {
-      const id = await seed({
-        status: SessionStatus.DISCONNECTED,
-        desiredState: 'stopped',
-        nodeId: 'departed',
-        claimedAt: lapsed(),
-        leaseExpiresAt: lapsed(),
-      });
-      const registry = (a.lifecycle as unknown as { engines: EngineRegistry }).engines;
-      const bulk = new BulkMessageService(
-        a.db.getRepository(MessageBatch),
-        registry,
-        {} as never,
-        a.hooks as never,
-        {} as never,
-        a.ownership,
-      );
-      bulk.onModuleInit();
-      const reached = deferred(),
-        go = deferred();
-      jest.spyOn(bulk, 'reapProcessingBatches').mockImplementationOnce(async (_id, _reason, manager) => {
-        reached.resolve();
-        await go.promise;
-        await manager!.query('SELECT adoption_admission_missing_column');
-        return 0;
-      });
-      const first = a.ownership.claim(id);
-      let second: Promise<unknown> | undefined;
-      try {
-        await reached.promise;
-        second =
-          admission === 'start'
-            ? a.service.start(id, { explicit: true })
-            : admission === 'prepare'
-              ? a.ownership.prepareStart(id, 'stopped')
-              : a.ownership.claim(id);
-        expect(await second).not.toBeInstanceOf(Error);
-        if (admission === 'start') {
-          const callbacks = (
-            a.engines[0].initialize.mock.calls as Array<[{ onReady?: (phone: string, name: string) => void }]>
-          )[0][0];
-          callbacks.onReady?.('628111111111', 'Fixture');
-          for (let i = 0; i < 100; i++) {
-            if ((await a.db.getRepository(Session).findOneByOrFail({ id })).status === SessionStatus.READY) break;
-            await new Promise(resolve => setTimeout(resolve, 5));
-          }
-          expect(a.service.getEngine(id)).toBe(a.engines[0]);
-          expect((await a.db.getRepository(Session).findOneByOrFail({ id })).status).toBe(SessionStatus.READY);
-        }
-        go.resolve();
-        expect(await first).toBe(true);
-        expect(await a.db.getRepository(Session).findOneByOrFail({ id })).toMatchObject({
-          nodeId: 'node-a',
-          desiredState: admission === 'claim' ? 'stopped' : null,
-        });
-      } finally {
-        go.resolve();
-        await first;
-        await second;
-      }
-    },
-  );
-  (pg ? it : it.skip)('locks the session before reading its previous owner for SQL adoption', async () => {
+  it('locks the session before reading its previous owner for SQL adoption', async () => {
     const id = await seed({ status: SessionStatus.DISCONNECTED });
     const otherId = await seed({ status: SessionStatus.DISCONNECTED });
     const registry = (a.lifecycle as unknown as { engines: EngineRegistry }).engines;
@@ -3260,7 +3160,7 @@ describe('A session deleted on one node while a peer shares the database', () =>
       for (let i = 0; i < 100; i++) {
         const rows = await b.db.query<Array<{ waiting: boolean }>>(
           'SELECT true AS waiting FROM pg_stat_activity WHERE wait_event_type = $1 AND query LIKE $2',
-          ['Lock', `%${(options as { schema: string }).schema}%`],
+          ['Lock', `%${schema}%`],
         );
         if (rows.length) {
           waiting = true;
@@ -3281,173 +3181,6 @@ describe('A session deleted on one node while a peer shares the database', () =>
       await peer;
     }
   });
-  (pg ? it.skip : it).each([
-    ['stop', false],
-    ['logout', false],
-    ['kill', false],
-    ['release', false],
-    ['stop', true],
-    ['release', true],
-  ] as const)(
-    'keeps an independent %s durable when adoption SQL cleanup fails on same row %s',
-    async (operation, same) => {
-      const id = await seed({
-        status: SessionStatus.DISCONNECTED,
-        nodeId: 'departed',
-        claimedAt: lapsed(),
-        leaseExpiresAt: lapsed(),
-      });
-      const other = same ? id : await seed({ status: SessionStatus.DISCONNECTED });
-      const registry = (a.lifecycle as unknown as { engines: EngineRegistry }).engines;
-      const bulk = new BulkMessageService(
-        a.db.getRepository(MessageBatch),
-        registry,
-        {} as never,
-        a.hooks as never,
-        {} as never,
-        a.ownership,
-      );
-      bulk.onModuleInit();
-      if (!same) {
-        if (operation === 'release') await a.ownership.claim(other);
-        else await a.service.start(other, { explicit: true });
-      }
-      const reached = deferred(),
-        go = deferred();
-      jest.spyOn(bulk, 'reapProcessingBatches').mockImplementationOnce(async (_id, _reason, manager) => {
-        reached.resolve();
-        await go.promise;
-        await (manager ?? a.db.manager).query('SELECT definitely_missing_local_fixture_column');
-        return 0;
-      });
-      const first = a.ownership.claim(id).catch((error: unknown) => error);
-      let second: Promise<unknown> | undefined;
-      try {
-        await reached.promise;
-        second = (
-          operation === 'stop'
-            ? a.service.stop(other)
-            : operation === 'logout'
-              ? a.service.logout(other)
-              : operation === 'kill'
-                ? a.service.forceKill(other)
-                : a.ownership.release(other)
-        ).catch((error: unknown) => error);
-        expect(await second).not.toBeInstanceOf(Error);
-        go.resolve();
-        expect(await first).toBe(!same);
-        expect(a.service.getEngine(other)).toBeUndefined();
-        expect(a.ownership.owns(other)).toBe(false);
-        expect(await a.db.getRepository(Session).findOneByOrFail({ id: other })).toMatchObject({
-          nodeId: null,
-          claimedAt: null,
-          leaseExpiresAt: null,
-          nodeUrl: null,
-          desiredState: operation === 'release' || operation === 'logout' ? null : 'stopped',
-        });
-      } finally {
-        go.resolve();
-        await first;
-        await second;
-      }
-    },
-  );
-
-  (pg ? it.skip : it).each(['batch', 'outbox'] as const)(
-    'keeps another session acknowledged %s row when adoption SQL cleanup fails',
-    async kind => {
-      const id = await seed({
-        status: SessionStatus.DISCONNECTED,
-        nodeId: 'departed',
-        claimedAt: lapsed(),
-        leaseExpiresAt: lapsed(),
-      });
-      const other = await seed({ status: SessionStatus.DISCONNECTED });
-      const registry = (a.lifecycle as unknown as { engines: EngineRegistry }).engines;
-      const reached = deferred(),
-        go = deferred(),
-        sending = deferred(),
-        sendGo = deferred();
-      const bulk = new BulkMessageService(
-        a.db.getRepository(MessageBatch),
-        registry,
-        {} as never,
-        a.hooks as never,
-        {
-          assertSendAllowed: async () => {
-            sending.resolve();
-            await sendGo.promise;
-            throw new Error('end local fixture hold');
-          },
-        } as never,
-        a.ownership,
-      );
-      bulk.onModuleInit();
-      await a.service.start(other, { explicit: true });
-      type Runner = { processBatch(id: string, reserved: boolean, lifetime: unknown): Promise<void> };
-      const runner = bulk as unknown as Runner,
-        process = runner.processBatch.bind(bulk),
-        processing: Promise<void>[] = [];
-      jest.spyOn(runner, 'processBatch').mockImplementation((...args) => {
-        const work = process(...args);
-        processing.push(work);
-        return work;
-      });
-      jest.spyOn(bulk, 'reapProcessingBatches').mockImplementationOnce(async (_id, _reason, manager) => {
-        reached.resolve();
-        await go.promise;
-        await (manager ?? a.db.manager).query('SELECT definitely_missing_local_fixture_column');
-        return 0;
-      });
-      const first = a.ownership.claim(id).catch((error: unknown) => error);
-      try {
-        await reached.promise;
-        if (kind === 'batch') {
-          const fresh = await bulk.createBatch(other, {
-            batchId: randomUUID(),
-            messages: [
-              {
-                chatId: '10000000001@c.us',
-                type: 'image',
-                content: { image: { base64: 'TkVX', mimetype: 'image/png' } },
-              },
-            ],
-            options: { delayBetweenMessages: 0, randomizeDelay: false, stopOnError: false },
-          });
-          await sending.promise;
-          expect((await a.db.getRepository(MessageBatch).findOneByOrFail({ id: fresh.id })).status).toBe(
-            BatchStatus.PROCESSING,
-          );
-          go.resolve();
-          await first;
-          expect(await a.db.getRepository(MessageBatch).findOneBy({ id: fresh.id })).toMatchObject({
-            status: BatchStatus.PROCESSING,
-          });
-        } else {
-          const key = randomUUID();
-          const outbox = new WebhookOutboxService(a.db.getRepository(WebhookOutboxEvent));
-          await outbox.open({
-            webhookId: randomUUID(),
-            sessionId: other,
-            event: 'message',
-            idempotencyKey: key,
-            deliveryId: randomUUID(),
-            payload: { dummy: 'ordinary local write' },
-          });
-          expect(await a.db.getRepository(WebhookOutboxEvent).countBy({ idempotencyKey: key })).toBe(1);
-          go.resolve();
-          await first;
-          expect(await a.db.getRepository(WebhookOutboxEvent).countBy({ idempotencyKey: key })).toBe(1);
-        }
-      } finally {
-        go.resolve();
-        sendGo.resolve();
-        await first;
-        await Promise.all(processing);
-      }
-    },
-  );
-
   it.each([false, true])(
     'retires an old local engine after a peer takes over and a fresh claim fails with SQL error %s',
     async sqlError => {
@@ -3630,47 +3363,6 @@ describe('A session deleted on one node while a peer shares the database', () =>
         go.resolve();
         await deleting;
       }
-    },
-  );
-
-  it.each([false, true])(
-    'preserves suspended loss detection while reconciling a failed claim with SQL error %s',
-    async sqlError => {
-      const id = await seed({ status: SessionStatus.DISCONNECTED });
-      const sessions = a.db.getRepository(Session);
-      await a.service.start(id, { explicit: true });
-      await sessions.update(id, { leaseExpiresAt: lapsed() });
-      await b.service.start(id, { explicit: true });
-      const resume = a.ownership.suspendLossDetection();
-      try {
-        if (sqlError) {
-          const builder = sessions.createQueryBuilder.bind(sessions);
-          jest.spyOn(sessions, 'createQueryBuilder').mockImplementationOnce(() => {
-            const query = builder(),
-              update = query.update.bind(query);
-            jest.spyOn(query, 'update').mockImplementation(() => {
-              const updated = update(Session);
-              jest.spyOn(updated, 'execute').mockRejectedValueOnce(new Error('suspended claim SQL unavailable'));
-              return updated;
-            });
-            return query;
-          });
-          await expect(a.service.start(id, { explicit: true })).rejects.toBeInstanceOf(ServiceUnavailableException);
-        } else {
-          await expect(a.service.start(id, { explicit: true })).rejects.toBeInstanceOf(ConflictException);
-        }
-        expect(a.ownership.owns(id)).toBe(true);
-        expect(a.service.getEngine(id)).toBe(a.engines[0]);
-        expect(a.engines[0].destroy).not.toHaveBeenCalled();
-      } finally {
-        resume();
-      }
-      await a.ownership.renew();
-      expect(a.ownership.owns(id)).toBe(false);
-      expect(a.service.getEngine(id)).toBeUndefined();
-      expect(b.service.getEngine(id)).toBe(b.engines[0]);
-      expect(b.engines[0].destroy).not.toHaveBeenCalled();
-      expect((await sessions.findOneByOrFail({ id })).nodeId).toBe('node-b');
     },
   );
 });

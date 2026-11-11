@@ -1150,8 +1150,6 @@
     "saving": "Saving...",
     "database": {
       "title": "Database Configuration",
-      "sqlite": "SQLite",
-      "sqliteDesc": "Local file-based database",
       "postgres": "PostgreSQL",
       "postgresDesc": "Production-ready database",
       "useBuiltIn": "Use Built-in PostgreSQL Container",

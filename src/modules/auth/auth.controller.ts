@@ -8,8 +8,8 @@ import { type ApiKey, ApiKeyRole } from './entities/api-key.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from './../audit/entities/audit-log.entity';
 
-// A key stored before expiresAt was validated can hold an unparseable expiry, which SQLite reads back as
-// an Invalid Date. The gateway refuses such a key as expired, but JSON would serialize the expiry as null
+// A key stored before expiresAt was validated can hold an unparseable expiry, which reads back as an
+// Invalid Date. The gateway refuses such a key as expired, but JSON would serialize the expiry as null
 // (no expiry). Report it as the epoch instead, so the key shows as expired and can be given a new expiry.
 function readableExpiry(expiresAt: Date | null): Date | null {
   return expiresAt && Number.isNaN(expiresAt.getTime()) ? new Date(0) : expiresAt;

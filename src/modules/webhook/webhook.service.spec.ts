@@ -31,6 +31,7 @@ import { userPart } from '../../engine/identity/wa-id';
 import { HookManager } from '../../core/hooks';
 import { QUEUE_NAMES } from '../queue/queue-names';
 import { Session, SessionStatus } from '../session/entities/session.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 function createMockWebhook(overrides: Partial<Webhook> = {}): Webhook {
   return {
@@ -789,16 +790,14 @@ describe('WebhookService', () => {
   });
 });
 
-// SQLite serves every repository from one connection, so a transaction the save opened would hold what other callers
-// wrote while it was open, and the rollback of its failed insert would undo those writes.
+// The rollback of a create's failed insert must not undo what other callers wrote while it was open.
 describe('WebhookService.create beside other writes on one connection', () => {
   let ds: DataSource;
   let service: WebhookService;
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Webhook],
       synchronize: true,
     });
@@ -834,7 +833,7 @@ describe('WebhookService.create beside other writes on one connection', () => {
 
     for (; steps <= 10; steps += 1) {
       await sessions.update('sessB', { status: SessionStatus.READY });
-      await expect(service.create('gone', { url: 'https://example.com/webhook' })).rejects.toThrow(/FOREIGN KEY/);
+      await expect(service.create('gone', { url: 'https://example.com/webhook' })).rejects.toThrow(/foreign key/);
       await beside;
       expect({ steps, status: (await sessions.findOneByOrFail({ id: 'sessB' })).status }).toEqual({
         steps,

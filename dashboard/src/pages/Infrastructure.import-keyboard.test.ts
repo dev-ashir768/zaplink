@@ -267,42 +267,6 @@ test('restoring focus after a backup export does not scroll the page back to the
   assert.deepEqual(focusOptions.at(-1), { preventScroll: true });
 });
 
-test('keyboard focus stays on Download backup first in the restart modal after a backup is exported', async () => {
-  window.sessionStorage.setItem('zaplink_api_key', 'test-admin-key');
-  HTMLAnchorElement.prototype.click = () => {};
-  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
-  const { container } = rtl.render(
-    createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      createElement(RoleProvider, null, createElement(ToastProvider, null, createElement(Infrastructure))),
-    ),
-  );
-  await rtl.screen.findByRole('button', { name: 'Export data' });
-  const pgRadio = container.querySelectorAll('input[name="dbType"]')[1] as HTMLInputElement;
-  rtl.fireEvent.click(pgRadio);
-  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Save Configuration' }));
-
-  const restartBackupBtn = (await rtl.screen.findByRole('button', {
-    name: 'Download backup first',
-  })) as HTMLButtonElement;
-  // The dialog moves focus onto itself in an effect after it mounts; take focus only once that has happened.
-  await rtl.waitFor(() => assert.ok(document.activeElement?.closest('[role="dialog"]')));
-  restartBackupBtn.focus();
-  assert.equal(document.activeElement?.textContent?.trim(), 'Download backup first');
-
-  rtl.fireEvent.click(restartBackupBtn);
-  await rtl.waitFor(() => assert.equal(restartBackupBtn.disabled, true));
-  await rtl.waitFor(() => assert.equal(restartBackupBtn.disabled, false));
-  // The page restores focus in an effect after the commit that re-enables the button.
-  await rtl.waitFor(() =>
-    assert.equal(
-      document.activeElement === document.body ? 'body' : document.activeElement?.textContent?.trim(),
-      'Download backup first',
-    ),
-  );
-});
-
 test('moving keyboard focus to another control while a backup export runs does not steal focus back', async () => {
   window.sessionStorage.setItem('zaplink_api_key', 'test-admin-key');
   HTMLAnchorElement.prototype.click = () => {};

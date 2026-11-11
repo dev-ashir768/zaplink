@@ -1,9 +1,8 @@
 import { containsRankedText, foldForMatching } from './search-terms';
 
 /**
- * Snippets for match=contains hits, built in the application rather than the database so both
- * dialects return the same text: FTS5's snippet() counts its window in trigrams on a trigram index,
- * and Postgres has no headline function for a substring match.
+ * Snippets for match=contains hits, built in the application rather than the database:
+ * Postgres has no headline function for a substring match.
  *
  * The output follows the SearchHit.snippet contract of match=word: a window of the body, `…` where it
  * was cut, every match inside it wrapped in `<mark>`/`</mark>`, and the body text itself NOT
@@ -70,7 +69,7 @@ function matchRanges(body: string, terms: string[]): Array<[number, number]> {
 
 /**
  * Up to `maxWords` words of `body`, starting a few words before the first match (or at the start when
- * none is found, e.g. a short term LIKE matched on SQLite's ASCII-only case folding), with every match
+ * none is found), with every match
  * in the window marked. Only the part containsRankedText keeps is read, so a longer body ends in `…`
  * when the window reaches that point.
  */

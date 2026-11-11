@@ -10,6 +10,7 @@ import type { HookManager } from '../../core/hooks';
 import type { StatusStoreService } from '../status-store/status-store.service';
 import type { SessionLidResolver } from './session-lid-resolver.service';
 import type { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * Baileys relays a peer's receipt under the peer's own chat with every id it lists, unchecked, so the
@@ -47,8 +48,7 @@ describe('a receipt naming a chat for an own message still in flight', () => {
 
   beforeEach(async () => {
     db = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });

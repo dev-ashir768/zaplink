@@ -1,44 +1,27 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { BuiltInFtsProvider } from '../../../modules/search/providers/builtin-fts.provider';
 import { AddMessagesFts1782400000000 } from '../1782400000000-AddMessagesFts';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 
 /**
- * Postgres runtime coverage for BuiltInFtsProvider. Companion to the SQLite spec
- * (builtin-fts.provider.spec.ts); asserts the same contract (match + rank + paginate, sessionIds
- * auth scope, sessionId filter, empty result, health) against the Postgres dialect branch, which
- * exercises `websearch_to_tsquery` + `ts_headline` against a STORED generated `body_ts` tsvector.
- *
- * Gating: this is the runtime proof the Task-6 provider works on PG — but local dev has no PG. The
- * repo's PG-migration harness (scripts/pg-uuid-smoke.js + the "Test (PostgreSQL migrations)" CI job)
- * keys off `DATABASE_TYPE=postgres` with DATABASE_HOST/PORT/USERNAME/PASSWORD/NAME; mirror that exact
- * convention here, and skip the whole suite unless DATABASE_TYPE=postgres is set. The CI job runs
- * this spec against a postgres:16 service; locally it skips cleanly.
+ * Postgres runtime coverage for BuiltInFtsProvider: match + rank + paginate, sessionIds auth scope,
+ * sessionId filter, empty result and health, exercising `websearch_to_tsquery` + `ts_headline` against
+ * the STORED generated `body_ts` tsvector the migration adds. Runs in a schema of its own.
  */
-const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
-
-(POSTGRES_ENABLED ? describe : describe.skip)('BuiltInFtsProvider (postgres)', () => {
+describe('BuiltInFtsProvider (postgres)', () => {
   let ds: DataSource;
   let provider: BuiltInFtsProvider;
 
   beforeEach(async () => {
-    // Provision exactly like scripts/pg-uuid-smoke.js: DATABASE_* env, no ORM synchronize (we build
-    // the messages table with raw DDL so the generated tsvector column comes from the migration
-    // under test, not from entity metadata — and so no uuid-ossp/default dependency is introduced).
+    // No ORM synchronize: we build the messages table with raw DDL so the generated tsvector column comes from the migration
+    // under test, not from entity metadata — and so no uuid-ossp/default dependency is introduced.
     ds = new DataSource({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-      database: process.env.DATABASE_NAME || 'zaplink',
+      ...pgTestOptions(),
     });
     await ds.initialize();
 
-    // Drop any prior messages table (the CI job may share the service across steps) and build the
-    // minimal shape BuiltInFtsProvider SELECTs against.
+    // Build the minimal shape BuiltInFtsProvider SELECTs against.
     await ds.query(`DROP TABLE IF EXISTS "messages" CASCADE`);
     await ds.query(
       `CREATE TABLE "messages" (` +
@@ -77,7 +60,7 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
     expect(res.provider).toBe('builtin-fts');
     expect(res.hits).toHaveLength(2);
     // ts_headline (configured with StartSel=<mark>,StopSel=</mark>) must delimit the match — the
-    // dialect-agnostic snippet contract the SQLite path also upholds.
+    // snippet contract.
     expect(res.hits.every(h => h.snippet.includes('<mark>') && h.snippet.includes('</mark>'))).toBe(true);
     expect(res.hits.every(h => /hello/i.test(h.snippet))).toBe(true);
     expect(res.total).toBe(2);
@@ -232,14 +215,13 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
     expect(ftsAvailable()).toBe(true);
     expect(ddl).toEqual([expect.stringMatching(/^CREATE INDEX IF NOT EXISTS "idx_messages_body_ts"/)]);
     const indexes: Array<{ indexname: string }> = await ds.query(
-      `SELECT indexname FROM pg_indexes WHERE tablename = 'messages' AND indexname = 'idx_messages_body_ts'`,
+      `SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages' AND indexname = 'idx_messages_body_ts'`,
     );
     expect(indexes).toHaveLength(1);
   });
 
-  // Task 12 PG carry-forward: prove the generated `body_ts` tsvector re-derives across the clear+re-
-  // insert path that POST /infra/import-data performs (companion to the SQLite round-trip in
-  // providers/search-dual-db.spec.ts). A STORED generated column is recomputed on every INSERT, so
+  // Prove the generated `body_ts` tsvector re-derives across the clear+re-insert path that
+  // POST /infra/import-data performs. A STORED generated column is recomputed on every INSERT, so
   // re-inserted rows must re-enter the index with no stale or duplicate FTS entries.
   it('keeps FTS correct after a clear+re-insert (the import path), repeatedly', async () => {
     const insert = (id: string, sessionId: string, body: string) =>

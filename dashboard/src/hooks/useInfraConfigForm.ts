@@ -3,7 +3,7 @@ import type { InfraStatus, SavedConfig, SaveConfigPayload } from '../services/ap
 import { namesBundledContainer } from '../utils/bundledHost';
 
 export interface DatabaseConfig {
-  type: 'sqlite' | 'postgres';
+  type: 'postgres';
   builtIn: boolean;
   host: string;
   port: string;
@@ -85,7 +85,7 @@ export function useInfraConfigForm(
   savedConfig: SavedConfig | undefined,
 ): InfraConfigForm {
   const [dbConfig, setDbConfig] = useState<DatabaseConfig>({
-    type: 'sqlite',
+    type: 'postgres',
     builtIn: false,
     host: 'localhost',
     port: '5432',

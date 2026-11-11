@@ -140,11 +140,8 @@ export class WebhookRedriveService implements OnModuleDestroy {
     // Join eligible subscriptions before taking a batch. A single membership predicate also avoids
     // an OR expression and repeated ids parameters for every active webhook across all sessions.
     const subscriptions =
-      this.failureRepository.manager.connection.options.type === 'postgres'
-        ? "json_array_elements_text(CASE WHEN json_typeof(webhook.events::json) = 'array' THEN webhook.events::json ELSE '[]'::json END) AS subscribed(event)"
-        : "json_each(CASE WHEN json_type(webhook.events) = 'array' THEN webhook.events ELSE '[]' END) AS subscribed";
-    const subscribedEvent =
-      this.failureRepository.manager.connection.options.type === 'postgres' ? 'subscribed.event' : 'subscribed.value';
+      "json_array_elements_text(CASE WHEN json_typeof(webhook.events::json) = 'array' THEN webhook.events::json ELSE '[]'::json END) AS subscribed(event)";
+    const subscribedEvent = 'subscribed.event';
     const query = this.failureRepository
       .createQueryBuilder('failure')
       .innerJoin(

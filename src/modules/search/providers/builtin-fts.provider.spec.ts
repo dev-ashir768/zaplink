@@ -5,15 +5,15 @@ import { Session } from '../../../modules/session/entities/session.entity';
 import { BuiltInFtsProvider } from './builtin-fts.provider';
 import type { SearchQuery } from '../search.types';
 import { AddMessagesFts1782400000000 } from '../../../database/migrations/1782400000000-AddMessagesFts';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 
-describe('BuiltInFtsProvider (sqlite)', () => {
+describe('BuiltInFtsProvider', () => {
   let ds: DataSource;
   let provider: BuiltInFtsProvider;
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message],
       synchronize: true,
     });
@@ -239,9 +239,8 @@ describe('BuiltInFtsProvider (sqlite)', () => {
     expect((await provider.search({ q: 'hello', chatIds: ['c2'], sessionIds: ['s1'] })).total).toBe(0);
   });
 
-  // The documented direction of the match=word score on SQLite: FTS5's bm25 rank, negative, lower for the
-  // more relevant hit, which comes first. PostgreSQL's ts_rank runs the other way.
-  it('reports the word score as the FTS5 rank: negative, lowest for the most relevant hit', async () => {
+  // The match=word score is PostgreSQL's ts_rank: positive, higher for the more relevant hit, which comes first.
+  it('reports the word score as the ts_rank: positive, highest for the most relevant hit', async () => {
     await ds.getRepository(Message).insert({
       sessionId: 's1',
       chatId: 'c1',
@@ -256,28 +255,8 @@ describe('BuiltInFtsProvider (sqlite)', () => {
     const { hits } = await provider.search({ q: 'hello' });
     const scores = hits.map(hit => hit.score as number);
     expect(hits[0].body).toBe('hello hello hello');
-    expect(scores.every(score => score < 0)).toBe(true);
-    expect([...scores].sort((a, b) => a - b)).toEqual(scores);
-  });
-
-  // bm25 weighs a term by how many messages the whole index holds, so the rank of a hit a session- or
-  // chat-scoped caller may read still reflects sessions and chats it may not. The hits stay ordered by it;
-  // the value is withheld.
-  it('returns no score to a session- or chat-scoped caller, and still returns one to an unscoped key', async () => {
-    const unscoped = await provider.search({ q: 'hello' });
-    expect(unscoped.hits.map(hit => typeof hit.score)).toEqual(['number', 'number']);
-
-    const chats = await provider.search({ q: 'hello', chatIds: ['c2'] });
-    expect(chats.hits.map(hit => hit.chatId)).toEqual(['c2']);
-    expect(chats.hits[0].score).toBeUndefined();
-
-    const sessions = await provider.search({ q: 'hello', sessionIds: ['s1'] });
-    expect(sessions.hits.map(hit => hit.sessionId)).toEqual(['s1']);
-    expect(sessions.hits[0].score).toBeUndefined();
-
-    // A key stored with an empty session list is unrestricted: it searches every session and keeps its score.
-    const everySession = await provider.search({ q: 'hello', sessionIds: [] });
-    expect(everySession.hits.map(hit => typeof hit.score)).toEqual(['number', 'number']);
+    expect(scores.every(score => score > 0)).toBe(true);
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
   });
 
   it.each([0, 1])('returns no hits or count for an empty compiled chat scope at offset %s', async offset => {
@@ -296,24 +275,11 @@ describe('BuiltInFtsProvider (sqlite)', () => {
     expect((await provider.health()).ok).toBe(true);
   });
 
-  it('sanitizes FTS5 grammar characters instead of 400ing (chatIds, quotes, parens stay searchable)', async () => {
-    // User input is quoted per-token (toFts5Query), so `"`, `(`, `*`, `@` match literally — a chatId
-    // like 262813461250071@lid is a normal search term here, not a grammar error. Verified against
-    // live FTS5: `a b` and `"a" "b"` are identical (implicit AND), so multi-token semantics hold.
+  it('accepts query grammar characters instead of 400ing (chatIds, quotes, parens stay searchable)', async () => {
+    // websearch_to_tsquery never raises on user input, so `"`, `(`, `*`, `@` cannot turn into a 400.
     for (const q of ['"unbalanced', '*foo', '(test', '262813461250071@lid', 'a@c.us']) {
       await expect(provider.search({ q })).resolves.toMatchObject({ provider: 'builtin-fts' });
     }
-  });
-
-  it('runs a repeated word once, since a repeat adds nothing under AND but costs a pass per match', async () => {
-    const query = jest.spyOn(ds, 'query');
-    const repeated = await provider.search({ q: Array.from({ length: 200 }, () => 'hello').join(' ') });
-    const single = await provider.search({ q: 'hello' });
-
-    const matched = query.mock.calls.filter(([sql]) => String(sql).includes('MATCH')).map(([, params]) => params);
-    expect((matched[0] as unknown[])[0]).toBe('"hello"');
-    expect((matched[1] as unknown[])[0]).toBe('"hello"');
-    expect(repeated.hits.map(h => h.messageId)).toEqual(single.hits.map(h => h.messageId));
   });
 
   it('keeps multi-token AND semantics after quoting', async () => {
@@ -383,21 +349,8 @@ describe('BuiltInFtsProvider (sqlite)', () => {
     }
   });
 
-  it('the FTS UPDATE trigger carries a WHEN body-change guard (not fire on ack-only updates)', async () => {
-    // The messages_fts_au trigger must be guarded so it only re-indexes when body actually changes.
-    // Without the WHEN clause every ack (SENT→DELIVERED→READ) and reaction does a redundant FTS
-    // delete+insert on the busiest message path. Assert the definition in sqlite_master includes the
-    // WHEN guard so a future regression that drops it is caught here, not just in production write
-    // amplification. The body-change re-index path itself is covered by the revoke test below.
-    const rows: unknown[] = await ds.query(
-      `SELECT sql FROM sqlite_master WHERE type='trigger' AND name='messages_fts_au'`,
-    );
-    expect(String((rows[0] as { sql?: string })?.sql ?? '')).toMatch(/WHEN\s+OLD\.body\s+IS\s+NOT\s+NEW\.body/i);
-  });
-
   it('re-indexes on a body UPDATE (revoke path: body changes, FTS reflects the new value)', async () => {
-    // A body UPDATE must still re-index — the WHEN guard must not suppress legitimate body changes.
-    // The revoke flow sets body to empty; assert the FTS index reflects the new body and no longer
+    // body_ts is a generated column, so a body UPDATE re-indexes. The revoke flow sets body to empty; assert the FTS index reflects the new body and no longer
     // matches the old term, while a new search for a freshly-written body still hits.
     const repo = ds.getRepository(Message);
     await repo.update({ body: 'hello world' }, { body: 'goodbye updated' });

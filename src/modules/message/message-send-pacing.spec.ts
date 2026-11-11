@@ -10,6 +10,7 @@ import { MessageSendService } from './message-send.service';
 import { SEND_PACING_LIMITED, SendPacingService } from './send-pacing.service';
 import { computeSendPacingConfig } from './send-pacing.config';
 import { closeSessionWrites } from '../../common/utils/session-write-scope';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const NOW = new Date('2026-06-01T12:00:00Z');
 const deferred = () => {
@@ -58,8 +59,7 @@ describe('MessageSendService preparation pacing', () => {
     process.env.SIMULATE_TYPING = 'false';
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(NOW);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message],
       synchronize: true,
     });

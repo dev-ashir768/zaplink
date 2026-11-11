@@ -70,7 +70,7 @@
   color: var(--error-text);
 }
 
-.infrastructure-page .status-indicator.sqlite {
+.infrastructure-page .status-indicator.neutral {
   background: rgba(59, 130, 246, 0.12);
   color: var(--info);
 }

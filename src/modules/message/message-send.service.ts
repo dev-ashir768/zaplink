@@ -826,8 +826,7 @@ export class MessageSendService {
         metadata: quotedMessage ? { ...data.metadata, quotedMessage } : data.metadata,
       });
       // No transaction of its own: the unique violation handled below is routine (the own-send echo wins the
-      // race), and on SQLite's single shared connection its rollback would discard what other callers wrote
-      // while it was open, after they were told it was stored.
+      // race).
       const saved = await scope
         .write(() => this.messageRepository.save(message, { transaction: false }))
         .catch(async (err: unknown) => {

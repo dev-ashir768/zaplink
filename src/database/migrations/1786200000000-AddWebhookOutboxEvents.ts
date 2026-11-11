@@ -9,8 +9,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * UNIQUE(webhookId, idempotencyKey) is the natural key: the key is already salted per webhook at
  * dispatch, so the pair names one delivery exactly and a replay reuses the STORED key.
  *
- * Hand-authored because `synchronize` is off on the `data` connection for Postgres. `payload` is
- * `text` on BOTH dialects to match `jsonColumnType()`, which resolves to 'simple-json' everywhere:
+ * Hand-authored because `synchronize` is off on the `data` connection. `payload` is
+ * `text` to match `jsonColumnType()`, which resolves to 'simple-json' everywhere:
  * a `jsonb` column would be auto-parsed by the pg driver and hand back a shape the entity does not
  * expect.
  */
@@ -19,17 +19,10 @@ export class AddWebhookOutboxEvents1786200000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (await queryRunner.hasTable('webhook_outbox_events')) return;
-    const isPostgres = queryRunner.connection.options.type === 'postgres';
-    const id = isPostgres
-      ? `"id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid()::varchar`
-      : `"id" varchar PRIMARY KEY NOT NULL`;
-    // The two date columns are NOT the same type, because they carry different decorators.
-    // `lastAttemptAt` is `dateColumnType()` + DateTransformer, which is `text` on SQLite;
-    // `createdAt` is a plain @CreateDateColumn, which TypeORM emits as `datetime` there. The drift
-    // gate compares the chain against that metadata, so guessing one type for both fails.
-    const nullableTs = isPostgres ? 'timestamp' : 'text';
-    const createdTs = isPostgres ? 'timestamp' : 'datetime';
-    const now = isPostgres ? 'NOW()' : `(datetime('now'))`;
+    const id = `"id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid()::varchar`;
+    const nullableTs = 'timestamp';
+    const createdTs = 'timestamp';
+    const now = 'NOW()';
 
     await queryRunner.query(
       `CREATE TABLE "webhook_outbox_events" (${id}, "webhookId" varchar NOT NULL, "sessionId" varchar NOT NULL, ` +

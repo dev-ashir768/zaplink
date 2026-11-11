@@ -62,6 +62,7 @@ import { SsrfBlockedError } from '../../common/security/ssrf-guard';
 import * as loadRemoteMediaModule from '../../common/media/load-remote-media';
 import { fetch as undiciFetch } from 'undici';
 import { lookup } from 'dns/promises';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // Allowlisted hosts are PINNED to their DNS answer (ssrf-guard pins allowlisted hosts to their DNS answers), so the specs that exercise
 // the SSRF_ALLOWED_HOSTS escape-hatch need a deterministic resolver. Default answers are PUBLIC
@@ -10013,7 +10014,7 @@ describe('WhatsAppWebJsAdapter number check through the library page code', () =
     const ds = await new DataSource(
       pg
         ? { ...server, schema, extra: { options: `-c search_path=${schema},public` }, entities, synchronize: true }
-        : { type: 'better-sqlite3', database: ':memory:', entities, synchronize: true },
+        : { ...pgTestOptions(), entities, synchronize: true },
     ).initialize();
     const [s1, s2] = ['00000001-0000-4000-8000-000000000000', '00000002-0000-4000-8000-000000000000'];
     await ds.getRepository(Session).insert([s1, s2].map(id => ({ id, name: id, phone: '6290000000' })));

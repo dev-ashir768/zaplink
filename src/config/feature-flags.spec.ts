@@ -103,17 +103,17 @@ describe('feature-flags', () => {
       return next === -1 ? rest : rest.slice(0, next);
     }
 
-    it.each([
-      ['docker-compose.yml', 'zaplink-api'],
-      ['docker-compose.dev.yml', 'zaplink'],
-    ])('%s forwards the redirect flag on service %s', (file, serviceName) => {
-      const compose = fs.readFileSync(path.join(__dirname, '../../', file), 'utf8');
-      const service = extractTopLevelService(compose, serviceName);
-      // The block holds only this service: no sibling service header may follow its own.
-      expect(service.split('\n').filter(line => /^ {2}[a-z]/.test(line))).toEqual([`  ${serviceName}:`]);
-      expect(service).toContain(
-        'PLUGIN_DOWNLOAD_ALLOW_INSECURE_REDIRECTS=${PLUGIN_DOWNLOAD_ALLOW_INSECURE_REDIRECTS:-false}',
-      );
-    });
+    it.each([['docker-compose.yml', 'zaplink-api']])(
+      '%s forwards the redirect flag on service %s',
+      (file, serviceName) => {
+        const compose = fs.readFileSync(path.join(__dirname, '../../', file), 'utf8');
+        const service = extractTopLevelService(compose, serviceName);
+        // The block holds only this service: no sibling service header may follow its own.
+        expect(service.split('\n').filter(line => /^ {2}[a-z]/.test(line))).toEqual([`  ${serviceName}:`]);
+        expect(service).toContain(
+          'PLUGIN_DOWNLOAD_ALLOW_INSECURE_REDIRECTS=${PLUGIN_DOWNLOAD_ALLOW_INSECURE_REDIRECTS:-false}',
+        );
+      },
+    );
   });
 });

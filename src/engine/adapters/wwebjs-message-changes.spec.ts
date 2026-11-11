@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { setFlagsFromString } from 'v8';
 import { runInNewContext } from 'vm';
 import { WAState, type Client } from 'whatsapp-web.js';
-import { DataSource, type Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { WhatsAppWebJsAdapter } from './whatsapp-web-js.adapter';
 import type { WwebjsLifecycle } from './wwebjs-lifecycle';
 import type { WwebjsEngineHost } from './wwebjs-host';
@@ -11,7 +11,7 @@ import { EngineRegistry } from '../engine-registry.service';
 import { MessageProjector } from '../../modules/session/message-projector.service';
 import { deferred } from '../../modules/session/inbound-room';
 import { createLogger } from '../../common/services/logger.service';
-import { Message, MessageDirection } from '../../modules/message/entities/message.entity';
+import { Message } from '../../modules/message/entities/message.entity';
 import type { Session } from '../../modules/session/entities/session.entity';
 import type { EventsGateway } from '../../modules/events/events.gateway';
 import type { WebhookService } from '../../modules/webhook/webhook.service';
@@ -31,8 +31,8 @@ import type {
 /**
  * A message is handed to the session only once its contact, media and quoted message were fetched. A
  * change that reaches it meanwhile (an edit, a delete for everyone or a reaction) is kept for the row by a
- * session that holds each arrival (PostgreSQL), and was lost on the SQLite wiring, which learns of the
- * message only when it is handed over: the message was then stored and announced as it was before.
+ * session that holds each arrival, and is lost where nothing admits the message before it is handed over:
+ * the message is then stored and announced as it was before.
  */
 
 type Row = Record<string, unknown>;
@@ -132,9 +132,9 @@ const ciphertextEvent = (client: EventEmitter, id: string, subtype?: string) =>
   });
 
 describe.each([
-  ['PostgreSQL', 'postgres'],
-  ['SQLite', 'better-sqlite3'],
-])('a change that reaches a message whatsapp-web.js still processes, on %s', (_name, type) => {
+  ['admission on arrival', true],
+  ['no admission before the emit', false],
+])('a change that reaches a message whatsapp-web.js still processes, with %s', (_name, admitted) => {
   const env = { ...process.env };
   let rows: Row[];
   let dispatch: jest.Mock;
@@ -164,23 +164,21 @@ describe.each([
     failInsert = undefined;
     holdWrite = () => undefined;
     findOne = jest.fn(({ where }: { where: Row }) => Promise.resolve(rows.find(r => matches(r, where)) ?? null));
-    // The real projector over a stand-in `messages` table, wired as the database wires it: only PostgreSQL
-    // admits a message on arrival.
+    // The real projector over a stand-in `messages` table, with or without the admission
+    // callback the session wires.
     const repo = {
-      manager: { connection: { options: { type } } },
+      manager: { connection: { options: { type: 'postgres' } } },
       find: jest.fn().mockResolvedValue([]),
       findOne,
       create: jest.fn((x: Row) => ({ ...x })),
       insert: jest.fn((row: Row) => {
         if (failInsert?.(row)) {
-          return Promise.reject(
-            Object.assign(new Error('database disk image is malformed'), { code: 'SQLITE_CORRUPT' }),
-          );
+          return Promise.reject(Object.assign(new Error('could not read block in file'), { code: 'XX001' }));
         }
         // As the real table's unique index refuses a second row under an id.
         if (rows.some(r => r.waMessageId === row.waMessageId)) {
           return Promise.reject(
-            Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }),
+            Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
           );
         }
         rows.push({ ...row });
@@ -219,7 +217,7 @@ describe.each([
       { resolveSenderPhone: jest.fn().mockResolvedValue(null) } as unknown as SessionLidResolver,
     );
     const callbacks: EngineEventCallbacks = {
-      ...(type === 'postgres'
+      ...(admitted
         ? {
             admitInbound: (a: Parameters<MessageProjector['admitInbound']>[2]) =>
               projector.admitInbound('s1', engine, a),
@@ -260,13 +258,11 @@ describe.each([
     return { page: jest.fn(() => page.promise), finish: () => page.resolve({ mimetype: 'image/png', data: 'QUJD' }) };
   };
 
-  // What a message deleted for everyone while it was processed leaves behind. PostgreSQL held the message from its
-  // arrival and stores it cleared. SQLite is told of it only at the hand-over, which is skipped, as the Baileys
+  // What a message deleted for everyone while it was processed leaves behind. An admitted message was held from its
+  // arrival and is stored cleared. Without admission the session learns of it only at the hand-over, which is skipped, as the Baileys
   // adapter skips it: no row, no hook, no announcement.
   const deletedRows = (id: string): unknown[] =>
-    type === 'postgres'
-      ? [expect.objectContaining({ waMessageId: id, body: '', type: 'revoked', metadata: null })]
-      : [];
+    admitted ? [expect.objectContaining({ waMessageId: id, body: '', type: 'revoked', metadata: null })] : [];
 
   it('leaves no content of a message deleted for everyone during its contact lookup, and announces none', async () => {
     const contact = deferred<null>();
@@ -1878,80 +1874,5 @@ describe('changes kept while whatsapp-web.js processes a message (adapter level)
     gc();
 
     expect(process.memoryUsage().heapUsed - before).toBeLessThan((MESSAGES * LONGEST_TEXT) / 4);
-  });
-});
-
-describe('stored tombstones on a shared SQLite connection', () => {
-  it.each([
-    [false, false],
-    [false, true],
-    [true, false],
-    [true, true],
-  ])('waits for another transaction before trusting the row, commit=%s own=%s', async (commit, fromMe) => {
-    const db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
-    await db.initialize();
-    const repository = db.getRepository(Message);
-    const runner = db.createQueryRunner();
-    const engines = new EngineRegistry();
-    const engine = {} as IWhatsAppEngine;
-    engines.set('s1', engine);
-    const seen: string[] = [];
-    const message: IncomingMessage = {
-      id: 'A',
-      chatId: CHAT,
-      from: fromMe ? SELF : CHAT,
-      to: fromMe ? CHAT : SELF,
-      fromMe,
-      isGroup: false,
-      kind: 'individual',
-      type: 'text',
-      body: 'original text',
-      timestamp: 1_700_000_000,
-    };
-    const projector = new MessageProjector(
-      repository,
-      { update: jest.fn().mockResolvedValue({ affected: 1 }) } as unknown as Repository<Session>,
-      engines,
-      new Proxy({}, { get: () => jest.fn() }) as unknown as EventsGateway,
-      { dispatch: jest.fn().mockResolvedValue(undefined) } as unknown as WebhookService,
-      {
-        execute: jest.fn((event: string, data: unknown) => {
-          if (event === 'message:sent' || event === 'message:received') seen.push((data as IncomingMessage).body);
-          return Promise.resolve({ continue: true, data });
-        }),
-      } as unknown as HookManager,
-      { ingest: jest.fn() } as unknown as StatusStoreService,
-      { resolveSenderPhone: jest.fn().mockResolvedValue(null) } as unknown as SessionLidResolver,
-    );
-    try {
-      await repository.insert({
-        sessionId: 's1',
-        waMessageId: 'A',
-        chatId: CHAT,
-        from: message.from,
-        to: message.to,
-        direction: fromMe ? MessageDirection.OUTGOING : MessageDirection.INCOMING,
-        type: 'text',
-        body: 'original text',
-        timestamp: message.timestamp,
-      });
-      await runner.startTransaction();
-      await runner.manager.update(Message, { waMessageId: 'A' }, { type: 'revoked', body: '' });
-      if (fromMe) projector.handleOwnSendEcho('s1', engine, message);
-      else projector.handleInboundMessage('s1', engine, message);
-      await flush();
-      expect(seen).toEqual([]);
-      if (commit) await runner.commitTransaction();
-      else await runner.rollbackTransaction();
-      for (let n = 0; n < 20; n++) await new Promise(resolve => setTimeout(resolve, 2));
-      expect(seen).toEqual([commit ? '' : 'original text']);
-      expect(await repository.findOneByOrFail({ waMessageId: 'A' })).toEqual(
-        expect.objectContaining({ type: commit ? 'revoked' : 'text', body: commit ? '' : 'original text' }),
-      );
-    } finally {
-      if (runner.isTransactionActive) await runner.rollbackTransaction();
-      await runner.release();
-      await db.destroy();
-    }
   });
 });

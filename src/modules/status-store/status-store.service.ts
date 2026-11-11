@@ -21,8 +21,8 @@ import { captureSessionWrites, SessionWriteScope } from '../../common/utils/sess
 export const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 /** How often the TTL purge sweeps expired rows. */
 const PURGE_INTERVAL_MS = 15 * 60 * 1000;
-/** Rows removed per purge statement. Keeps the id list far below the drivers' bind-parameter
- *  ceilings (SQLite 32766, Postgres 65535) and bounds how much work one failure can undo. */
+/** Rows removed per purge statement. Keeps the id list far below Postgres' bind-parameter
+ *  ceiling (65535) and bounds how much work one failure can undo. */
 const PURGE_BATCH_SIZE = 500;
 /** Cap on batches per run, so one tick cannot monopolise the process draining a huge backlog;
  *  whatever is left is picked up by the next scheduled run. */
@@ -136,9 +136,7 @@ export class StatusStoreService implements OnModuleInit, OnModuleDestroy {
 
       let saved: StatusUpdate;
       try {
-        // Without a transaction: a single-row save() wraps itself in one, and on SQLite's single shared
-        // connection the rollback of the unique violation expected below also discards the rows other callers
-        // wrote while it was open, after they were reported stored.
+        // Without a transaction: a single-row save() needs none, and the unique violation is expected below.
         saved = await scope.write(() => this.repository.save(row, { transaction: false }));
       } catch (error) {
         // The unique (sessionId, waStatusId) index is the idempotency backstop for a concurrent ingest

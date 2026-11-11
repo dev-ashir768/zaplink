@@ -8,6 +8,12 @@ import { WebhookDeliveryService } from './webhook-delivery.service';
 import { MAX_WEBHOOK_REDRIVE_LIMIT, WebhookRedriveService } from './webhook-redrive.service';
 import { MAX_TIMER_MS } from '../../common/services/shutdown-budget';
 import { recordWebhookDeliveryFailure } from './utils/record-delivery-failure';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
+
+/** Polls in real time until `done` holds: database round trips do not settle within a turn of the event loop. */
+const waitFor = async (done: () => boolean, ms = 5_000): Promise<void> => {
+  for (const end = Date.now() + ms; !done() && Date.now() < end;) await new Promise(resolve => setTimeout(resolve, 5));
+};
 
 describe('WebhookRedriveService', () => {
   let ds: DataSource;
@@ -40,8 +46,7 @@ describe('WebhookRedriveService', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Webhook, WebhookDeliveryFailure],
       synchronize: true,
     });
@@ -381,7 +386,7 @@ describe('WebhookRedriveService', () => {
       remaining: MAX_WEBHOOK_REDRIVE_LIMIT + 1,
     });
     expect(delivery.redeliver).toHaveBeenCalledTimes(MAX_WEBHOOK_REDRIVE_LIMIT);
-  });
+  }, 60_000);
 
   it('counts legacy enqueued and cancelled outcomes, and increments a rejected replay', async () => {
     await addFailure();
@@ -421,7 +426,9 @@ describe('WebhookRedriveService', () => {
 
     const first = service.redrive({});
     const second = service.redrive({});
-    await new Promise(resolve => setImmediate(resolve));
+    await waitFor(() => delivery.redeliver.mock.calls.length > 0);
+    // Give the second call time to run ahead of the first, had the chain let it.
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(delivery.redeliver).toHaveBeenCalledTimes(1);
     release();
     expect(await first).toMatchObject({ delivered: 1, remaining: 0 });
@@ -437,7 +444,7 @@ describe('WebhookRedriveService', () => {
     delivery.redeliver.mockImplementation(async (...args) => {
       active++;
       peak = Math.max(peak, active);
-      await new Promise(resolve => setImmediate(resolve));
+      await new Promise(resolve => setTimeout(resolve, 20));
       const outcome = await deliver(...args);
       active--;
       return outcome;
@@ -489,7 +496,7 @@ describe('WebhookRedriveService', () => {
         return deliver(...args);
       });
       void service.redrive({});
-      await new Promise(resolve => setImmediate(resolve));
+      await waitFor(() => delivery.redeliver.mock.calls.length > 0);
       expect(delivery.redeliver).toHaveBeenCalledTimes(1);
       return release;
     };

@@ -41,8 +41,7 @@ function portValue(label: string, value: string): string {
 // The selection a section applies to: the one sent, else the stored one, else the one the environment pins. Only a
 // sent one is written, so a save that leaves it out (the page does for a pinned type in a card left untouched) never
 // writes a selection over the stored choice. When the environment pins another selection than the stored one, the
-// section's fields belong to neither boot: applied to the stored mode they reach the pinned boot now (a PostgreSQL
-// DATABASE_NAME refuses a SQLite boot), applied to the pinned mode they reach the stored one once the pin is
+// section's fields belong to neither boot: applied to the stored mode they reach the pinned boot now, applied to the pinned mode they reach the stored one once the pin is
 // removed. Nothing of the section is written then (null). With no selection at all it cannot be read, and is refused.
 function sectionType<T extends string>(
   section: string,
@@ -69,7 +68,7 @@ export function applyDatabaseSection(
   ctx: ConfigSectionContext,
 ): void {
   const { updates, staleKeys, profiles } = ctx;
-  const type = sectionType('database', 'DATABASE_TYPE', database.type, existing, ['sqlite', 'postgres']);
+  const type = sectionType('database', 'DATABASE_TYPE', database.type, existing, ['postgres']);
   if (type === null) return;
   if (database.type) updates.DATABASE_TYPE = database.type;
   if (database.builtIn !== undefined) {
@@ -118,7 +117,7 @@ export function applyDatabaseSection(
       updates.POSTGRES_SCHEMA = kept.POSTGRES_SCHEMA || 'public';
     } else if (!dbBuiltIn) {
       // Only an already selected external PostgreSQL owns the stored password. Startup flags do not
-      // identify its server, and inactive SQLite details must not seed a newly selected service.
+      // identify its server, and details left from another database must not seed a newly selected service.
       if (
         (existing.DATABASE_TYPE !== 'postgres' || namesBundledContainer('postgres', existing.DATABASE_HOST)) &&
         !database.password
@@ -134,7 +133,8 @@ export function applyDatabaseSection(
       if (database.username !== undefined) updates.DATABASE_USERNAME = database.username.trim() || 'postgres';
       setSecret(updates, 'DATABASE_PASSWORD', database.password);
       if (database.database !== undefined) updates.DATABASE_NAME = database.database || 'zaplink';
-      // Left from SQLite, the key holds a file path, which the next boot would open as a PostgreSQL database name.
+      // Left from an old non-PostgreSQL config, the key holds a file path, which the next boot would open as a
+      // PostgreSQL database name.
       // A file with no type beside a PostgreSQL pin holds a name the pinned server uses, so that one stays.
       else if (existing.DATABASE_TYPE !== 'postgres' && nextBootValue('DATABASE_TYPE', existing) !== 'postgres') {
         staleKeys.add('DATABASE_NAME');
@@ -170,24 +170,6 @@ export function applyDatabaseSection(
         // (managed Postgres with self-signed certs: Supabase, Heroku, Render, Railway).
         updates.DATABASE_SSL_REJECT_UNAUTHORIZED = database.sslRejectUnauthorized === false ? 'false' : 'true';
       }
-    }
-  } else {
-    // Switching to sqlite: drop stale postgres connection keys, and reset the built-in
-    // flag with them — there is no bundled Postgres backing a SQLite database.
-    updates.POSTGRES_BUILTIN = 'false';
-    // A SQLite name is its file path; only the PostgreSQL name belongs to the mode being left.
-    if (existing.DATABASE_TYPE === 'postgres') staleKeys.add('DATABASE_NAME');
-    for (const k of [
-      'DATABASE_HOST',
-      'DATABASE_PORT',
-      'DATABASE_USERNAME',
-      'DATABASE_PASSWORD',
-      'DATABASE_POOL_SIZE',
-      'DATABASE_SSL',
-      'DATABASE_SSL_REJECT_UNAUTHORIZED',
-      'POSTGRES_SCHEMA',
-    ]) {
-      staleKeys.add(k);
     }
   }
 }

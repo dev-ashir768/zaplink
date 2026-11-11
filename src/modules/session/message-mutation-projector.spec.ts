@@ -5,9 +5,11 @@ import type { LoggerService } from '../../common/services/logger.service';
 import type { EventsGateway } from '../events/events.gateway';
 import type { WebhookService } from '../webhook/webhook.service';
 import { MessageMutationProjector } from './message-mutation-projector';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
+// The queued work runs real Postgres round trips, so give it wall-clock time rather than a few event-loop turns.
 const settle = async (): Promise<void> => {
-  for (let n = 0; n < 5; n++) await new Promise(resolve => setImmediate(resolve));
+  for (let n = 0; n < 10; n++) await new Promise(resolve => setTimeout(resolve, 20));
 };
 
 // The stored copy of a reaction is best-effort; the notification is not (see applyReaction).
@@ -20,8 +22,7 @@ describe('a reaction whose stored copy cannot be written', () => {
 
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
     }).initialize();
@@ -104,8 +105,7 @@ describe('an allowed edit whose update changes no row', () => {
 
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
     }).initialize();

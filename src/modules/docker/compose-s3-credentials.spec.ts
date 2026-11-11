@@ -10,7 +10,7 @@ const yaml = require('js-yaml') as { load: (src: string) => unknown };
  * .env.example promises older setups keep working. A Compose file only passes on the variables it
  * lists, so one that forwards just the canonical pair leaves such a setup without credentials.
  */
-describe.each(['docker-compose.yml', 'docker-compose.dev.yml'])('%s forwards the S3 credentials', file => {
+describe.each(['docker-compose.yml'])('%s forwards the S3 credentials', file => {
   const compose = yaml.load(readFileSync(join(__dirname, '../../..', file), 'utf8')) as {
     services: Record<string, { environment?: string[] | Record<string, string> }>;
   };

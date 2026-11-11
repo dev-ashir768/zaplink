@@ -123,7 +123,7 @@ export interface ChatStateRow {
   sessionId: string;
   chatId: string;
   muteEndTime: number | null;
-  // boolean on Postgres, 0/1 on SQLite; carried through as-is like PluginInstanceRow.enabled.
+  // boolean, or 0/1 in older backups; carried through as-is like PluginInstanceRow.enabled.
   archived: boolean | number;
   pinned: boolean | number;
   // Absent from an archive taken before the column existed; null reads as its set fields observed.
@@ -245,10 +245,10 @@ export interface StatusUpdateRow {
 
 /**
  * automation_rules has an ON DELETE CASCADE FK to sessions, so the import's `DELETE FROM sessions`
- * takes every rule with it — on SQLite too, where better-sqlite3 enforces foreign keys. Exporting
+ * takes every rule with it. Exporting
  * and re-inserting it is therefore not optional: without it a backup/restore silently destroys
  * every autoreply rule. `conditions` is stored as text (the webhook-filter JSON), `enabled` reads
- * back as a boolean on Postgres and 0/1 on SQLite.
+ * back as a boolean (0/1 in older backups).
  */
 export interface AutomationRuleRow {
   id: string;

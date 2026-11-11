@@ -63,29 +63,18 @@ export class StoredChatPreviewService implements StoredChatPreviewSource {
    * Two steps, so the scan stays on `IDX_messages_session_chat_timestamp_id`. The candidate chats come
    * from that index alone (session, chat and time), newest first; the winner of each chat is then looked
    * up newest first in the same index, where the columns the index lacks are read for a few rows only.
-   * Filtering on `waMessageId` in the first step instead reads every row of the session (about 500 ms
-   * for 500k rows on SQLite against about 45 ms, and better-sqlite3 blocks the event loop meanwhile).
+   * Filtering on `waMessageId` in the first step instead reads every row of the session.
    *
    * A pending or failed send can have no WhatsApp id: it shows no chat and previews nothing, as live
    * (the #1891 rule). Rows of one second take the one stored last, as the stored lookup of a chat write
-   * does; SQLite keeps `createdAt` to the second, so it breaks the tie by insertion order instead of by
-   * the random id. The name comes from the newest received row of the chat, which need not be the newest
+   * does. The name comes from the newest received row of the chat, which need not be the newest
    * row: a support chat usually ends with a reply.
    */
   async latestPerChat(sessionId: string, ownIds: string[], limit: number): Promise<StoredChatPreview[]> {
     if (!ownIds.length) return [];
     const driver = this.repo.manager.connection.driver;
-    const isPostgres = this.repo.manager.connection.options.type === 'postgres';
-    const lastStored = isPostgres ? 'w."id"' : 'w."rowid"';
-    // SQLite has no composite index on (sessionId, chatId, direction, timestamp), so between the two
-    // indexes that each match two of this subquery's three equalities, it picks
-    // IDX_messages_session_direction_timestamp_id (sessionId, direction) over
-    // IDX_messages_session_chat_timestamp_id (sessionId, chatId) and then filters chatId per row,
-    // scanning every row of the session with this direction once per candidate chat. A unary plus
-    // makes the comparison an expression a bare-column index cannot serve, which steers SQLite onto
-    // the chatId index instead, the one `w` below already uses. PostgreSQL has no such index choice
-    // to steer and no unary `+` on a varchar column, so the hint is SQLite only.
-    const nDirection = isPostgres ? 'n."direction"' : '+n."direction"';
+    const lastStored = 'w."id"';
+    const nDirection = 'n."direction"';
     const table = this.repo.metadata.tablePath
       .split('.')
       .map(part => driver.escape(part))

@@ -17,14 +17,14 @@ import { ToStrictBoolean, ToStrictNumber, ToStrictString } from '../../../common
  */
 export class DatabaseConfigDto {
   @ApiPropertyOptional({
-    enum: ['sqlite', 'postgres'],
+    enum: ['postgres'],
     description:
       'Absent keeps the stored selection, which the rest of the section then applies to. While the environment pins ' +
       'another selection than the stored one, a section without it writes nothing.',
   })
   @IsOptional()
-  @IsIn(['sqlite', 'postgres'])
-  type?: 'sqlite' | 'postgres';
+  @IsIn(['postgres'])
+  type?: 'postgres';
 
   @ApiPropertyOptional()
   @ToStrictBoolean()

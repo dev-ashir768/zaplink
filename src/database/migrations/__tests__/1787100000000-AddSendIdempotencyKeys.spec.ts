@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddSendIdempotencyKeys1787100000000 } from '../1787100000000-AddSendIdempotencyKeys';
 
 describe('AddSendIdempotencyKeys migration', () => {
@@ -6,7 +7,7 @@ describe('AddSendIdempotencyKeys migration', () => {
   const migration = new AddSendIdempotencyKeys1787100000000();
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
   });
 
@@ -17,7 +18,9 @@ describe('AddSendIdempotencyKeys migration', () => {
   it('creates the table with both indexes', async () => {
     await migration.up(ds.createQueryRunner());
 
-    const cols: { name: string }[] = await ds.query(`PRAGMA table_info("send_idempotency_keys")`);
+    const cols: { name: string }[] = await ds.query(
+      `SELECT column_name AS name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'send_idempotency_keys'`,
+    );
     expect(cols.map(c => c.name).sort()).toEqual(
       [
         'createdAt',
@@ -31,7 +34,9 @@ describe('AddSendIdempotencyKeys migration', () => {
         'state',
       ].sort(),
     );
-    const indexes: { name: string }[] = await ds.query(`PRAGMA index_list("send_idempotency_keys")`);
+    const indexes: { name: string }[] = await ds.query<{ name: string }[]>(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'send_idempotency_keys'`,
+    );
     expect(indexes.map(i => i.name)).toContain('UQ_send_idempotency_keys_session_key');
     expect(indexes.map(i => i.name)).toContain('IDX_send_idempotency_keys_expiresAt');
   });
@@ -56,7 +61,7 @@ describe('AddSendIdempotencyKeys migration', () => {
 
     await migration.down(ds.createQueryRunner());
     const tables: unknown[] = await ds.query(
-      `SELECT name FROM sqlite_master WHERE type='table' AND name='send_idempotency_keys'`,
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'send_idempotency_keys'`,
     );
     expect(tables).toHaveLength(0);
     await expect(migration.down(ds.createQueryRunner())).resolves.toBeUndefined();

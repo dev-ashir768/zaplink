@@ -190,42 +190,6 @@ export class MessageService {
     private readonly storageService?: StorageService,
   ) {}
 
-  /**
-   * Second sort key for the message list: what makes the page order TOTAL without scrambling the
-   * order the messages actually arrived in.
-   *
-   * A tiebreaker is required, because `createdAt` is not unique. But `id` is a random v4 uuid, so
-   * it orders a tie group at random: five same-second messages came back shuffled, and the
-   * dashboard renders whatever the server sends. It is also in no index, so SQLite sorted the whole
-   * result into a temp b-tree to apply it.
-   *
-   * SQLite already stores the insertion sequence as `rowid`, the implicit trailing column of every
-   * index, so `(createdAt DESC, rowid DESC)` is a plain backward scan of `(sessionId, createdAt)`:
-   * arrival order restored, and the temp b-tree gone with it. Measured on the pinned better-sqlite3
-   * with the shipped index set.
-   *
-   * PostgreSQL has no equivalent. `ctid` is physical position and moves on every ack UPDATE, so it
-   * cannot order anything, and a monotonic column would need a table rewrite on the hottest table
-   * with no recoverable insertion order to backfill from. It keeps `id`: the walk stays correct,
-   * and a same-second group keeps its uuid order there.
-   */
-  private get orderTiebreak(): 'rowid' | 'id' {
-    return this.messageRepository.manager?.connection?.options?.type === 'postgres' ? 'id' : 'rowid';
-  }
-
-  /**
-   * The columns of a predicate, taken out of index consideration on SQLite, so a read of rows by `id` is a
-   * primary key lookup. Nothing runs ANALYZE there, and from about ten ids on it prefers an index on the session
-   * (or the chat) and visits every row of it, on the event loop. PostgreSQL has statistics and the plain
-   * predicate. The column is quoted because TypeORM only quotes a path that follows a space, `=` or `(`, and
-   * `from` is a keyword.
-   */
-  private byPrimaryKey(predicate: string): string {
-    return this.orderTiebreak === 'rowid'
-      ? predicate.replace(/\bmessage\.(?!id\b)(\w+)/g, '+"message"."$1"')
-      : predicate;
-  }
-
   // ========== Outbound sends (delegated) ==========
   //
   // The send family lives on MessageSendService; these pass-throughs keep the MessageService
@@ -338,30 +302,19 @@ export class MessageService {
         ? Math.min(Math.max(Math.trunc(rawOffset), 0), Number.MAX_SAFE_INTEGER)
         : 0;
 
-    const tiebreak = messageTimeOrder ? 'id' : this.orderTiebreak;
     // Match across dialects: a stored chatId may be `@s.whatsapp.net` (e.g. an outbound send addressed
     // by a raw engine id) while the caller filters by the neutral `@c.us` from the chat list - same
     // chat, different dialect. Resolving both sides through the table keeps them equal.
     const chatIds = chatId ? await this.resolveJidCandidates(chatId) : undefined;
-    // SQLite has no planner statistics here (nothing runs ANALYZE), so with several chatId candidates
-    // it prefers the (sessionId, createdAt) index because it already yields the order, and walks the
-    // whole session filtering chatId row by row. The unary `+` takes createdAt out of index-order
-    // consideration, so it seeks (sessionId, chatId, createdAt) and sorts only that chat's rows, the
-    // plan ANALYZE would pick. A single candidate already uses that index in order, and PostgreSQL
-    // (no unary `+` on timestamps) has statistics, so both keep the plain key.
     const orderColumn = messageTimeOrder ? 'timestamp' : 'createdAt';
-    const orderKey =
-      this.orderTiebreak === 'rowid' && chatIds !== undefined && chatIds.length > 1
-        ? `+message.${orderColumn}`
-        : `message.${orderColumn}`;
+    const orderKey = `message.${orderColumn}`;
 
     const query = this.messageRepository
       .createQueryBuilder('message')
       .where('message.sessionId = :sessionId', { sessionId })
       .orderBy(orderKey, 'DESC')
-      // Message times and bulk ingestion times can tie. The second key keeps pages stable;
-      // legacy ingestion order retains its dialect-specific tiebreaker.
-      .addOrderBy(`message.${tiebreak}`, 'DESC')
+      // createdAt is not unique; `id` makes the page order total so paging is stable.
+      .addOrderBy('message.id', 'DESC')
       .take(limit);
 
     // `after` replaces the offset rather than adding to it: mixing a row anchor with a count is
@@ -449,14 +402,12 @@ export class MessageService {
         throw new BadRequestException('Unknown cursor for this message selection');
       }
       // The anchor's sort key is resolved INSIDE the statement. Carrying it in the cursor instead
-      // would mean round-tripping a timestamp through JSON, and neither dialect survives that:
-      // SQLite holds two text shapes for one instant (`datetime('now')` writes 19 chars, a stamped
-      // JS Date writes 23) and compares them as text, while node-postgres truncates the column's
-      // microseconds to a millisecond Date. Both mis-seek silently, which is the very failure this
+      // would mean round-tripping a timestamp through JSON, which does not survive: node-postgres
+      // truncates the column's microseconds to a millisecond Date. That mis-seeks silently, which is the very failure this
       // cursor exists to remove.
       query.andWhere(
-        `(message.${orderColumn}, message.${tiebreak}) < ` +
-          `(SELECT anchor."${orderColumn}", anchor."${tiebreak}" FROM messages anchor ` +
+        `(message.${orderColumn}, message.id) < ` +
+          `(SELECT anchor."${orderColumn}", anchor."id" FROM messages anchor ` +
           'WHERE anchor."id" = :after AND anchor."sessionId" = :sessionId)',
         { after, sessionId },
       );
@@ -491,9 +442,8 @@ export class MessageService {
   }
 
   /**
-   * The stored metadata size of each page row, in page order. OCTET_LENGTH, not LENGTH: both
-   * SQLite and PostgreSQL answer it from the stored header, while a character count has to read
-   * (and on PostgreSQL detoast) every payload in full, which the chunked read then does again.
+   * The stored metadata size of each page row, in page order. OCTET_LENGTH, not LENGTH: PostgreSQL
+   * answers it from the stored header, while a character count has to read (and detoast) every payload in full, which the chunked read then does again.
    */
   private async readMetadataSizes(
     sessionId: string,
@@ -505,7 +455,7 @@ export class MessageService {
       .select('message.id', 'id')
       .addSelect('OCTET_LENGTH(message.metadata)', 'metadataLength')
       .where('message.id IN (:...pageIds)', { pageIds })
-      .andWhere(`${this.byPrimaryKey('message.sessionId')} = :sessionId`, { sessionId })
+      .andWhere(`message.sessionId = :sessionId`, { sessionId })
       .getRawMany<{ id: string; metadataLength: number | string | null }>();
     const sizeById = new Map(sizes.map(r => [r.id, r.metadataLength]));
     return pageIds.map(id => ({ id, metadataLength: sizeById.get(id) ?? null }));
@@ -534,9 +484,9 @@ export class MessageService {
       const query = this.messageRepository
         .createQueryBuilder('message')
         .select('message')
-        .where(`${this.byPrimaryKey('message.sessionId')} = :sessionId`, { sessionId })
+        .where(`message.sessionId = :sessionId`, { sessionId })
         .andWhere('message.id IN (:...chunkIds)', { chunkIds: chunk });
-      for (const [clause, parameters] of filters) query.andWhere(this.byPrimaryKey(clause), parameters);
+      for (const [clause, parameters] of filters) query.andWhere(clause, parameters);
       const rows = await query.getMany();
       const byId = new Map(rows.map(row => [row.id, row]));
       for (const id of chunk) {

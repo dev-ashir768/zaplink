@@ -4,6 +4,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { Session, SessionStatus } from './entities/session.entity';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import { EngineStatus, type EngineEventCallbacks } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = '77777777-7777-4777-8777-777777777777';
 const BOUND = '628444';
@@ -75,7 +76,7 @@ function fixture() {
   const registry = new EngineRegistry();
   const lifecycle = new SessionEngineLifecycle(
     repository as never,
-    { options: { type: 'better-sqlite3' } } as never,
+    { options: { ...pgTestOptions() } } as never,
     factory as never,
     registry,
     { clear: jest.fn() } as never,

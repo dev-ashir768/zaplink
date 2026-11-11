@@ -10,7 +10,7 @@ import { createThrottlerRedisClient } from './common/throttler/throttler-redis.c
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { createBootDataSource } from './database/pg-boot-migrations';
-import { createMainDataSource, mainConnectionOptions, SQLITE_BUSY_TIMEOUT_MS } from './database/main-connection';
+import { createMainDataSource, mainConnectionOptions } from './database/main-connection';
 import { SessionModule } from './modules/session/session.module';
 import { MessageModule } from './modules/message/message.module';
 import { TemplateModule } from './modules/template/template.module';
@@ -42,7 +42,6 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { HooksModule } from './core/hooks';
 import { PluginsModule } from './core/plugins';
 import { SearchModule } from './modules/search/search.module';
-import { SqlitePermissionsBoot } from './database/sqlite-file-permissions';
 
 // Only import QueueModule if explicitly enabled to avoid Redis connection errors
 const queueModules: Array<Type | DynamicModule> = [];
@@ -107,7 +106,7 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
       validate: validateEnv,
     }),
 
-    // Main Database (always SQLite - boot config)
+    // Main database (API keys + audit log): the same Postgres database, its own migration ledger
     TypeOrmModule.forRootAsync({
       name: 'main',
       imports: [ConfigModule],
@@ -118,18 +117,14 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
       dataSourceFactory: createMainDataSource,
     }),
 
-    // Data Storage Database (pluggable - user data)
+    // Data database (sessions, messages, webhooks, ...)
     TypeOrmModule.forRootAsync({
       name: 'data',
       imports: [ConfigModule],
       inject: [ConfigService],
-      // The postgres branch runs its boot migrations under a cross-replica advisory lock inside
-      // this factory (see pg-boot-migrations.ts) instead of TypeORM's unsynchronized built-in
-      // migrationsRun; SQLite with synchronize is initialized there too, to deduplicate terminal webhook
-      // failures before the schema sync, and other sqlite options keep the library's default path.
+      // Boot migrations run under a cross-replica advisory lock inside this factory (pg-boot-migrations.ts).
       dataSourceFactory: createBootDataSource,
       useFactory: (configService: ConfigService) => {
-        const dbType = configService.get<'sqlite' | 'postgres'>('dataDatabase.type', 'sqlite');
         const baseConfig = {
           entities: [
             __dirname + '/modules/session/**/*.entity{.ts,.js}',
@@ -144,7 +139,7 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
           logging: configService.get<boolean>('dataDatabase.logging', false),
         };
 
-        if (dbType === 'postgres') {
+        {
           // Schema selection: 'public' (default) is a no-op vs the historical behavior. A non-public
           // schema additionally sets the session search_path (createBootDataSource runs it as a statement on
           // connect rather than in the startup packet) so
@@ -196,21 +191,6 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
             },
           };
         }
-
-        // SQLite data DB: schema is MIGRATION-managed by default (DATABASE_SYNCHRONIZE unset/false),
-        // matching configuration.ts and .env.example ("Set false in production"). Set
-        // DATABASE_SYNCHRONIZE=true for zero-config synchronize instead. Computed once: the resolved
-        // value is always a boolean, so a get(..., true) fallback would never fire (and would be a trap).
-        const synchronize = configService.get<boolean>('dataDatabase.synchronize', false);
-        return {
-          ...baseConfig,
-          name: 'data',
-          type: 'better-sqlite3' as const,
-          database: configService.get<string>('dataDatabase.database', './data/zaplink.sqlite'),
-          timeout: SQLITE_BUSY_TIMEOUT_MS,
-          synchronize,
-          migrationsRun: !synchronize,
-        };
       },
     }),
 
@@ -287,9 +267,5 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
     ...searchModules, // Global message search (opt-out via SEARCH_ENABLED=false; default ON)
     ...serveStaticModules, // Bundled dashboard SPA (production single-port setup)
   ],
-  // Runs after every DataSource has initialized (they initialize eagerly in their provider
-  // factories, and onApplicationBootstrap fires after every onModuleInit), tightening the SQLite
-  // files that better-sqlite3 created with umask permissions back to owner-only.
-  providers: [SqlitePermissionsBoot],
 })
 export class AppModule {}

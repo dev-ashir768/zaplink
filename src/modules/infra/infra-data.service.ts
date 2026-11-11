@@ -6,7 +6,6 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { createLogger } from '../../common/services/logger.service';
 import { isMissingTableError } from '../../common/utils/db-errors';
 import { closeSessionWrites } from '../../common/utils/session-write-scope';
-import { awaitNoOpenTransaction, SHARED_CONNECTION_DIALECTS } from '../../common/utils/shared-connection';
 import { failUnfinishedSessionBatches } from '../message/batch-media.util';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
@@ -20,7 +19,6 @@ import { ScrubNonPhoneLidMappings1786950000000 } from '../../database/migrations
 import { BackfillLegacyMessageTypes1791300000000 } from '../../database/migrations/1791300000000-BackfillLegacyMessageTypes';
 import { Session as SessionEntity, SessionStatus } from '../session/entities/session.entity';
 import { In } from 'typeorm';
-import { DateUtils } from 'typeorm/util/DateUtils';
 import type { MigrationTables, TableCounts } from './migration-tables.types';
 import { EXPORT_TABLES, EXPORT_TABLE_EXCLUSIONS, type AnyExportTable } from './export-tables';
 import { TABLE_IMPORTERS, deduplicateArchivedWebhookFailures } from './table-importers';
@@ -63,7 +61,7 @@ async function readSessionOwnership(queryRunner: QueryRunner): Promise<SessionOw
  * a dead node's hold, which is the property the verbatim write was protecting. So is anything
  * unparseable — a value this function does not understand is not one it should rewrite.
  *
- * The stored shape is preserved (ISO text on SQLite, Date on Postgres) because these values go back
+ * The shape read (a Date, or ISO text) is preserved because these values go back
  * through raw SQL, bypassing the column transformer that would otherwise normalise them.
  *
  * Note the deliberate asymmetry with `claimedAt`, which stays verbatim because it is a historical
@@ -94,7 +92,7 @@ function carryLease(raw: unknown, readAt: Date, now: Date): unknown {
  * Re-apply the claims for ids present in both the pre-import database and the restored set.
  * `nodeId`/`claimedAt`/`nodeUrl` are re-bound exactly as they were read rather than reconstructed;
  * only the lease deadline is carried forward (see {@link carryLease}). They go through the caller's
- * `insert` so the `$N`→`?` rewrite applies on SQLite. An id the backup did not restore simply
+ * `insert`. An id the backup did not restore simply
  * matches no row.
  *
  * Errors are NOT swallowed. On PostgreSQL a failed statement aborts the transaction, and the COMMIT
@@ -115,37 +113,6 @@ export async function restoreSessionOwnership(
       [row.nodeId, row.claimedAt, carryLease(row.leaseExpiresAt, readAt, now), row.nodeUrl, row.id],
     );
   }
-}
-
-/**
- * The `datetime` columns of each imported table on a SQLite data connection, keyed by backup table key
- * and read from the entity metadata: CreateDateColumn/UpdateDateColumn and any other column TypeORM
- * binds through its SQLite datetime path. DateTransformer columns are `text` there and are not listed,
- * because the app itself writes those in ISO form.
- */
-export function sqliteDatetimeColumns(dataSource: DataSource): Map<keyof MigrationTables, string[]> {
-  const byTable = new Map(
-    dataSource.entityMetadatas.map(metadata => [
-      metadata.tableName,
-      metadata.columns
-        .filter(column => dataSource.driver.normalizeType(column) === 'datetime')
-        .map(column => column.databaseName),
-    ]),
-  );
-  return new Map(EXPORT_TABLES.map(entry => [entry.key, byTable.get(entry.table) ?? []]));
-}
-
-/**
- * Rewrite one archived `datetime` value into the text TypeORM writes on SQLite (`YYYY-MM-DD HH:MM:SS.SSS`,
- * UTC). A PostgreSQL export serializes these columns as ISO `...T...Z`, and SQLite compares them as
- * text: `'T'` sorts after `' '`, so a restored row never matches `LessThan(date)` on its own calendar
- * day. Only ISO text with an explicit zone is converted. A value already in SQLite form carries no
- * zone, and parsing it would read it as host-local time and shift it, so it is left as it is.
- */
-export function toSqliteDatetime(value: unknown): unknown {
-  if (typeof value !== 'string' || !/T.*(Z|[+-]\d{2}:?\d{2})$/i.test(value)) return value;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : DateUtils.mixedDateToUtcDatetimeString(date);
 }
 
 /**
@@ -172,8 +139,7 @@ function exportInlineMediaBudgetBytes(): number {
 
 /**
  * Order rows so the media budget is spent newest-first, keeping the most recent media when it cannot
- * hold everything. `SELECT *` carries no ORDER BY: rows arrive in rowid order on SQLite — oldest
- * first, the exact inverse of what a backup wants — and in physical-tuple order on Postgres, which
+ * hold everything. `SELECT *` carries no ORDER BY: rows arrive in physical-tuple order, which
  * routine UPDATEs reshuffle, so two exports of an unchanged DB need not agree. Sorts a COPY, leaving
  * the exported array's own order untouched. A row with no usable timestamp sorts last, as the least
  * worth spending the budget on.
@@ -282,19 +248,16 @@ export class InfraDataService {
   private readonly logger = createLogger('InfraDataService');
 
   /**
-   * Whether a replace-all import is already running in this process. Not a nicety: on better-sqlite3
-   * every query runner is a driver SINGLETON, so two overlapping imports share one transaction — the
-   * second nests as SAVEPOINT, its commit issues RELEASE SAVEPOINT rather than COMMIT, and a rollback
-   * at depth 1 issues a full ROLLBACK that discards a restore the other call already answered
-   * `imported: true` for. Serialising them is the only honest answer; queueing the second would still
+   * Whether a replace-all import is already running in this process. Two overlapping
+   * replace-all imports would each delete and rewrite the same tables; serialising them is the only
+   * honest answer; queueing the second would still
    * run a destructive replace nobody is waiting on.
    */
   private importInFlight = false;
 
   /**
-   * Exports running in this process. On better-sqlite3 an export's reads share the import's connection,
-   * so an export and an import that overlap would archive the import's uncommitted (possibly rolled-back)
-   * tables. Each refuses while the other runs.
+   * Exports running in this process. An export and an import that overlap would archive tables the
+   * import is midway through replacing. Each refuses while the other runs.
    */
   private exportsInFlight = 0;
 
@@ -446,7 +409,7 @@ export class InfraDataService {
 
     return {
       exportedAt: new Date().toISOString(),
-      dataDbType: this.configService.get<string>('dataDatabase.type', 'sqlite'),
+      dataDbType: 'postgres',
       tables,
       counts,
       skippedTables,
@@ -483,8 +446,7 @@ export class InfraDataService {
     let chunkBytes = 0;
 
     const flush = async (): Promise<void> => {
-      const isPostgres = this.dataDataSource.options.type === 'postgres';
-      const placeholders = chunk.map((_, i) => (isPostgres ? `$${i + 1}` : '?')).join(', ');
+      const placeholders = chunk.map((_, i) => `$${i + 1}`).join(', ');
       const rows = await this.dataDataSource.query<Array<{ id: unknown }>>(
         `SELECT * FROM ${entry.table} WHERE id IN (${placeholders})`,
         chunk,
@@ -710,16 +672,6 @@ export class InfraDataService {
       failedOrphanEngines,
     };
 
-    // Silence the ownership heartbeat's loss detection for the whole transaction — but ONLY where the
-    // hazard exists. On SQLite every query runner shares one connection, so a heartbeat tick executes
-    // INSIDE this transaction, after the DELETE below and before the re-inserts commit, and sees no
-    // session rows at all; it would read that as "a peer took everything" and tear down every engine
-    // on this node, even on the paths where this import then rolls back. Postgres hands each runner a
-    // dedicated pooled client, so the heartbeat cannot see any of it — suspending there would only
-    // disable genuine loss detection in the multi-node deployment that depends on it.
-    const sharesOneConnection = SHARED_CONNECTION_DIALECTS.has(this.dataDataSource.options.type);
-    const resumeLossDetection = sharesOneConnection ? this.ownership?.suspendLossDetection() : undefined;
-
     // The replace deletes every session the archive does not hold, rows and all, and messages has no foreign
     // key to refuse a send or batch row that lands after it. So their write scopes are closed and drained
     // before the transaction opens, as SessionEngineControls.delete does. Not for an engine force left
@@ -727,8 +679,6 @@ export class InfraDataService {
     const leftRunning = new Set([...heldElsewhere, ...(data.stopOrphans ? [] : orphanedEngines)]);
     let retired: Array<{ id: string; writes: ReturnType<typeof closeSessionWrites> }> = [];
     let committed = false;
-    // Set when another transaction opened on the shared connection while the writes drained.
-    let foreignTransaction = false;
 
     // Everything from here is wrapped so the token cannot outlive this request. It is not enough to
     // release it in the transaction's own finally: createQueryRunner/connect/startTransaction sit
@@ -739,52 +689,17 @@ export class InfraDataService {
     try {
       const queryRunner = this.dataDataSource.createQueryRunner();
 
-      // Refuse BEFORE a single row is deleted, not after. On better-sqlite3 every query runner is a
-      // driver SINGLETON, so if anything else already holds a transaction on this DataSource — a
-      // session create or delete — this import would not get its own: it would become a SAVEPOINT
-      // inside theirs, and commitTransaction() would issue RELEASE SAVEPOINT rather than COMMIT.
-      //
-      // The outcome of that is genuinely indeterminate, which is why detecting it afterwards is not
-      // good enough: if the enclosing transaction commits, the replace lands; if it rolls back, the
-      // replace vanishes. Either way this request cannot report the truth, and it has already
-      // deleted every row — including any the enclosing transaction just wrote. Refusing up front is
-      // the only answer that is both honest and non-destructive. On Postgres each runner gets its own
-      // pooled client, so this is always false there and the check costs nothing.
-      //
-      // The try/finally that releases the runner opens only after BEGIN, so the refusal and a failing
-      // BEGIN give the runner back here: a pooled PostgreSQL client would otherwise stay checked out for
-      // the life of the process.
-      const refuseNestedTransaction = (): void => {
-        if (queryRunner.isTransactionActive) {
-          throw new ConflictException({
-            statusCode: 409,
-            error: 'Conflict',
-            message:
-              'Another database transaction is in progress on this connection, so a restore could not be ' +
-              'made durable. Retry with no other data operation in flight.',
-            code: 'IMPORT_NESTED_TRANSACTION',
-          });
-        }
-      };
+      // A failing BEGIN gives the runner back in the catch below: a pooled client would otherwise stay
+      // checked out for the life of the process.
       try {
-        refuseNestedTransaction();
-        // Drained before BEGIN: on SQLite a write still in flight would otherwise join this transaction. And
-        // before this runner takes a pooled client on PostgreSQL, where the write may still need one: with a
-        // pool of one it would wait for the import while the import waits for it. So the ids are read on a
-        // client that goes back at once there; on SQLite this runner is the one connection anyway.
-        const existing = await this.dataDataSource.query<Array<{ id: string }>>(
-          'SELECT id FROM sessions',
-          [],
-          sharesOneConnection ? queryRunner : undefined,
-        );
+        // Drained before this runner takes a pooled client, where a write may still need one: with a pool
+        // of one it would wait for the import while the import waits for it.
+        const existing = await this.dataDataSource.query<Array<{ id: string }>>('SELECT id FROM sessions', []);
         retired = existing
           .filter(({ id }) => !importedSessionIds.has(id) && !leftRunning.has(id))
           .map(({ id }) => ({ id, writes: closeSessionWrites(this.dataDataSource, id) }));
         await Promise.all(retired.map(({ writes }) => writes.drain()));
         await queryRunner.connect();
-        // Again after the drain's await: BEGIN must follow the check with nothing in between.
-        if (queryRunner.isTransactionActive) foreignTransaction = true;
-        refuseNestedTransaction();
         await queryRunner.startTransaction();
       } catch (error) {
         await queryRunner.release().catch(() => undefined);
@@ -792,8 +707,7 @@ export class InfraDataService {
       }
 
       try {
-        const isPostgres = this.dataDataSource.options.type === 'postgres';
-        if (isPostgres) {
+        {
           // The runtime pool carries a statement_timeout sized for request traffic (30 s by default), but
           // the clears and scrubs below scale with the live tables, not with the archive: restoring an
           // earlier export onto an instance whose messages table has since grown to millions of rows
@@ -810,35 +724,18 @@ export class InfraDataService {
         // Clear existing data (in correct order due to foreign keys). templates and
         // baileys_stored_messages FK sessions ON DELETE CASCADE, so the sessions DELETE would clear
         // them too; clearing them explicitly first keeps the order correct on engines where the
-        // cascade is not enforced. Tolerate a genuinely-absent table (isMissingTableError) but let any
-        // OTHER failure (lock, I/O, aborted tx) propagate to the transaction rollback below — a blind
-        // `.catch(() => {})` here could otherwise silently commit a MERGED (not replaced) restore on
-        // SQLite, violating the endpoint's "replaces existing data" contract.
+        // cascade is not enforced. A missing table is skipped; any other failure
+        // propagates to the transaction rollback below.
         const clearTable = async (table: string, where = ''): Promise<void> => {
           // Asked first on PostgreSQL: a statement that names a missing relation aborts the whole transaction even
           // when its error is caught, and every later statement then fails with 25P02.
-          if (isPostgres && !(await queryRunner.hasTable(table))) {
+          if (!(await queryRunner.hasTable(table))) {
             this.logger.debug('Skipped clearing a table that does not exist during import', { table });
             return;
           }
-          try {
-            await queryRunner.query(`DELETE FROM ${table}${where}`);
-          } catch (err) {
-            if (isPostgres || !isMissingTableError(err)) throw err;
-            this.logger.debug('Skipped clearing a table that does not exist during import', { table });
-          }
+          await queryRunner.query(`DELETE FROM ${table}${where}`);
         };
-        // The INSERTs below are written once, in Postgres' `$N` placeholder form. better-sqlite3 differs
-        // from the legacy sqlite3 driver on raw queries in two ways: SQLite parses `$N` as a NAMED
-        // parameter, which cannot be bound from the positional array TypeORM passes through (RangeError),
-        // and strict binding rejects booleans/undefined — which a Postgres-made backup carries (real
-        // booleans survive the JSON round-trip). Postgres needs `$N` and binds booleans natively, so both
-        // rewrites apply only on the SQLite path. Safe: every `$N` below occurs once, in ascending order.
-        const insert = (text: string, params: unknown[]): Promise<unknown> =>
-          queryRunner.query(
-            isPostgres ? text : text.replace(/\$\d+/g, '?'),
-            isPostgres ? params : params.map(v => (typeof v === 'boolean' ? Number(v) : (v ?? null))),
-          );
+        const insert = (text: string, params: unknown[]): Promise<unknown> => queryRunner.query(text, params);
         await queryRunner.query('DELETE FROM webhooks');
         await clearTable('messages');
         await clearTable('message_batches');
@@ -891,26 +788,14 @@ export class InfraDataService {
         // carry each table's INSERT text, param mapping, and per-row skip guard; a missing or empty
         // table keeps its 0 count and contributes no warnings.
         const counts = Object.fromEntries(TABLE_IMPORTERS.map(importer => [importer.key, 0] as const)) as TableCounts;
-        // SQLite only: archived datetime values are normalized to the form TypeORM writes there, so a
-        // PostgreSQL-made backup compares and sorts like rows the app wrote itself.
-        const datetimeColumns = isPostgres ? undefined : sqliteDatetimeColumns(this.dataDataSource);
         restore: for (const importer of TABLE_IMPORTERS) {
           const rows =
             importer.key === 'webhookDeliveryFailures'
               ? deduplicateArchivedWebhookFailures(data.tables.webhookDeliveryFailures ?? [])
               : data.tables[importer.key];
           if (!rows?.length) continue;
-          const dateColumns = datetimeColumns?.get(importer.key) ?? [];
           for (const archivedRow of rows) {
-            const source = archivedRow as unknown as Record<string, unknown>;
-            const untypedRow = {
-              ...source,
-              ...Object.fromEntries(
-                dateColumns
-                  .filter(column => column in source)
-                  .map(column => [column, toSqliteDatetime(source[column])]),
-              ),
-            };
+            const untypedRow = archivedRow as unknown as Record<string, unknown>;
             // `rows` was read from `data.tables[importer.key]`, so it holds exactly the row type this
             // descriptor's id/map/skip declare. That correlation is what the erased importer type
             // cannot carry, and this loop is the one place it is known — so the cast lives here rather
@@ -930,7 +815,7 @@ export class InfraDataService {
               );
               // PostgreSQL aborts the transaction on a failed statement: every later one would fail with
               // "current transaction is aborted" and bury this row's real error. Stop at the first.
-              if (isPostgres) break restore;
+              break restore;
             }
           }
         }
@@ -1008,7 +893,7 @@ export class InfraDataService {
         // "Replace all data" must be all-or-nothing: the import already DELETEd every row, so if any
         // INSERT failed we must roll back (restoring the pre-import data) rather than commit a
         // half-wiped DB and report success. A partial restore reported as imported:true was how
-        // message history could silently vanish on a SQLite->Postgres migration. It must precede
+        // message history could silently vanish on a migration. It must precede
         // every further statement: on PostgreSQL a failure has aborted the transaction, so the
         // normalization UPDATE below would throw and turn this answer into a 500.
         if (warnings.length > 0) {
@@ -1111,14 +996,7 @@ export class InfraDataService {
     } finally {
       // A restore that did not commit keeps those sessions, but a batch run that captured their writes before
       // the close stays stopped, so its row is failed before the release, as a failed delete does. Their
-      // engines are gone, so the batch could not have sent anyway. Not inside a transaction another caller
-      // opened on the shared connection while the writes drained: the fail would roll back with it.
-      if (foreignTransaction && retired.length > 0 && !(await awaitNoOpenTransaction(this.dataDataSource))) {
-        this.logger.warn('Failing the unfinished batches of a refused import inside another open transaction', {
-          action: 'infra_import_foreign_transaction_open',
-          sessionIds: retired.map(({ id }) => id),
-        });
-      }
+      // engines are gone, so the batch could not have sent anyway.
       for (const { id } of committed ? [] : retired) {
         await failUnfinishedSessionBatches(this.dataDataSource, id).catch((error: unknown) =>
           this.logger.warn(
@@ -1132,8 +1010,6 @@ export class InfraDataService {
         );
       }
       for (const { writes } of retired) writes.release();
-      // Its own finally, so a throwing release() cannot strand the token either.
-      resumeLossDetection?.();
     }
   }
 }

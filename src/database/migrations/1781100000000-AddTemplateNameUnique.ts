@@ -9,21 +9,17 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * `<name>-dup-<id>` (id is a UUID, so the new name cannot collide; the name is left-trimmed so the
  * result fits the varchar(100) column on PostgreSQL). No row is ever deleted.
  *
- * Hand-authored because `synchronize` is disabled for the `data` connection on PostgreSQL (and may
- * be disabled on SQLite via DATABASE_SYNCHRONIZE=false). Idempotent: a re-run finds no duplicates
+ * Hand-authored because `synchronize` is disabled for the `data` connection. Idempotent: a re-run finds no duplicates
  * and skips the existing index.
  */
 export class AddTemplateNameUnique1781100000000 implements MigrationInterface {
   name = 'AddTemplateNameUnique1781100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type === 'postgres') {
-      // Boot and CLI migrations run on a pool without the runtime statement_timeout (pg-boot-migrations.ts);
-      // this guards the dedup UPDATE / CREATE UNIQUE INDEX over templates against a role- or database-level
-      // default aborting it mid-flight. SET LOCAL is transaction-scoped (auto-reverts at COMMIT); SQLite
-      // rejects it syntactically, hence the guard.
-      await queryRunner.query('SET LOCAL statement_timeout = 0');
-    }
+    // Boot and CLI migrations run on a pool without the runtime statement_timeout (pg-boot-migrations.ts);
+    // this guards the dedup UPDATE / CREATE UNIQUE INDEX over templates against a role- or database-level
+    // default aborting it mid-flight. SET LOCAL is transaction-scoped (auto-reverts at COMMIT).
+    await queryRunner.query('SET LOCAL statement_timeout = 0');
     if (!(await queryRunner.hasTable('templates'))) return;
 
     // Keep the earliest row per (sessionId, name) — createdAt ASC, id ASC as a stable tiebreak —

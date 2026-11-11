@@ -365,11 +365,6 @@ test('Infrastructure renders and the config form hydrates from /status and /conf
   await screen.findByText('Database Configuration');
 
   await waitFor(() => {
-    // dbConfig.type is seeded from the saved config: sqlite is the useState default, so a checked
-    // Postgres radio here proves the form was hydrated.
-    const dbRadios = container.querySelectorAll('input[name="dbType"]');
-    assert.equal((dbRadios[1] as HTMLInputElement).checked, true, 'expected the Postgres radio to be selected');
-
     // Only /config carries these fields, so they pin /config hydration specifically.
     assert.equal(fieldInput(container, 'Username').value, 'zaplink_admin');
     assert.equal(fieldInput(container, 'Database Name').value, 'zaplink_prod');
@@ -801,12 +796,11 @@ test('the card badges report what runs while the form shows what was saved', asy
   await screen.findByText('Database Configuration');
   await awaitSeeded(container);
 
-  assert.equal(cardBadge(container, 'Database Configuration'), '● SQLite');
+  assert.equal(cardBadge(container, 'Database Configuration'), '● PostgreSQL');
   assert.equal(cardBadge(container, 'Redis'), '● Disabled');
   assert.equal(cardBadge(container, 'Storage Configuration'), '● Local Filesystem');
   const selected = (name: string) =>
     container.querySelector(`input[name="${name}"]:checked`)?.closest('label')?.querySelector('span')?.textContent;
-  assert.equal(selected('dbType'), 'PostgreSQL');
   assert.equal(toggleInput(container, 'Enable Redis').checked, true);
   assert.equal(selected('storageType'), 'Amazon S3');
 });
@@ -1122,27 +1116,6 @@ test('no built-in note for a storage the saved config keeps local, once S3 is ch
   assert.equal(screen.queryByText(PENDING_EXTERNAL_NOTE) === null, true, 'a flag note for a storage nothing saved');
 });
 
-test('no built-in note for a database the saved config keeps on SQLite, once PostgreSQL is chosen in the form', async () => {
-  const { screen, fireEvent } = rtl;
-  resetFetchCalls();
-  overrides = {
-    status: { ...INFRA_STATUS, database: { connected: true, type: 'postgres', host: 'postgres', builtIn: true } },
-    saved: {
-      ...SAVED_CONFIG,
-      database: { ...SAVED_CONFIG.database, type: 'sqlite', builtIn: false, builtInSet: true },
-    },
-  };
-  const { container } = renderInfrastructure();
-
-  await screen.findByText('Database Configuration');
-  await awaitSeeded(container);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="dbType"]')[1]);
-
-  assert.equal(toggleInput(container, 'Use Built-in PostgreSQL Container').checked, false);
-  assert.equal(screen.queryByText(PENDING_BUILT_IN_NOTE) === null, true, 'a flag note for a database nothing saved');
-  assert.equal(screen.queryByText(PENDING_EXTERNAL_NOTE) === null, true, 'a flag note for a database nothing saved');
-});
-
 test('the built-in notes are hidden while a save is in flight and back once it settles', async () => {
   const { screen, fireEvent, waitFor } = rtl;
   resetFetchCalls();
@@ -1305,34 +1278,6 @@ test('pointing an external PostgreSQL at another database name warns of the swit
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   within(await screen.findByRole('dialog')).getByText(DB_SWITCH_WARNING, { exact: false });
-});
-
-// A pinned type outranks the radio the same way a pinned host outranks the toggle.
-test('changing a database or storage type the environment pins warns of no switch', async () => {
-  const { screen, fireEvent, within } = rtl;
-  resetFetchCalls();
-  overrides = {
-    status: {
-      ...INFRA_STATUS,
-      storage: { type: 's3', bucket: 'media', endpoint: 'https://s3.example', builtIn: false, s3Available: true },
-      envPinned: ['DATABASE_TYPE', 'STORAGE_TYPE'],
-    },
-    saved: {
-      ...SAVED_CONFIG,
-      storage: { ...SAVED_CONFIG.storage, type: 's3', s3Bucket: 'media', s3Endpoint: 'https://s3.example' },
-    },
-  };
-  const { container } = renderInfrastructure();
-
-  await screen.findByText('Database Configuration');
-  await awaitSeeded(container);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="dbType"]')[0]);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="storageType"]')[0]);
-  fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
-
-  const dialog = await screen.findByRole('dialog');
-  assert.equal(within(dialog).queryByText(DB_SWITCH_WARNING, { exact: false }) === null, true, 'database warning');
-  assert.equal(within(dialog).queryByText(STORAGE_WARNING, { exact: false }) === null, true, 'storage warning');
 });
 
 // Beside a pinned bundled endpoint the toggle reads on from what runs, but the save leaves the flag out and the
@@ -1668,26 +1613,6 @@ test('the pending-restart note survives a successful save', async () => {
   await waitFor(() => assert.ok(findFetchCall('PUT', '/api/infra/config'), 'expected a PUT to /infra/config'));
 
   assert.ok(screen.queryByText(PENDING_RESTART_NOTE), 'the pending-restart note must not vanish once a save succeeds');
-});
-
-test('a change saved and left for a later restart shows the pending-restart note', async () => {
-  const { screen, waitFor, fireEvent, within } = rtl;
-  resetFetchCalls();
-  // Running and saved agree, so no note yet: the drift comes only from this save.
-  const { container } = renderInfrastructure();
-
-  await screen.findByText('Database Configuration');
-  await awaitConfigHydrated(container);
-  assert.ok(!screen.queryByText(PENDING_RESTART_NOTE), 'no note before anything is saved');
-
-  fireEvent.click(container.querySelector<HTMLInputElement>('input[name="dbType"]')!);
-  // From here on the gateway reports what the save just wrote.
-  overrides = { saved: { ...SAVED_CONFIG, database: { ...SAVED_CONFIG.database, type: 'sqlite' } } };
-  fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
-  const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Later' }));
-
-  await waitFor(() => assert.ok(screen.queryByText(PENDING_RESTART_NOTE), 'expected the pending-restart note'));
 });
 
 test('a second save before the restart still warns of the database switch the first one saved', async () => {
@@ -2140,28 +2065,6 @@ test('a field edited in a pinned database card is saved with its type', async ()
   assert.equal('type' in body.storage, false, 'the untouched storage card');
 });
 
-test('a pinned selection the operator changes is saved', async () => {
-  const { screen, waitFor, fireEvent } = rtl;
-  resetFetchCalls();
-  overrides = { status: { ...INFRA_STATUS, envPinned: ['DATABASE_TYPE', 'REDIS_ENABLED', 'STORAGE_TYPE'] } };
-  const { container } = renderInfrastructure();
-
-  await screen.findByText('Database Configuration');
-  await awaitConfigHydrated(container);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="dbType"]')[0]);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="storageType"]')[1]);
-  fireEvent.click(toggleInput(container, 'Enable Redis'));
-  fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
-
-  await waitFor(() => assert.ok(findFetchCall('PUT', '/api/infra/config'), 'expected a PUT to /infra/config'));
-  const body = findFetchCall('PUT', '/api/infra/config')!.body as {
-    database: { type?: string };
-    redis: { enabled?: boolean };
-    storage: { type?: string };
-  };
-  assert.deepEqual([body.database.type, body.redis.enabled, body.storage.type], ['sqlite', true, 's3']);
-});
-
 test('saving while ENGINE_TYPE is pinned omits engine.type so the stored choice survives', async () => {
   const { screen, waitFor, fireEvent } = rtl;
   resetFetchCalls();
@@ -2478,17 +2381,6 @@ for (const [service, profile, toggle, heading, field] of BUILT_IN_SWITCHES) {
     });
   }
 }
-
-test('a built-in database and storage switched to SQLite and local are stopped when the read-back fails', async () => {
-  const { fireEvent } = rtl;
-  const { names, body } = await switchWithoutReadBack(['redis'], container => {
-    fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="dbType"]')[0]);
-    fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="storageType"]')[0]);
-  });
-
-  assert.deepEqual(names, ['zaplink-postgres', 'zaplink-minio']);
-  assert.deepEqual(body, { profiles: ['redis'], profilesToRemove: ['postgres', 'minio'] });
-});
 
 // A built-in Redis nothing uses any more is saved without its profile, and the save drops its host.
 test('a built-in Redis switched off is stopped when the read-back fails', async () => {
@@ -3270,35 +3162,6 @@ test(
     assert.ok(within(dialog).getByText(failure), 'the failure that explains the restart is not shown');
   },
 );
-
-test('disabled database and storage are stopped beneath bundled host pins', async () => {
-  const { screen, waitFor, fireEvent, within } = rtl;
-  resetFetchCalls();
-  overrides = {
-    status: { ...RUNNING_BUNDLED, envPinned: ['DATABASE_HOST', 'S3_ENDPOINT'] },
-    saved: READBACK_SAVED,
-    savedAfterSave: {
-      ...READBACK_SAVED,
-      database: { ...READBACK_SAVED.database, type: 'sqlite', builtIn: false },
-      storage: { ...READBACK_SAVED.storage, type: 'local', builtIn: false },
-    },
-    saveProfiles: ['redis'],
-  };
-  const { container } = renderInfrastructure();
-  await screen.findByText('Database Configuration');
-  await awaitSeeded(container);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="dbType"]')[0]);
-  fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[name="storageType"]')[0]);
-  fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
-  const dialog = await screen.findByRole('dialog');
-  assert.deepEqual(stopNames(dialog), ['zaplink-postgres', 'zaplink-minio']);
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Restart Now' }));
-  await waitFor(() => assert.ok(findFetchCall('POST', '/api/infra/restart')));
-  assert.deepEqual(findFetchCall('POST', '/api/infra/restart')!.body, {
-    profiles: ['redis'],
-    profilesToRemove: ['postgres', 'minio'],
-  });
-});
 
 for (const cacheUsesRedis of [false, true]) {
   test(`a disabled Redis beneath its bundled host pin keeps an active cache: ${cacheUsesRedis}`, async () => {

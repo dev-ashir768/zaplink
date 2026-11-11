@@ -8,6 +8,7 @@ import {
   resolveMessageRetentionDays,
 } from './message-retention.service';
 import { AddMessagesFts1782400000000 } from '../../database/migrations/1782400000000-AddMessagesFts';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('resolveMessageRetentionDays', () => {
   it.each([
@@ -66,8 +67,7 @@ describe('MessageRetentionService against a real database', () => {
   beforeEach(async () => {
     prev = process.env.MESSAGE_RETENTION_DAYS;
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, MessageBatch],
       synchronize: true,
     });
@@ -98,8 +98,8 @@ describe('MessageRetentionService against a real database', () => {
   });
 
   /**
-   * A cutoff tens of thousands of years back is bound on SQLite as a truncated 4-digit year that
-   * sorts after today, so an operator asking to keep everything had every row deleted instead.
+   * A cutoff tens of thousands of years back must not wrap into a date that sorts after today, which
+   * would delete every row of an operator asking to keep everything.
    */
   it('deletes nothing for a window beyond the supported maximum', async () => {
     process.env.MESSAGE_RETENTION_DAYS = '9999999';
@@ -147,8 +147,7 @@ describe('MessageRetentionService against a real database', () => {
     expect(left).toEqual(['done-new', 'pending-old', 'processing-old']);
   });
 
-  // SQLite has one writer: a single DELETE over a large backlog of finished batches held it, and inbound
-  // message persistence waited behind it, for as long as that statement ran.
+  // A single DELETE over a large backlog of finished batches holds its locks for as long as it runs.
   it('deletes a backlog of finished batches in short statements, like messages', async () => {
     process.env.MESSAGE_RETENTION_DAYS = '30';
     const rows = Array.from({ length: 501 }, (_, i) => ({
@@ -195,7 +194,7 @@ describe('MessageRetentionService against a real database', () => {
     await service.prune(NOW);
 
     const hits = await ds.query<{ body: string }[]>(
-      `SELECT m."body" FROM messages_fts f JOIN messages m ON m.rowid = f.rowid WHERE messages_fts MATCH 'walrus'`,
+      `SELECT m."body" FROM messages m WHERE m.body_ts @@ to_tsquery('simple', 'walrus')`,
     );
     expect(hits.map(h => h.body)).toEqual(['recent walrus']);
   });

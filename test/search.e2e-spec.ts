@@ -4,8 +4,8 @@ process.env.ALLOW_DEV_API_KEY = 'true';
 
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -177,15 +177,6 @@ describe('GET /api/search?match=contains with SEARCH_CONTAINS_ENABLED=true (e2e)
     expect(body.hits.map(h => h.sessionId)).toEqual(['sess-search-2']);
     expect(body.hits[0].snippet).toContain('In<mark>voic</mark>e');
   }, 15_000);
-
-  // This instance booted on the rows the first describe indexed, as a restart does. Rank 1 checks the
-  // index against the messages it was built from, which shows a row indexed twice.
-  it('leaves the word index matching its messages after booting on an indexed database', async () => {
-    const dataSource = app.get<DataSource>(getDataSourceToken('data'));
-    await expect(
-      dataSource.query(`INSERT INTO "messages_fts"("messages_fts", "rank") VALUES ('integrity-check', 1)`),
-    ).resolves.not.toThrow();
-  });
 });
 
 /**

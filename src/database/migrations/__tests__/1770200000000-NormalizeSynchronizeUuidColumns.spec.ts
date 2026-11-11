@@ -1,8 +1,7 @@
 // Colocated in migrations/__tests__/ — the TypeORM migrations glob (`migrations/*{.ts,.js}`) matches
 // only direct children, so this subdir is NOT loaded as a migration by the CLI/start:dev.
 //
-// This migration is Postgres-only (SQLite early-returns), so a real in-memory SQLite DataSource
-// cannot exercise the conversion path. We mock the QueryRunner and script its catalog-query responses
+// A synchronize-built schema with native uuid columns is awkward to stage for real, so we mock the QueryRunner and script its catalog-query responses
 // (information_schema.columns, pg_constraint, server_version_num, pg_extension) the way a
 // synchronize-built PG schema would answer, then assert the exact DDL sequence.
 import { QueryRunner } from 'typeorm';
@@ -87,14 +86,6 @@ describe('NormalizeSynchronizeUuidColumns migration', () => {
   it('class name and .name both end in the 13-digit timestamp 1770200000000', () => {
     expect(NormalizeSynchronizeUuidColumns1770200000000.name.endsWith('1770200000000')).toBe(true);
     expect(migration.name.endsWith('1770200000000')).toBe(true);
-  });
-
-  // ---- SQLite: absolute no-op ----
-  it('is a no-op on SQLite — issues no query and never probes tables', async () => {
-    const qr = makeQueryRunner({ type: 'better-sqlite3', uuidColumns: new Set(['sessions.id']) });
-    await migration.up(qr as unknown as QueryRunner);
-    expect(qr.query).not.toHaveBeenCalled();
-    expect(qr.hasTable).not.toHaveBeenCalled();
   });
 
   // ---- healthy Postgres (already varchar): single probe, zero DDL ----
@@ -269,11 +260,5 @@ describe('NormalizeSynchronizeUuidColumns migration', () => {
     ]) {
       expect(calls.some(q => new RegExp(`ADD CONSTRAINT "${canon}"`).test(q))).toBe(true);
     }
-  });
-
-  it('down() is a no-op on SQLite', async () => {
-    const qr = makeQueryRunner({ type: 'better-sqlite3' });
-    await migration.down(qr as unknown as QueryRunner);
-    expect(qr.query).not.toHaveBeenCalled();
   });
 });

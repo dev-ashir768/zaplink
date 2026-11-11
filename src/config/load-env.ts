@@ -123,8 +123,8 @@ function mergeEnvironment(lines: Array<{ level: 'log' | 'warn'; message: string 
 # Edit via Dashboard > Infrastructure or modify this file directly.
 # Note: values in process env or project .env take precedence over this file.
 
-# Database (SQLite - no external service required)
-DATABASE_TYPE=sqlite
+# Database (PostgreSQL; connection details come from the environment or .env)
+DATABASE_TYPE=postgres
 POSTGRES_BUILTIN=false
 
 # Redis & Queue (disabled by default)

@@ -1,17 +1,18 @@
 import { DataSource, QueryRunner } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddTemplateNameUnique1781100000000 } from '../1781100000000-AddTemplateNameUnique';
 
 describe('AddTemplateNameUnique migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
-    // Minimal templates table mirroring the AddTemplates sqlite schema.
+    // Minimal templates table mirroring the AddTemplates schema.
     await ds.query(
       `CREATE TABLE "templates" ("id" varchar PRIMARY KEY NOT NULL, "sessionId" varchar NOT NULL, ` +
         `"name" varchar(100) NOT NULL, "body" text NOT NULL, "header" text, "footer" text, ` +
-        `"createdAt" datetime NOT NULL, "updatedAt" datetime NOT NULL)`,
+        `"createdAt" timestamp NOT NULL, "updatedAt" timestamp NOT NULL)`,
     );
   });
 
@@ -22,7 +23,7 @@ describe('AddTemplateNameUnique migration', () => {
   const insert = (id: string, sessionId: string, name: string, createdAt: string): Promise<unknown> =>
     ds.query(
       `INSERT INTO "templates" ("id","sessionId","name","body","header","footer","createdAt","updatedAt") ` +
-        `VALUES (?, ?, ?, 'body', NULL, NULL, ?, ?)`,
+        `VALUES ($1, $2, $3, 'body', NULL, NULL, $4, $5)`,
       [id, sessionId, name, createdAt, createdAt],
     );
 
@@ -32,7 +33,7 @@ describe('AddTemplateNameUnique migration', () => {
 
     await migration.up(runner);
     const index = (await runner.query(
-      `SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_templates_session_name'`,
+      `SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'IDX_templates_session_name'`,
     )) as unknown[];
     expect(index).toHaveLength(1);
 

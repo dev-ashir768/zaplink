@@ -8,8 +8,7 @@ import { BackfillLegacyMessageTypes1791300000000 } from '../../database/migratio
 
 /**
  * Backfill of `messages.type` to the engine-neutral vocabulary (#265) for the one setup where no migration
- * ever runs: a SQLite data DB under DATABASE_SYNCHRONIZE=true (the dev and e2e setup, where `migrationsRun` is
- * false). Every other database got the same conversion once, from BackfillLegacyMessageTypes, which runs
+ * ever runs: a data DB under DATABASE_SYNCHRONIZE=true (where `migrationsRun` is false). Every other database got the same conversion once, from BackfillLegacyMessageTypes, which runs
  * on a pool without the runtime statement timeout. Running it at every boot there meant a full scan of the
  * unindexed `type` column on each start, ahead of the HTTP listener.
  *

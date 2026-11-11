@@ -9,6 +9,27 @@ import { GroupService } from '../group/group.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
 import { EngineRefusedError } from '../../common/errors/engine-refused.error';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
+
+// Only the clock is faked: the pg pool needs real timers to connect and run queries.
+const fakeClockOnly = (now: Date): void => {
+  jest
+    .useFakeTimers({
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'queueMicrotask',
+        'hrtime',
+        'performance',
+      ],
+    })
+    .setSystemTime(now);
+};
 
 /**
  * The cold-reachout count is the one piece of this feature that cannot be proven with a mocked
@@ -20,7 +41,7 @@ import { EngineRefusedError } from '../../common/errors/engine-refused.error';
  * columns do not exist — this connection has no snake_case naming strategy and the real columns are
  * quoted camelCase — and nothing but a real database was ever going to say so.)
  *
- * So this spec drives an actual SQLite schema and asserts on rows, not on calls.
+ * So this spec drives an actual PostgreSQL schema and asserts on rows, not on calls.
  */
 describe('cold-reachout counting against a real database', () => {
   let ds: DataSource;
@@ -42,15 +63,14 @@ describe('cold-reachout counting against a real database', () => {
   const addMessage = (chatId: string, at: string, direction = MessageDirection.OUTGOING): Promise<unknown> =>
     ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES (?,?,?,'a','b','text',?,?)`,
+       VALUES ($1,$2,$3,'a','b','text',$4,$5)`,
       [`${chatId}-${at}-${direction}`, 's1', chatId, direction, at],
     );
 
   beforeEach(async () => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    fakeClockOnly(NOW);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });
@@ -115,9 +135,9 @@ describe('cold-reachout counting against a real database', () => {
   it("does not count another session's reachouts", async () => {
     await ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES ('other-1','s2','a@c.us','a','b','text','outgoing',?),
-              ('other-2','s2','b@c.us','a','b','text','outgoing',?),
-              ('other-3','s2','c@c.us','a','b','text','outgoing',?)`,
+       VALUES ('other-1','s2','a@c.us','a','b','text','outgoing',$1),
+              ('other-2','s2','b@c.us','a','b','text','outgoing',$2),
+              ('other-3','s2','c@c.us','a','b','text','outgoing',$3)`,
       [TODAY, TODAY, TODAY],
     );
 
@@ -134,7 +154,7 @@ describe('cold-reachout counting against a real database', () => {
     await addMessage('shared@c.us', TODAY);
     await ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES ('s2-older','s2','shared@c.us','a','b','text','outgoing',?)`,
+       VALUES ('s2-older','s2','shared@c.us','a','b','text','outgoing',$1)`,
       [YESTERDAY],
     );
 
@@ -204,15 +224,14 @@ describe('group reachouts against a real database', () => {
   const addMessage = (chatId: string, at: string): Promise<unknown> =>
     ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES (?,?,?,'a','b','text','outgoing',?)`,
+       VALUES ($1,$2,$3,'a','b','text','outgoing',$4)`,
       [`${chatId}-${at}`, 's1', chatId, at],
     );
 
   beforeEach(async () => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    fakeClockOnly(NOW);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });
@@ -480,7 +499,7 @@ describe('concurrent sends against a real database', () => {
   const insertRow = (id: string, chatId: string): Promise<unknown> =>
     ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES (?,?,?,'a','b','text','outgoing',?)`,
+       VALUES ($1,$2,$3,'a','b','text','outgoing',$4)`,
       [id, 's1', chatId, new Date().toISOString()],
     );
 
@@ -496,10 +515,9 @@ describe('concurrent sends against a real database', () => {
   };
 
   beforeEach(async () => {
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(NOW);
+    fakeClockOnly(NOW);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });
@@ -516,7 +534,7 @@ describe('concurrent sends against a real database', () => {
     const service = build([20], []);
     await ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES ('seed','s1','known@c.us','a','b','text','incoming',?)`,
+       VALUES ('seed','s1','known@c.us','a','b','text','incoming',$1)`,
       [new Date(NOW.getTime() - 60_000).toISOString()],
     );
 
@@ -546,7 +564,7 @@ describe('concurrent sends against a real database', () => {
     const service = build([20], []);
     await ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES ('seed','s1','known@c.us','a','b','text','outgoing',?)`,
+       VALUES ('seed','s1','known@c.us','a','b','text','outgoing',$1)`,
       [new Date(NOW.getTime() - 60_000).toISOString()],
     );
     for (let i = 0; i < 30; i++) await service.assertSendAllowed('s1', 'known@c.us', { hold: false });
@@ -598,7 +616,7 @@ describe('concurrent sends against a real database', () => {
     for (const id of ['phone1', 'phone2']) {
       await ds.query(
         `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-         VALUES (?,'s1','known@c.us','a','b','text','outgoing',?)`,
+         VALUES ($1,'s1','known@c.us','a','b','text','outgoing',$2)`,
         [id, new Date().toISOString()],
       );
     }
@@ -676,7 +694,7 @@ describe('concurrent sends against a real database', () => {
     const seedKnown = (): Promise<unknown> =>
       ds.query(
         `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-         VALUES ('seed','s1','known@c.us','a','b','text','incoming',?)`,
+         VALUES ('seed','s1','known@c.us','a','b','text','incoming',$1)`,
         [new Date(NOW.getTime() - 86_400_000).toISOString()],
       );
 
@@ -725,7 +743,7 @@ describe('concurrent sends against a real database', () => {
     const service = build([10_000], [1]);
     await ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES ('seed','s1','known@c.us','a','b','text','incoming',?)`,
+       VALUES ('seed','s1','known@c.us','a','b','text','incoming',$1)`,
       [new Date(NOW.getTime() - 86_400_000).toISOString()],
     );
     // A bulk item to a known chat, in flight until +5 s, and a cold send admitted meanwhile whose row never lands.
@@ -898,7 +916,7 @@ describe('concurrent sends against a real database', () => {
     const service = build([10_000], [1]);
     await ds.query(
       `INSERT INTO "messages" ("id","sessionId","chatId","from","to","type","direction","createdAt")
-       VALUES ('seed','s1','known@c.us','a','b','text','incoming',?)`,
+       VALUES ('seed','s1','known@c.us','a','b','text','incoming',$1)`,
       [new Date(NOW.getTime() - 86_400_000).toISOString()],
     );
     const settleCold = await service.assertSendAllowed('s1', 'x@c.us', { untilSettled: true });

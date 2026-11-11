@@ -46,7 +46,7 @@ export async function persistHistoryMessages(
   if (byId.size === 0) {
     return cleared;
   }
-  // Chunk the dedup query: a batch can be thousands, past SQLite's bound-variable limit for IN (...).
+  // Chunk the dedup query: a batch can hold thousands of ids, too many for one IN (...) list.
   const ids = [...byId.keys()];
   const CHUNK = 400;
   let inserted = 0;

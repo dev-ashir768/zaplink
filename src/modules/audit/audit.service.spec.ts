@@ -3,6 +3,7 @@ import { AuditService } from './audit.service';
 import { AuditLog, AuditAction, AuditSeverity } from './entities/audit-log.entity';
 import type { ApiKey } from '../auth/entities/api-key.entity';
 import { runWithRequestId, setRequestActor } from '../../common/services/request-context';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('AuditService', () => {
   let service: AuditService;
@@ -194,7 +195,7 @@ describe('AuditService.findAll paging on a real database', () => {
   let service: AuditService;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [AuditLog], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [AuditLog], synchronize: true });
     await ds.initialize();
     const repo = ds.getRepository(AuditLog);
     service = new AuditService(repo);

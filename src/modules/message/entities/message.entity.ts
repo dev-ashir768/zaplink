@@ -3,8 +3,7 @@ import { jsonColumnType } from '../../../common/utils/column-types';
 import { NulFreeTransformer } from '../../../common/transformers/nul-free.transformer';
 
 /**
- * A `bigint` column reads back as a string on PostgreSQL (pg avoids >2^53 precision loss) but as a
- * number on SQLite. WhatsApp epoch-seconds are far below 2^53, so coerce reads to a number for a
+ * A `bigint` column reads back as a string on PostgreSQL (pg avoids >2^53 precision loss). WhatsApp epoch-seconds are far below 2^53, so coerce reads to a number for a
  * consistent REST/SDK/MCP contract (entity, DTO, the typed SDKs, and dashboard declare a numeric type).
  * Writes pass through unchanged; null stays null.
  */
@@ -40,7 +39,7 @@ export enum MessageStatus {
 // stats reads that filter on chatId without a session. The explicit name matches the migration that
 // creates it on synchronize-disabled deployments, so both schema paths converge on one index.
 @Index('IDX_messages_sessionId_chatId_createdAt', ['sessionId', 'chatId', 'createdAt'])
-// Explicit id tiebreaking keeps a message-time walk stable across SQLite and PostgreSQL.
+// Explicit id tiebreaking keeps a message-time walk stable when timestamps tie.
 @Index('IDX_messages_session_timestamp_id', ['sessionId', 'timestamp', 'id'])
 @Index('IDX_messages_session_chat_timestamp_id', ['sessionId', 'chatId', 'timestamp', 'id'])
 @Index('IDX_messages_session_direction_timestamp_id', ['sessionId', 'direction', 'timestamp', 'id'])
@@ -131,8 +130,8 @@ export class Message {
   status!: MessageStatus;
 
   // Standalone index for the createdAt-only range predicates of the stats aggregates — the
-  // composite above leads with sessionId, so it can't serve them (SQLite needs ANALYZE stats for
-  // a skip-scan; Postgres has none). The explicit name matches the migration that creates it on
+  // composite above leads with sessionId, so it can't serve them (Postgres has no
+  // skip-scan). The explicit name matches the migration that creates it on
   // synchronize-disabled deployments, so both schema paths converge on one index.
   @CreateDateColumn()
   @Index('IDX_messages_createdAt')

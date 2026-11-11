@@ -1,15 +1,14 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres with pg_dump and psql on PATH. */
 import 'reflect-metadata';
 import { execFileSync, spawnSync } from 'child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { createBootDataSource } from '../../pg-boot-migrations';
 import { BuiltInFtsProvider } from '../../../modules/search/providers/builtin-fts.provider';
+import { testDatabaseEnv } from '../../../test-utils/pg-test-db';
 
-const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${tool}`]).status === 0;
 
 /**
@@ -19,16 +18,14 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
  * expression runs as the table owner, which pg_dump grants USAGE on the schema only in its closing ACL pass, so the
  * archive has to create the index after that pass, or no role can load it.
  */
-(POSTGRES_ENABLED && hasTool('pg_dump') && hasTool('psql') ? describe : describe.skip)(
+(hasTool('pg_dump') && hasTool('psql') ? describe : describe.skip)(
   'scoped backup of a schema another role owns',
   () => {
     const repo = path.join(__dirname, '..', '..', '..', '..');
-    const host = process.env.DATABASE_HOST || 'localhost';
-    const port = Number(process.env.DATABASE_PORT || 5432);
-    const superuser = {
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-    };
+    const testEnv = testDatabaseEnv();
+    const host = testEnv.DATABASE_HOST;
+    const port = Number(testEnv.DATABASE_PORT);
+    const superuser = { username: testEnv.DATABASE_USERNAME, password: testEnv.DATABASE_PASSWORD };
     const schema = 'granted_app';
     let admin: DataSource;
 
@@ -38,7 +35,7 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         host,
         port,
         ...superuser,
-        database: process.env.DATABASE_NAME || 'zaplink',
+        database: testEnv.DATABASE_NAME,
       }).initialize();
     });
 
@@ -108,7 +105,6 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
         expect(await state(source)).toEqual({ messages: 1, trigram: true, extensions: 2, aside: 0 });
 
         mkdirSync(path.join(work, 'src', 'data'), { recursive: true });
-        writeFileSync(path.join(work, 'src', 'data', 'main.sqlite'), '');
         const backup = spawnSync('bash', [path.join(repo, 'scripts', 'backup.sh')], {
           cwd: path.join(work, 'src'),
           encoding: 'utf8',
@@ -116,7 +112,6 @@ const hasTool = (tool: string): boolean => spawnSync('sh', ['-c', `command -v ${
             PATH: process.env.PATH,
             HOME: work,
             BACKUP_DIR: path.join(work, 'out'),
-            DATABASE_TYPE: 'postgres',
             POSTGRES_SCHEMA: schema,
             DATABASE_HOST: host,
             DATABASE_PORT: String(port),

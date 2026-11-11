@@ -12,12 +12,11 @@ import { assertPgcryptoOnSearchPath } from '../pgcrypto-search-path';
  *   they were never in that migration's 4-table list. On Postgres the TypeORM driver emits
  *   `INSERT ... VALUES (DEFAULT, ...)` for a uuid-strategy PK and relies on a DB-side default, so every
  *   first insert failed with `null value in column "id" ... violates not-null constraint` (23502) —
- *   breaking the Chatwoot handover upsert and the ingress dead-letter write on Postgres only. SQLite is
- *   unaffected (its driver mints the uuid), which is why it went unnoticed.
+ *   breaking the Chatwoot handover upsert and the ingress dead-letter write.
  *
  *   A NEW forward-only migration is the correct fix (the earlier defaults migration has already run on
  *   live DBs). It mirrors that migration's version-gate: `gen_random_uuid()` is a core built-in on
- *   PostgreSQL 13+, and lives in pgcrypto on PG <= 12. No-op on SQLite.
+ *   PostgreSQL 13+, and lives in pgcrypto on PG <= 12.
  */
 export class AddIntegrationUuidDefaults1782300000000 implements MigrationInterface {
   name = 'AddIntegrationUuidDefaults1782300000000';
@@ -25,8 +24,6 @@ export class AddIntegrationUuidDefaults1782300000000 implements MigrationInterfa
   private readonly tables = ['conversation_mappings', 'integration_delivery_failures'];
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type !== 'postgres') return;
-
     // Probe the server version with a non-erroring catalog query (a caught SQL exception would poison the
     // migration transaction). Only touch pgcrypto on PG <= 12; on 13+ gen_random_uuid() is core and
     // CREATE EXTENSION — a privilege managed Postgres often withholds — is avoided entirely.
@@ -59,8 +56,6 @@ export class AddIntegrationUuidDefaults1782300000000 implements MigrationInterfa
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type !== 'postgres') return;
-
     for (const table of this.tables) {
       if (!(await queryRunner.hasTable(table))) continue;
       await queryRunner.query(`ALTER TABLE "${table}" ALTER COLUMN "id" DROP DEFAULT`);

@@ -5,6 +5,7 @@ import { Session } from './entities/session.entity';
 import type { LoggerService } from '../../common/services/logger.service';
 import type { IncomingMessage } from '../../engine/interfaces/whatsapp-engine.interface';
 import { persistHistoryMessages } from './message-history-projector';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // A revoke tombstone from a history sync names the chat in the neutral dialect, while a row a REST send
 // wrote keeps the chat id as the caller wrote it.
@@ -44,8 +45,7 @@ describe('persistHistoryMessages revokes', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message],
       synchronize: true,
     });

@@ -171,7 +171,7 @@ export class InfraStatusController {
       this.probeDbConnected(this.dataDataSource),
     ]);
     const dbConnected = mainDbConnected && dataDbConnected;
-    const dbType = this.configService.get<string>('dataDatabase.type', 'sqlite');
+    const dbType = 'postgres';
     const dbHost = this.configService.get<string>('dataDatabase.host', 'localhost');
 
     const redisHost = process.env.REDIS_HOST || this.configService.get<string>('redis.host', 'localhost');

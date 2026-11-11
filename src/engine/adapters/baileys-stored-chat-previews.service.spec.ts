@@ -6,10 +6,10 @@ import {
   StoredChatPreviewService,
   type StoredChatPreview,
 } from './baileys-stored-chat-previews.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
-// The newest stored message per chat, read by a Baileys engine that starts with no chats. Runs on SQLite,
-// and on the postgres:16 service when DATABASE_TYPE=postgres (the test-postgres job), where the bigint
-// timestamp reads back as a string and identifiers are case-sensitive.
+// The newest stored message per chat, read by a Baileys engine that starts with no chats. On PostgreSQL the
+// bigint timestamp reads back as a string and identifiers are case-sensitive.
 describe('StoredChatPreviewService', () => {
   const SESSION = 's1';
   const OWN = ['628999@c.us', '628999@s.whatsapp.net', '628999'];
@@ -39,7 +39,7 @@ describe('StoredChatPreviewService', () => {
         direction: MessageDirection.INCOMING,
         status: MessageStatus.SENT,
         timestamp: T,
-        // Stored in order, a second apart: SQLite keeps createdAt to the second.
+        // Stored in order, a second apart.
         createdAt: new Date(Date.UTC(2026, 10, 1) + ++stored * 1000),
         ...over,
       }),
@@ -47,32 +47,13 @@ describe('StoredChatPreviewService', () => {
   }
 
   beforeEach(async () => {
-    db = new DataSource(
-      process.env.DATABASE_TYPE === 'postgres'
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            schema: `stored_previews_${randomUUID().replace(/-/g, '')}`,
-            entities: [Message],
-            synchronize: false,
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true },
-    );
+    db = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await db.initialize();
-    if (db.options.type === 'postgres') {
-      await db.query(`CREATE SCHEMA "${db.options.schema}"`);
-      await db.synchronize();
-    }
     repository = db.getRepository(Message);
     service = new StoredChatPreviewService(repository);
   });
 
   afterEach(async () => {
-    if (db.options.type === 'postgres') await db.query(`DROP SCHEMA "${db.options.schema}" CASCADE`);
     await db.destroy();
   });
 
@@ -189,49 +170,6 @@ describe('StoredChatPreviewService', () => {
       },
     ]);
   });
-
-  // PostgreSQL keeps createdAt to the microsecond, so only SQLite has rows that tie on every column but the id.
-  (process.env.DATABASE_TYPE === 'postgres' ? it.skip : it)(
-    'takes the row inserted last of one second on SQLite, not the one with the larger id',
-    async () => {
-      const sameSecond = { timestamp: T, createdAt: new Date(Date.UTC(2026, 10, 2)) };
-      await row({ chatId: '628111@c.us', body: 'question', id: 'ffffffff-0000-4000-8000-000000000000', ...sameSecond });
-      await row({
-        chatId: '628111@c.us',
-        body: 'reply',
-        direction: MessageDirection.OUTGOING,
-        id: '00000000-0000-4000-8000-000000000000',
-        ...sameSecond,
-      });
-
-      const previews = await service.latestPerChat(SESSION, OWN, 0);
-
-      expect(previews.map(p => [p.body, p.fromMe])).toEqual([['reply', true]]);
-    },
-  );
-
-  (process.env.DATABASE_TYPE === 'postgres' ? it.skip : it)(
-    'reads the candidate chats from the session-chat-time index alone on SQLite',
-    async () => {
-      const logged: Parameters<typeof query>[] = [];
-      const query = repository.manager.query.bind(repository.manager);
-      jest.spyOn(repository.manager, 'query').mockImplementation((...args: Parameters<typeof query>) => {
-        logged.push(args);
-        return query<unknown>(...args);
-      });
-      await service.latestPerChat(SESSION, OWN, 0);
-      const [[sql, params]] = logged;
-      const plan: Array<{ detail: string }> = await query(`EXPLAIN QUERY PLAN ${sql}`, params);
-
-      expect(plan.map(step => step.detail)).toEqual(
-        expect.arrayContaining([
-          'SEARCH l USING COVERING INDEX IDX_messages_session_chat_timestamp_id (sessionId=?)',
-          'SEARCH w USING INDEX IDX_messages_session_chat_timestamp_id (sessionId=? AND chatId=? AND timestamp>?)',
-          'SEARCH n USING INDEX IDX_messages_session_chat_timestamp_id (sessionId=? AND chatId=? AND timestamp>?)',
-        ]),
-      );
-    },
-  );
 });
 
 describe('ownAccountIds', () => {

@@ -5,6 +5,7 @@
 import { DataSource } from 'typeorm';
 import { AuditService } from './audit.service';
 import { AuditLog, AuditAction, AuditSeverity } from './entities/audit-log.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('AuditService session-scoped findAll', () => {
   let ds: DataSource;
@@ -12,8 +13,7 @@ describe('AuditService session-scoped findAll', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [AuditLog],
       synchronize: true,
     });

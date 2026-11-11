@@ -8,7 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * sharing the same instanceId string would collide on the old 2-column unique index and a legitimate
  * delivery for the second plugin would be dropped as a false "duplicate". pluginId is already stored on
  * every row (recordOrSkip inserts it), so this is a pure loosening of the constraint — no data loss, no
- * false-negative risk. Kept as a stable-named DROP/CREATE unique index (portable to sqlite + postgres),
+ * false-negative risk. Kept as a stable-named DROP/CREATE unique index,
  * mirroring AddIntegrationFabric's index style.
  */
 export class WidenIngressDedupKey1782100000000 implements MigrationInterface {

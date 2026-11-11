@@ -12,6 +12,7 @@ import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { SlidingWindowLimiter } from '../events/ws-rate-limit';
 import type { ShutdownService } from '../../common/services/shutdown.service';
 import { HealthController } from './health.controller';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('HealthController key validation failure and limiter refund', () => {
   const CLIENT_IP = '203.0.113.42';
@@ -38,8 +39,7 @@ describe('HealthController key validation failure and limiter refund', () => {
 
   beforeAll(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [ApiKey, AuditLog],
       synchronize: true,
     });

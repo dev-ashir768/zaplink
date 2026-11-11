@@ -39,14 +39,6 @@ const sqlOf = (qr: ReturnType<typeof makeQueryRunner>): string[] =>
 describe('AddUuidDefaultsForPostgres migration', () => {
   const migration = new AddUuidDefaultsForPostgres1779235200000();
 
-  it('is a no-op on SQLite — issues no query and never probes tables', async () => {
-    const qr = makeQueryRunner('sqlite', new Set(ALL_TABLES));
-    await migration.up(qr as unknown as QueryRunner);
-    await migration.down(qr as unknown as QueryRunner);
-    expect(qr.query).not.toHaveBeenCalled();
-    expect(qr.hasTable).not.toHaveBeenCalled();
-  });
-
   it('on PG 13+ does NOT touch pgcrypto (core gen_random_uuid), only sets the DEFAULTs', async () => {
     const qr = makeQueryRunner('postgres', new Set(ALL_TABLES), { versionNum: 150000 });
     await migration.up(qr as unknown as QueryRunner);

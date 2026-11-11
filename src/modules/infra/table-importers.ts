@@ -22,8 +22,8 @@ import type {
   AutomationRuleRow,
 } from './migration-tables.types';
 
-// A per-table restore step for importData: which backup key to read, the exact INSERT text (kept in
-// Postgres' `$N` placeholder form; the insert() helper rewrites it for SQLite), the param mapping,
+// A per-table restore step for importData: which backup key to read, the exact INSERT text (in
+// Postgres' `$N` placeholder form), the param mapping,
 // and an optional per-row skip guard. key/label/id also drive the counts object and the failure
 // warnings, so the import loop below stays table-agnostic.
 export interface TableImporter<K extends keyof MigrationTables = keyof MigrationTables> {
@@ -60,7 +60,7 @@ function defineTableImporter<K extends keyof MigrationTables>(importer: TableImp
   return importer;
 }
 
-// A JSON column arrives decoded from Postgres and as text from SQLite. Text that does not parse is
+// A JSON column arrives decoded from Postgres, or as text from an older backup. Text that does not parse is
 // returned as-is, so a validator sees a string and refuses it rather than reading it as absent.
 function decodeJsonColumn(value: unknown): unknown {
   if (typeof value !== 'string') return value;
@@ -90,7 +90,7 @@ function invalidJsonWarning(label: string, id: string, row: object, columns: rea
 }
 
 // The entity columns that drop U+0000 do it in a TypeORM transformer, which raw SQL never runs. An
-// older SQLite backup may still hold one, and PostgreSQL refuses it in a bound parameter, failing the
+// older backup may still hold one, and PostgreSQL refuses it in a bound parameter, failing the
 // whole restore. Apply the same drop here, to those same free-text columns and to the template and
 // rule text the DTOs only refuse from 0.24.0 on; never to an id or a lookup key. A template name is the
 // exception: no request can look up a name holding NUL, so keeping it would only strand the template.
@@ -102,7 +102,7 @@ function nulFree(value: unknown): unknown {
 export function deduplicateArchivedWebhookFailures(rows: WebhookDeliveryFailureRow[]): WebhookDeliveryFailureRow[] {
   const owners = new Map<string, WebhookDeliveryFailureRow>();
   const identity = (row: WebhookDeliveryFailureRow): string => JSON.stringify([row.webhookId, row.idempotencyKey]);
-  // SQLite's zone-less datetime strings represent UTC, just like PostgreSQL's explicit UTC exports.
+  // Zone-less datetime strings in older backups represent UTC, just like PostgreSQL's explicit UTC exports.
   const timestamp = (value: string): number =>
     new Date(
       /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?$/.test(value) ? `${value.replace(' ', 'T')}Z` : value,

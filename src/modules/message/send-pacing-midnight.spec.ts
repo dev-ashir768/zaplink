@@ -4,6 +4,7 @@ import { Message, MessageDirection } from './entities/message.entity';
 import { Session } from '../session/entities/session.entity';
 import { computeSendPacingConfig } from './send-pacing.config';
 import { SEND_PACING_LIMITED, SendPacingService, type SettleAdmission } from './send-pacing.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const BEFORE_MIDNIGHT = new Date('2026-08-03T23:59:59.000Z');
 const AFTER_MIDNIGHT = new Date('2026-08-04T00:00:01.000Z');
@@ -23,8 +24,7 @@ describe('send pacing UTC rollover', () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     jest.setSystemTime(BEFORE_MIDNIGHT);
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     }).initialize();

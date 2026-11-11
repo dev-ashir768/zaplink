@@ -9,6 +9,7 @@ import type { HookManager } from '../../core/hooks';
 import type { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import type { SendPacingService } from './send-pacing.service';
 import type { MessageSendService } from './message-send.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The inline media budget bounds the response; these cases pin that it bounds the READ too. A page
@@ -60,7 +61,7 @@ describe('message list reads inline media within the budget', () => {
 
   beforeEach(async () => {
     prevBudget = process.env.MESSAGE_LIST_INLINE_MEDIA_BUDGET_BYTES;
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await ds.initialize();
     repository = ds.getRepository(Message);
     service = new MessageService(

@@ -17,6 +17,7 @@ import { SendIdempotencyService } from './idempotency/send-idempotency.service';
 import { SendIdempotencyInterceptor } from './idempotency/send-idempotency.interceptor';
 import { BaileysMessaging, type BaileysMessagingHost } from '../../engine/adapters/baileys-messaging';
 import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * A Baileys send writes once, with sock.sendMessage. Every not-ready 409 raised before that write sent nothing, so a
@@ -127,8 +128,7 @@ describe('a keyed Baileys send refused with the not-ready 409', () => {
     }).compile();
     service = module.get(MessageSendService);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [SendIdempotencyKey],
       synchronize: true,
     });

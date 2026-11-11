@@ -429,15 +429,14 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
    * permanent management lockout with no in-band recovery (the boot seed only fires on an EMPTY
    * table, not on zero unscoped admins). The simple-array column stores an empty array as '' (rows
    * updated with allowedSessions: [] hold exactly that), so "no session scope" is NULL or ''.
-   * Dates are stored as UTC "YYYY-MM-DD HH:mm:ss.SSS" strings, so :guardNow is bound in that exact
-   * format (see guardNowParam) and the string comparison is chronological. Parameterized by column
+   * expiresAt is a UTC timestamp; :guardNow is bound as UTC text (see guardNowParam). Parameterized by column
    * prefix so one definition serves both the row being mutated (bare) and the EXISTS subquery's
    * `other` row.
    */
   private static usableAdminCondition(prefix: string): string {
     const col = (name: string) => (prefix ? `"${prefix}"."${name}"` : `"${name}"`);
     return (
-      `${col('role')} = :adminRole AND ${col('isActive')} = 1 AND ` +
+      `${col('role')} = :adminRole AND ${col('isActive')} = true AND ` +
       `(${col('expiresAt')} IS NULL OR ${col('expiresAt')} > :guardNow) AND ` +
       `(${col('allowedSessions')} = '' OR ${col('allowedSessions')} IS NULL) AND ` +
       `(${col('allowedChats')} = '' OR ${col('allowedChats')} IS NULL)`
@@ -445,9 +444,8 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * The instant bound as :guardNow (and :extendsTo), formatted exactly as the SQLite driver persists datetime
-   * columns (UTC "YYYY-MM-DD HH:mm:ss.SSS" — what AbstractSqliteDriver writes for a Date), so the
-   * guard's comparison against stored expiresAt values is chronological.
+   * The instant bound as :guardNow (and :extendsTo), as UTC "YYYY-MM-DD HH:mm:ss.SSS", which Postgres reads as a
+   * timestamp, so the guard's comparison against stored expiresAt values is chronological.
    */
   private static guardNowParam(at = new Date()): string {
     return at.toISOString().slice(0, 23).replace('T', ' ');

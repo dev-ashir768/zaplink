@@ -18,6 +18,7 @@ import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { ChatScopeService } from '../auth/chat-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { RedisIoAdapter } from './redis-io.adapter';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * A peer whose /events handshake the gateway refuses must not keep its connection. The real gateway in a
@@ -162,7 +163,7 @@ describe('every /events refusal closes the transport', () => {
   };
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [ApiKey], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [ApiKey], synchronize: true });
     await ds.initialize();
     keys = ds.getRepository(ApiKey);
   });

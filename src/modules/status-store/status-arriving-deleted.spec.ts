@@ -16,6 +16,7 @@ import type { SessionLidResolver } from '../session/session-lid-resolver.service
 import { StorageService } from '../../common/storage/storage.service';
 import { StatusUpdate } from './entities/status-update.entity';
 import { StatusStoreService } from './status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * whatsapp-web.js raises `message` for a message WhatsApp Web adds already deleted, and a fetch of the status
@@ -54,8 +55,7 @@ describe('a status that arrives already deleted by its poster', () => {
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-deleted-'));
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, StatusUpdate],
       synchronize: true,
     }).initialize();

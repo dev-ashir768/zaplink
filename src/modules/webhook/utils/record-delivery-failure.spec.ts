@@ -4,6 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { WebhookDeliveryFailure } from '../entities/webhook-delivery-failure.entity';
 import { clearDeliveryFailureRows, recordWebhookDeliveryFailure, statusCodeFromError } from './record-delivery-failure';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 
 const input = {
   webhookId: 'w',
@@ -26,8 +27,7 @@ describe('webhook failure persistence', () => {
   beforeEach(async () => {
     directory = mkdtempSync(join(tmpdir(), 'webhook-failures-'));
     const options = {
-      type: 'better-sqlite3' as const,
-      database: join(directory, 'data.sqlite'),
+      ...pgTestOptions(),
       entities: [WebhookDeliveryFailure],
     };
     ds = await new DataSource({ ...options, synchronize: true }).initialize();

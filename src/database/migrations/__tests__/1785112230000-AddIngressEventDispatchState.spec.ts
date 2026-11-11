@@ -1,13 +1,14 @@
 import { DataSource, QueryRunner } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddIntegrationFabric1781900000000 } from '../1781900000000-AddIntegrationFabric';
 import { AddIngressEventDispatchState1785112230000 } from '../1785112230000-AddIngressEventDispatchState';
 
-describe('AddIngressEventDispatchState migration (sqlite)', () => {
+describe('AddIngressEventDispatchState migration ', () => {
   let ds: DataSource;
   let runner: QueryRunner;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [], migrations: [] });
+    ds = new DataSource({ ...pgTestOptions(), entities: [], migrations: [] });
     await ds.initialize();
     runner = ds.createQueryRunner();
     await new AddIntegrationFabric1781900000000().up(runner);
@@ -19,14 +20,16 @@ describe('AddIngressEventDispatchState migration (sqlite)', () => {
   });
 
   const columns = async (): Promise<string[]> => {
-    const rows = (await runner.query(`PRAGMA table_info("ingress_events")`)) as Array<{ name: string }>;
+    const rows = (await runner.query(
+      `SELECT column_name AS name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'ingress_events'`,
+    )) as Array<{ name: string }>;
     return rows.map(r => r.name);
   };
 
   const insertEvent = (id: string, dispatchState?: string) =>
     runner.query(
       `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","createdAt"${dispatchState === undefined ? '' : ',"dispatchState"'}) ` +
-        `VALUES ('${id}','inst','plug','${id}','chatwoot','{}',datetime('now')${dispatchState === undefined ? '' : `,'${dispatchState}'`})`,
+        `VALUES ('${id}','inst','plug','${id}','chatwoot','{}',now()${dispatchState === undefined ? '' : `,'${dispatchState}'`})`,
     );
 
   it('adds the three columns + sweep index and backfills EXISTING rows as dispatched', async () => {
@@ -48,7 +51,7 @@ describe('AddIngressEventDispatchState migration (sqlite)', () => {
     expect(rows.map(r => r.lastDispatchAt)).toEqual([null, null]);
 
     const indexes = (await runner.query(
-      `SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_ingress_events_dispatchState'`,
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'IDX_ingress_events_dispatchState'`,
     )) as Array<{ name: string }>;
     expect(indexes).toHaveLength(1);
   });
@@ -87,7 +90,7 @@ describe('AddIngressEventDispatchState migration (sqlite)', () => {
       expect(await columns()).not.toContain(col);
     }
     const indexes = (await runner.query(
-      `SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_ingress_events_dispatchState'`,
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'IDX_ingress_events_dispatchState'`,
     )) as Array<{ name: string }>;
     expect(indexes).toHaveLength(0);
 

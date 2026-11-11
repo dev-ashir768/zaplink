@@ -1023,7 +1023,7 @@ export interface EngineEventCallbacks {
    * copy the engine holds under its id; one from that copy's own chat and author is not delayed. A receipt
    * that fails, or is still unsettled after minutes, is let go of. No receipt comes for a message the
    * session skips as ephemeral, nor for one the engine does not emit because its sender deleted it while
-   * it was processed and nothing holds it from its arrival (SQLite): the engine's copy of such a message
+   * it was processed and nothing holds it from its arrival: the engine's copy of such a message
    * that reuses another message's id is not reported as a conflict, and stays.
    */
   onMessage?: (message: IncomingMessage, ticket?: InboundTicket) => void | InboundReceipt;

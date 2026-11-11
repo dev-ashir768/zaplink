@@ -204,8 +204,8 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
       retryCount: dto.retryCount ?? 3,
     });
 
-    // No transaction of its own: the session can be deleted while the URL is checked, and on SQLite's single shared
-    // connection the rollback of the foreign key failure would discard what other callers wrote while it was open.
+    // No transaction of its own: a single-row save needs none (the session can be deleted while the URL is
+    // checked, which fails the foreign key).
     const saved = await this.webhookRepository.save(webhook, { transaction: false });
     this.delivery.invalidateOptInSubscriptions(sessionId);
     return saved;

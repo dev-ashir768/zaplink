@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { DataSource, type Repository } from 'typeorm';
 import { Message, MessageDirection, MessageStatus } from '../message/entities/message.entity';
 import { ACK_RECONCILE_DELAY_MS, MessageProjector } from './message-projector.service';
@@ -15,18 +14,19 @@ import type {
   IncomingMessage,
   IWhatsAppEngine,
 } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions, testSchemaName } from '../../test-utils/pg-test-db';
 
 // Baileys relays a peer's receipt under the peer's own chat and every id the stanza lists, with no check
 // that the id belongs to that chat (messages-recv handleReceipt). A message id names one message of one
 // chat, so a receipt from one chat must not move the stored delivery state of another chat's message, as
-// the edit, revoke and reaction paths already refuse. Runs on SQLite, and on the postgres:16 service when
-// DATABASE_TYPE=postgres.
+// the edit, revoke and reaction paths already refuse. Runs on the test PostgreSQL database.
 describe('a delivery ack names the chat of the message it advances', () => {
   const GROUP = '120363000000000001@g.us';
   const PEER = '15550001111@c.us';
   const OTHER = '15550002222@c.us';
   const PEER_LID = '99990001111@lid';
   let db: DataSource;
+  let schema: string;
   let repository: Repository<Message>;
   let projector: MessageProjector;
   let engine: IWhatsAppEngine;
@@ -61,26 +61,9 @@ describe('a delivery ack names the chat of the message it advances', () => {
     projector.handleMessageAck('s1', engine, id, status, chatId);
 
   beforeEach(async () => {
-    db = new DataSource(
-      process.env.DATABASE_TYPE === 'postgres'
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            schema: `ack_chat_${randomUUID().replace(/-/g, '')}`,
-            entities: [Message],
-            synchronize: false,
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true },
-    );
+    schema = testSchemaName();
+    db = new DataSource({ ...pgTestOptions(schema), entities: [Message], synchronize: true });
     await db.initialize();
-    if (db.options.type === 'postgres') {
-      await db.query(`CREATE SCHEMA "${db.options.schema}"`);
-      await db.synchronize();
-    }
     repository = db.getRepository(Message);
     lidPhones = new Map();
     dispatch = jest.fn().mockResolvedValue(undefined);
@@ -107,7 +90,7 @@ describe('a delivery ack names the chat of the message it advances', () => {
   });
 
   afterEach(async () => {
-    if (db.options.type === 'postgres') await db.query(`DROP SCHEMA IF EXISTS "${String(db.options.schema)}" CASCADE`);
+    await db.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await db.destroy();
   });
 

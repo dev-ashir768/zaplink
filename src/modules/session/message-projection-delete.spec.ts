@@ -21,6 +21,7 @@ import { HookManager } from '../../core/hooks';
 import { StatusStoreService } from '../status-store/status-store.service';
 import { SessionLidResolver } from './session-lid-resolver.service';
 import { captureSessionWrites } from '../../common/utils/session-write-scope';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const deferred = () => {
   let resolve!: () => void;
@@ -31,7 +32,7 @@ const settle = (): Promise<void> => new Promise(resolve => setImmediate(resolve)
 type Entry = 'inbound' | 'own-send' | 'history';
 const entries: Entry[] = ['inbound', 'own-send', 'history'];
 
-// The repository delays dispatch to SQLite to model an asynchronous driver operation. Projection,
+// The repository delays dispatch to Postgres to model an asynchronous driver operation. Projection,
 // write scopes, the database rows and every child/parent deletion use their actual implementations.
 describe('Message projection during session deletion', () => {
   let source: DataSource;
@@ -48,8 +49,7 @@ describe('Message projection during session deletion', () => {
 
   beforeEach(async () => {
     source = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       synchronize: true,
       entities: [
         Session,
@@ -239,7 +239,9 @@ describe('Message projection during session deletion', () => {
     it('drains the retry insert before deleting its row', async () => {
       const entered = deferred(),
         release = deferred();
-      beforeWrite.mockRejectedValueOnce(Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' }));
+      beforeWrite.mockRejectedValueOnce(
+        Object.assign(new Error('terminating connection due to administrator command'), { code: '57P01' }),
+      );
       beforeWrite.mockImplementation(async () => {
         entered.resolve();
         await release.promise;
@@ -264,7 +266,9 @@ describe('Message projection during session deletion', () => {
       const failed = deferred();
       beforeWrite.mockImplementation(() => {
         failed.resolve();
-        return Promise.reject(Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' }));
+        return Promise.reject(
+          Object.assign(new Error('terminating connection due to administrator command'), { code: '57P01' }),
+        );
       });
       const projection = write(entry);
       await failed.promise;

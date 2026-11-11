@@ -260,8 +260,7 @@ describe('MessageService', () => {
 
       expect(qb.skip.mock.calls.every(([value]) => value === undefined)).toBe(true);
       const [clause, params] = qb.andWhere.mock.calls[0] as [string, Record<string, unknown>];
-      // rowid, not id: the stub repository carries no manager, which reads as "not postgres".
-      expect(clause).toContain('(message.createdAt, message.rowid) <');
+      expect(clause).toContain('(message.createdAt, message.id) <');
       // The anchor's sort key is resolved in SQL; only the id crosses the JS boundary.
       expect(clause).toContain('FROM messages anchor');
       expect(params).toEqual({ after: 'm-1', sessionId: 'sess-1' });
@@ -269,12 +268,8 @@ describe('MessageService', () => {
       expect(result.total).toBe(7);
     });
 
-    /**
-     * The dialect split, pinned on the default test job rather than only in the postgres-gated
-     * suite: a typo in the accessor would otherwise ship a `rowid` term to PostgreSQL, where the
-     * column does not exist and every message list would 500.
-     */
-    it('keeps id as the tiebreak on postgres, where there is no rowid', async () => {
+    /** PostgreSQL has no rowid: a `rowid` term would make every message list 500. */
+    it('keeps id as the tiebreak, since there is no rowid', async () => {
       const qb = makeCursorQb([{ id: 'm-2' } as Message]);
       (repository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
       (repository as unknown as { manager: unknown }).manager = {
@@ -293,10 +288,10 @@ describe('MessageService', () => {
     });
 
     /**
-     * The unary `+` sort key is SQLite-only. PostgreSQL has no unary `+` for timestamps, and TypeORM
-     * leaves the bare `message.createdAt` after it unquoted, so a chat page there would 500.
+     * PostgreSQL has no unary `+` for timestamps, and TypeORM leaves the bare `message.createdAt` after
+     * it unquoted, so a chat page with that sort key would 500.
      */
-    it('keeps the plain createdAt key for a multi-candidate chat on postgres', async () => {
+    it('keeps the plain createdAt key for a multi-candidate chat', async () => {
       const qb = makeCursorQb([{ id: 'm-2' } as Message]);
       (repository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
       (repository as unknown as { manager: unknown }).manager = {
@@ -309,27 +304,6 @@ describe('MessageService', () => {
       expect(qb.orderBy).not.toHaveBeenCalledWith('+message.createdAt', 'DESC');
 
       delete (repository as unknown as { manager?: unknown }).manager;
-    });
-
-    it('takes createdAt out of index order for a multi-candidate chat on sqlite only', async () => {
-      const qb = makeCursorQb([{ id: 'm-2' } as Message]);
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
-
-      await service.getMessages('sess-1', { chatId: '628123@c.us' });
-      expect(qb.orderBy).toHaveBeenLastCalledWith('+message.createdAt', 'DESC');
-
-      await service.getMessages('sess-1', { chatId: '120363@g.us' });
-      expect(qb.orderBy).toHaveBeenLastCalledWith('message.createdAt', 'DESC');
-    });
-
-    it('orders by rowid on sqlite, which is the arrival order and needs no sort', async () => {
-      const qb = makeCursorQb([{ id: 'm-2' } as Message]);
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
-
-      await service.getMessages('sess-1', { after: 'm-1' });
-
-      // The order term is applied before the cursor branch, so the cursor harness pins it too.
-      expect(qb.addOrderBy).toHaveBeenCalledWith('message.rowid', 'DESC');
     });
 
     it('rejects a cursor that names no row in this session rather than reading as end-of-history', async () => {

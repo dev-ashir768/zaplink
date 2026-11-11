@@ -22,6 +22,7 @@ import { BaileysMessaging, blockSvgDecoding, type BaileysMessagingHost } from '.
 import { WhatsAppWebJsAdapter } from '../../engine/adapters/whatsapp-web-js.adapter';
 import { EngineNotSentError } from '../../common/errors/engine-not-sent.error';
 import { SSRF_BLOCKED_CLIENT_MESSAGE } from '../../common/security/ssrf-guard';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const PNG_BYTES = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -153,8 +154,7 @@ describe('a keyed send refused before anything reaches WhatsApp', () => {
     }).compile();
     service = module.get(MessageSendService);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [SendIdempotencyKey],
       synchronize: true,
     });

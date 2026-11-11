@@ -1,13 +1,12 @@
 /**
  * Shutdown time budget. On SIGTERM/SIGINT/SIGHUP (and POST /api/infra/restart) the ordered teardown has to
  * finish before the orchestrator's kill deadline, or the late destroy hooks (API-key usage flush,
- * plugin onDisable, DataSource close) are SIGKILLed half way. The bounded stages below run one after
+ * DataSource close) are SIGKILLed half way. The bounded stages below run one after
  * another in Nest destroy order (modules in sequence, hooks inside one module in parallel); sessions
  * do not add up, because engines are torn down in parallel under one per-engine deadline.
  *
  *   stage                                   cap      applies when
  *   SHUTDOWN_DELAY_MS drain                  3 s     always (default; the grace before teardown)
- *   ingress reconciler wait                  5 s     a pass in flight (worst case)
  *   engine teardown                         10 s     always
  *   auto-start wait                          5 s     shutdown during the boot window
  *   throttler Redis quit                     2 s     REDIS_ENABLED
@@ -16,15 +15,14 @@
  *   producer queue close                     4 s     QUEUE_ENABLED (2 s per queue, one queue module each)
  *   API-key usage flush                      5 s     pending counters
  *   cache Redis quit                         2 s     REDIS_ENABLED
- *   plugin phase (disable + pending enable) 10 s     a plugin is enabled
  *   WebSocket adapter Redis quit             2 s     REDIS_ENABLED
  *   HTTP close                               0 s     main.ts sets forceCloseConnections
  *
- * Base (single replica, no plugins): 3 + 5 + 10 + 5 + 5 + 5 = 33 s. With a plugin enabled: 43 s.
- * Clustered (QUEUE + REDIS + plugins): 63 s, of which 3 s is the grace.
+ * Base (single replica): 3 + 10 + 5 + 5 + 5 = 28 s.
+ * Clustered (QUEUE + REDIS): 46 s, of which 3 s is the grace.
  *
- * The teardown after the grace has SHUTDOWN_TEARDOWN_LIMIT_MS (67 s), against 60 s of stages in the
- * clustered case. The 7 s left over is the reserve for the waits that have no cap of their own, before
+ * The teardown after the grace has SHUTDOWN_TEARDOWN_LIMIT_MS (67 s), against 43 s of stages in the
+ * clustered case. The 24 s left over is the reserve for the waits that have no cap of their own, before
  * and after the HTTP close: the database waits listed at the end, the BullModule
  * re-await of the worker close (closeWorkerIfStarted settles it once its cap is hit), the DataSource
  * close and the ffmpeg kill. They take milliseconds when nothing is wedged.
@@ -52,12 +50,7 @@
  * sweep, which is database statements only: the message:persisted re-emission of its in-hand row is
  * not awaited) and the session ownership release. They wait on the database. A wedged database ends the
  * stop at the force-exit, with status 1, before the kill; the stages behind these waits (worker close,
- * usage flush, plugin onDisable) get only the time that is left.
- *
- * One database does not stay inside that bound: SQLite. better-sqlite3 waits for a lock held by another
- * process synchronously, up to SQLITE_BUSY_TIMEOUT_MS (30 s) a write, and the event loop is blocked
- * meanwhile, so neither the grace timer nor the force-exit can run. A lock held past the kill deadline
- * (a backup or another tool opening the data file) ends in the orchestrator's SIGKILL, with no hook run.
+ * usage flush) get only the time that is left.
  */
 
 /** Grace before teardown, so a load balancer sees the 503 first. SHUTDOWN_DELAY_MS overrides it. */
@@ -67,8 +60,7 @@ export const DEFAULT_SHUTDOWN_DELAY_MS = 3_000;
 export const DEFAULT_WEBHOOK_SHUTDOWN_DRAIN_MS = 5_000;
 
 /**
- * Must equal docker-compose.yml and docker-compose.dev.yml stop_grace_period and
- * charts/zaplink/values.yaml terminationGracePeriodSeconds. It holds for the default delay and drain.
+ * Must equal docker-compose.yml stop_grace_period. It holds for the default delay and drain.
  */
 export const SHUTDOWN_KILL_DEADLINE_MS = 75_000;
 

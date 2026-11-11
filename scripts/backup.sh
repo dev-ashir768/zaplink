@@ -3,49 +3,34 @@
 # ZapLink backup.
 #
 # Captures the load-bearing state needed to restore a working install:
-#   - main.sqlite   — auth (API keys) + audit log, ALWAYS SQLite (see app.module.ts)
-#   - data store    — zaplink.sqlite (SQLite) OR a pg_dump (when DATABASE_TYPE=postgres)
+#   - database.sql  — a pg_dump of the PostgreSQL database (sessions, messages, API keys, audit log)
 #   - sessions/     — whatsapp-web.js LocalAuth session data
 #   - baileys/      — Baileys engine authentication state
 #   - media/        — the local media dir (STORAGE_LOCAL_PATH), archived whenever it exists. Under
 #                     STORAGE_TYPE=s3 it holds media the app could not write to the bucket
 #                     (unreachable, or no credentials) and, after a move from local storage, the
-#                     old local media until docs/14 Storage Migration Step 6 cleans it up;
+#                     old local media;
 #                     the bucket's contents are not archived and need a backup of their own
-#   - plugin-packages/ — installed plugin packages from PLUGINS_DIR
-#   - plugin-state/    — registry and persisted ctx.storage state under PLUGIN_STATE_DIR/plugins
-#                        (default: <data dir>/plugins)
 #   - .env.generated and .api-key — dashboard config and plaintext bootstrap admin key
-#
-# The previous runbook backed up the wrong file (zaplink.db) and omitted main.sqlite,
-# so a "successful" backup silently lost every API key and all audit history.
 #
 # Usage:
 #   ./scripts/backup.sh
-# Environment:
-#   MAIN_DATABASE_NAME  auth/audit SQLite file (default: <data dir>/main.sqlite)
-#   DATABASE_NAME       data-store SQLite file (default: <data dir>/zaplink.sqlite; sqlite only)
-#                       Both resolve EXACTLY like the app: the environment first, then ./.env, then
-#                       <data dir>/.env.generated, otherwise the app's ./data default (see
-#                       lib-env.sh).
+# Environment (each key resolves EXACTLY like the app: the environment first, then ./.env, then
+# <data dir>/.env.generated, otherwise the app's ./data default; see lib-env.sh):
 #   ZAPLINK_DATA_DIR   the app's ./data directory, such as a volume's mountpoint on the host
 #                     (default: ./data); the ./data defaults, and a ./data/... path read from ./.env
 #                     or .env.generated, are taken under it
 #   BACKUP_DIR        where archives are written (default: ./backups)
-#   DATABASE_TYPE     sqlite (default) | postgres
-#   SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH, PLUGINS_DIR
+#   SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH
 #                     override the corresponding state directories
-#   PLUGIN_STATE_DIR  root whose plugins/ holds the plugin registry and ctx.storage (default: the
-#                     data dir)
 #   BOOTSTRAP_KEY_FILE  the plaintext admin key to archive (default: <data dir>/.api-key)
-#                     These paths resolve through the same layers as the databases.
-#   POSTGRES_SCHEMA   for postgres: a schema other than public is dumped alone (the database may hold
+#   POSTGRES_SCHEMA   a schema other than public is dumped alone (the database may hold
 #                     other applications' schemas), with the pg_trgm and unaccent extensions, and
 #                     pgcrypto when it lives in that schema (PostgreSQL 12 and older), behind a prelude
 #                     that moves an existing copy of the schema aside on load; database.schema in the
 #                     archive names it. That dump needs pg_dump 14 or newer (the image ships 17), which
 #                     the run checks first. public dumps the whole database, as before.
-#   For postgres: DATABASE_URL, or DATABASE_HOST/PORT/USERNAME/PASSWORD/NAME
+#   DATABASE_URL, or DATABASE_HOST/PORT/USERNAME/PASSWORD/NAME
 #                     DATABASE_URL is read by this script only (the app uses the DATABASE_* keys)
 #                     and wins over them when set. It is passed to pg_dump as an argument, which
 #                     other local users can read in the process list, so leave the password out of
@@ -59,17 +44,14 @@
 #                     verify-full also matches the host pg_dump connects to, DATABASE_URL's
 #                     included, against the certificate, so name the host the certificate carries.
 #
-# Failure policy: a missing source database is FATAL (no silent empty backup), and the finished
-# archive must contain every configured database or it is deleted and the run fails. The archive
-# takes its final name only once complete, so a failed tar leaves no truncated
-# zaplink-backup-*.tar.gz. When the sqlite3 CLI is unavailable the databases are plain-copied (possibly
-# torn if the app is live) and the archive carries a CONSISTENCY-WARNING marker that restore.sh
-# surfaces.
+# Failure policy: a failed pg_dump is FATAL (no silent empty backup), and the finished archive must
+# contain the database dump or it is deleted and the run fails. The archive takes its final name only
+# once complete, so a failed tar leaves no truncated zaplink-backup-*.tar.gz.
 #
 # Engine authentication state (sessions/, baileys/) is copied, not snapshotted: the engines rewrite
 # it while they run, so an online backup can hold a copy torn mid-write. When a whatsapp-web.js
 # profile is open or Baileys state is present, the archive carries an ENGINE-STATE-NOTE that
-# restore.sh prints without refusing (--strict gates only the database marker). For a copy that is
+# restore.sh prints without refusing. For a copy that is
 # consistent by construction, stop the sessions (or the container) first.
 #
 set -euo pipefail
@@ -84,34 +66,13 @@ DATA_DIR="${ZAPLINK_DATA_DIR:-./data}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 # shellcheck source=scripts/lib-env.sh
 . "$(dirname "$0")/lib-env.sh"
-DATABASE_TYPE="$(zaplink_resolve DATABASE_TYPE sqlite)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
-# Database paths resolve exactly like the app: an explicit environment value wins, then ./.env, then
-# the dashboard's <data dir>/.env.generated, otherwise the app's ./data default. That default, like
-# the state directories below, is relative to the app's working directory, so it is taken under
-# ZAPLINK_DATA_DIR: on the host, the cwd's ./data is not the one the app writes.
-MAIN_DB="$(zaplink_resolve MAIN_DATABASE_NAME "${DATA_DIR%/}/main.sqlite" path)"
-# With DATABASE_TYPE=postgres, DATABASE_NAME names the database instead, read below only when pg_dump
-# needs it, so a line for it the scripts cannot parse stops only a backup that uses it.
-if [ "$DATABASE_TYPE" != "postgres" ]; then
-  DATA_DB="$(zaplink_resolve DATABASE_NAME "${DATA_DIR%/}/zaplink.sqlite" path)"
-fi
+# Paths resolve exactly like the app: an explicit environment value wins, then ./.env, then the
+# dashboard's <data dir>/.env.generated, otherwise the app's ./data default.
 SESSIONS_DIR="$(zaplink_resolve SESSION_DATA_PATH "$DATA_DIR/sessions" path)"
 BAILEYS_DIR="$(zaplink_resolve BAILEYS_AUTH_DIR "$DATA_DIR/baileys" path)"
 MEDIA_DIR="$(zaplink_media_dir)"
-# Installed plugin code. The app defaults this to <dataDir>/plugins — the same tree as the
-# registry and each plugin's ctx.storage below — so an unset PLUGINS_DIR must resolve there
-# too, or the archive silently omits the plugin packages.
-PLUGIN_PACKAGES_DIR="$(zaplink_resolve PLUGINS_DIR "$DATA_DIR/plugins" path)"
-# Plugin registry + every plugin's persisted ctx.storage. The app puts them at <dataDir>/plugins,
-# where dataDir is PLUGIN_STATE_DIR when that is set and ./data otherwise, so the knob has to be
-# resolved here exactly like PLUGINS_DIR above. Hardcoding $DATA_DIR/plugins meant an operator who
-# moved plugin state got an archive with neither the registry nor any plugin's storage in it, and
-# a restore that put nothing back. Resolved under its own name because the knob names the ROOT,
-# not the plugins directory inside it.
-PLUGIN_STATE_ROOT="$(zaplink_resolve PLUGIN_STATE_DIR "$DATA_DIR" path)"
-PLUGIN_STATE_DIR="$PLUGIN_STATE_ROOT/plugins"
 GENERATED_ENV="$DATA_DIR/.env.generated"
 # The app writes the generated admin key to BOOTSTRAP_KEY_FILE when that is set.
 ADMIN_KEY_FILE="$(zaplink_resolve BOOTSTRAP_KEY_FILE "$DATA_DIR/.api-key" path)"
@@ -137,22 +98,6 @@ ARCHIVE="$BACKUP_DIR/zaplink-backup-$TIMESTAMP.tar.gz"
 ARCHIVE_PARTIAL="$ARCHIVE.partial"
 trap 'rm -rf "$STAGE" "$ARCHIVE_PARTIAL"' EXIT
 
-CONSISTENCY_WARNING="$STAGE/CONSISTENCY-WARNING"
-
-# Marker file shipped INSIDE the archive so restore.sh can surface that the database snapshot was
-# plain-copied from a possibly-live app (rollback-journal mode) and may be torn.
-record_consistency_warning() {
-  if [ ! -f "$CONSISTENCY_WARNING" ]; then
-    cat >"$CONSISTENCY_WARNING" <<'EOF'
-This archive was produced WITHOUT sqlite3 .backup (the sqlite3 CLI was not found on the backup
-host). The database file(s) listed below were plain-copied while the app may have been writing
-(SQLite rollback-journal mode), so the snapshot may be TORN (partially committed). Re-take the
-backup with sqlite3 installed — or with the app stopped — before relying on it for recovery.
-EOF
-  fi
-  echo "plain-copied: $1" >>"$CONSISTENCY_WARNING"
-}
-
 ENGINE_STATE_NOTE="$STAGE/ENGINE-STATE-NOTE"
 
 # Marker file shipped INSIDE the archive: engine auth state was copied while an engine may have been
@@ -162,8 +107,7 @@ record_engine_state_note() {
   if [ ! -f "$ENGINE_STATE_NOTE" ]; then
     cat >"$ENGINE_STATE_NOTE" <<'EOF'
 The engine authentication state listed below was copied while the app may have been writing it:
-these directories are plain copies. This note does not cover the databases; a CONSISTENCY-WARNING
-in the same archive does. If a restored session does not reconnect, pair it again, or re-take the
+these directories are plain copies. This note does not cover the database dump. If a restored session does not reconnect, pair it again, or re-take the
 backup with the sessions (or the container) stopped.
 EOF
   fi
@@ -173,7 +117,7 @@ EOF
 
 # copy_live_tree <src> <dest> [label] - cp -pRH, except that a file the app deleted or renamed while
 # cp walked the tree (Chromium cache and LevelDB churn, the Baileys store's temp files and consumed
-# keys, media retention and plugin storage writes) is a torn copy, not a failed backup. With a label
+# keys, media retention writes) is a torn copy, not a failed backup. With a label
 # the copy is engine auth state and goes in ENGINE-STATE-NOTE; without one it is only logged. Every
 # other cp error stays fatal. cp runs in the C locale so the error text matched here is the one it
 # prints, and grep reads a here-string: piped from printf, a grep -q that stops at the first fatal line
@@ -190,33 +134,6 @@ copy_live_tree() {
     else
       log "WARN: files under $1 changed during the copy"
     fi
-  fi
-}
-
-# Online SQLite backup (consistent without stopping the app) when sqlite3 is present. A missing
-# source database is FATAL: an archive without the configured databases is not a backup, and a
-# silent skip is how an empty archive gets reported as "Backup complete".
-backup_sqlite() {
-  src="$1"
-  dest="$2"
-  if [ ! -f "$src" ]; then
-    log "ERROR: database file not found: $src"
-    log "       the app reads this exact path — check MAIN_DATABASE_NAME / DATABASE_NAME / cwd, or start the app first"
-    exit 1
-  fi
-  if command -v sqlite3 >/dev/null 2>&1; then
-    # The app writes in rollback-journal mode, and a bare .backup gave up on the first lock it met and
-    # restarted after every outside write, so a busy gateway never got a backup. The read transaction
-    # lets the copy finish in one pass, but it blocks every app write, and with it the app's event
-    # loop, until the copy ends, and a write that outlasts the app's SQLite busy timeout fails. The
-    # busy timeout here waits out a commit, and -init /dev/null keeps the operator's sqlite3 rc file
-    # out of the run.
-    sqlite3 -init /dev/null -cmd ".timeout 30000" "$src" \
-      "BEGIN" "SELECT count(*) FROM sqlite_master" ".backup '$dest'" "COMMIT" >/dev/null
-  else
-    log "WARN: sqlite3 not found — plain-copying live database $src (the snapshot may be torn)"
-    cp "$src" "$dest"
-    record_consistency_warning "$src"
   fi
 }
 
@@ -315,17 +232,14 @@ pg_dump_data() {
 # Members the finished archive MUST contain (relative tar paths). A run that cannot stage any of
 # them has already failed hard above; the post-archive min-content check below is the last gate
 # against shipping an archive that would "restore" into a fresh-empty install.
-REQUIRED_MEMBERS=("./main.sqlite")
+REQUIRED_MEMBERS=()
 
-log "Backing up auth/audit DB ($MAIN_DB) — the API-key + audit store"
-backup_sqlite "$MAIN_DB" "$STAGE/main.sqlite"
-
-if [ "$DATABASE_TYPE" = "postgres" ]; then
-  log "Backing up data store via pg_dump"
-  if ! command -v pg_dump >/dev/null 2>&1; then
-    log "ERROR: DATABASE_TYPE=postgres but pg_dump is not installed"
-    exit 1
-  fi
+log "Backing up the database via pg_dump"
+if ! command -v pg_dump >/dev/null 2>&1; then
+  log "ERROR: pg_dump is not installed"
+  exit 1
+fi
+{
   # The app keeps its tables, ledger and search_path in POSTGRES_SCHEMA. A schema other than public may
   # share its database with other applications, whose schemas this role need not be able to read, so it
   # is dumped alone, and database.schema names it for restore.sh. public keeps the whole-database dump.
@@ -395,11 +309,7 @@ if [ "$DATABASE_TYPE" = "postgres" ]; then
     printf '%s\n' "$PG_DUMP_SCHEMA" >"$STAGE/database.schema"
     REQUIRED_MEMBERS+=("./database.schema")
   fi
-else
-  log "Backing up data store ($DATA_DB)"
-  backup_sqlite "$DATA_DB" "$STAGE/zaplink.sqlite"
-  REQUIRED_MEMBERS+=("./zaplink.sqlite")
-fi
+}
 
 # The state directories below are copied with -H: a directory an operator moved to another disk and
 # linked back is archived by its content. Without it the archive held only the link, with no data.
@@ -444,24 +354,6 @@ else
   log "WARN: $MEDIA_DIR not found; skipping local media"
 fi
 
-if [ -d "$PLUGIN_PACKAGES_DIR" ]; then
-  log "Backing up installed plugin packages"
-  copy_live_tree "$PLUGIN_PACKAGES_DIR" "$STAGE/plugin-packages"
-fi
-
-# With PLUGINS_DIR unset the app also loads packages from ./plugins, its default up to 0.12.1 (see
-# plugin-package-scanner.ts). The archive does not carry that directory, so say so.
-if [ -z "$(zaplink_resolve PLUGINS_DIR '')" ] &&
-  [ -n "$(find -H ./plugins -mindepth 2 -maxdepth 2 -name manifest.json ! -path './plugins/.*' 2>/dev/null)" ]; then
-  log "WARN: ./plugins holds plugin packages the app still loads, and this archive does not carry them;"
-  log "      move them into $PLUGIN_PACKAGES_DIR, or set PLUGINS_DIR=./plugins, and back up again"
-fi
-
-if [ -d "$PLUGIN_STATE_DIR" ]; then
-  log "Backing up plugin registry and persisted state"
-  copy_live_tree "$PLUGIN_STATE_DIR" "$STAGE/plugin-state"
-fi
-
 if [ -f "$GENERATED_ENV" ]; then
   log "Backing up dashboard-generated configuration"
   cp -p "$GENERATED_ENV" "$STAGE/.env.generated"
@@ -476,7 +368,7 @@ tar -czf "$ARCHIVE_PARTIAL" -C "$STAGE" .
 
 ARCHIVE_LIST="$(tar -tzf "$ARCHIVE_PARTIAL")"
 
-# Min-content check on the finished archive: every configured database must be present. If not,
+# Min-content check on the finished archive: the database dump must be present. If not,
 # delete the defective archive and fail — leaving it on disk invites a restore into a fresh-empty
 # install (new API keys, new master key) reported as success. grep reads a here-string, not a pipe: a
 # grep -q that matches early stops reading, and on a listing larger than the pipe buffer the broken pipe
@@ -495,6 +387,6 @@ fi
 mv "$ARCHIVE_PARTIAL" "$ARCHIVE"
 
 log "Backup complete: $ARCHIVE"
-log "SECURITY: this archive can contain database passwords, plugin secrets, and an admin API key; restrict and encrypt it"
+log "SECURITY: this archive can contain database passwords and an admin API key; restrict and encrypt it"
 log "Contents:"
 printf '%s\n' "$ARCHIVE_LIST" | sed 's/^/[backup]   /'

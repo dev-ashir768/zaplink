@@ -1,9 +1,10 @@
 import { DataSource, Repository } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { LidMapping } from '../../../engine/identity/lid-mapping.entity';
 import { Message, MessageDirection, MessageStatus } from '../../../modules/message/entities/message.entity';
 import { ScrubNonPhoneLidMappings1786950000000 } from '../1786950000000-ScrubNonPhoneLidMappings';
 
-// A real SQLite database: the statements themselves are what is under test.
+// A real Postgres database: the statements themselves are what is under test.
 describe('ScrubNonPhoneLidMappings migration', () => {
   const migration = new ScrubNonPhoneLidMappings1786950000000();
   let ds: DataSource;
@@ -11,8 +12,7 @@ describe('ScrubNonPhoneLidMappings migration', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [LidMapping, Message],
       synchronize: true,
     });
@@ -62,7 +62,7 @@ describe('ScrubNonPhoneLidMappings migration', () => {
   });
 
   it('skips a database without the tables', async () => {
-    const empty = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    const empty = new DataSource({ ...pgTestOptions() });
     await empty.initialize();
     const runner = empty.createQueryRunner();
 

@@ -17,6 +17,7 @@ import type {
   IncomingMessage,
   IWhatsAppEngine,
 } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('persisted edited message marker', () => {
   let db: DataSource;
@@ -26,7 +27,7 @@ describe('persisted edited message marker', () => {
   let emit: jest.Mock;
 
   beforeEach(async () => {
-    db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+    db = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await db.initialize();
     repository = db.getRepository(Message);
     queue = new KeyedMutationQueue();
@@ -175,7 +176,8 @@ describe('edited marker for a message whose row is not written yet', () => {
   let hookManager: { execute: jest.Mock };
 
   const flush = async (): Promise<void> => {
-    for (let i = 0; i < 25; i++) await new Promise(resolve => setImmediate(resolve));
+    // Real Postgres round trips: wall-clock time, not just event-loop turns.
+    for (let i = 0; i < 25; i++) await new Promise(resolve => setTimeout(resolve, 10));
   };
   const incoming = (id: string, over: Partial<IncomingMessage> = {}): IncomingMessage => ({
     id,
@@ -195,7 +197,7 @@ describe('edited marker for a message whose row is not written yet', () => {
   const stored = (waMessageId: string): Promise<Message> => repository.findOneByOrFail({ waMessageId });
 
   beforeEach(async () => {
-    db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+    db = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await db.initialize();
     repository = db.getRepository(Message);
     stalled = new Map();

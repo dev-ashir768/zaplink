@@ -5,6 +5,7 @@ import { Message, MessageDirection } from '../message/entities/message.entity';
 import { Session } from '../session/entities/session.entity';
 import { BuiltInFtsProvider } from './providers/builtin-fts.provider';
 import type { SearchProvider } from './search.types';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /** A seed message the contract harness asks the provider-under-test to index. */
 type ContractSeedMessage = { body: string; sessionId: string };
@@ -85,8 +86,7 @@ describe('BuiltInFtsProvider satisfies the SearchProvider contract', () => {
 
   runProviderContract(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message],
       synchronize: true,
     });

@@ -10,6 +10,7 @@ import { MessageProjector } from './message-projector.service';
 import type { SessionLidResolver } from './session-lid-resolver.service';
 import type { Session } from './entities/session.entity';
 import { deferred } from './inbound-room';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const flush = async (): Promise<void> => {
   for (let n = 0; n < 10; n++) await new Promise(resolve => setImmediate(resolve));
@@ -27,8 +28,7 @@ describe('a change that names no message id', () => {
 
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
     }).initialize();

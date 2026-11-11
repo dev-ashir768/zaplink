@@ -17,26 +17,22 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * All three are NULL for every existing row, which reads as unclaimed — so a single-process
  * deployment behaves exactly as before: it claims what it finds and resets it as it always did.
  *
- * Hand-authored because `synchronize` is off for the `data` connection on PostgreSQL. Idempotent:
+ * Hand-authored because `synchronize` is off for the `data` connection. Idempotent:
  * each column is probed independently, so a run interrupted between ALTERs still completes.
  */
 export class AddSessionOwnership1785800000000 implements MigrationInterface {
   name = 'AddSessionOwnership1785800000000';
 
   private async hasColumn(queryRunner: QueryRunner, name: string): Promise<boolean> {
-    if (queryRunner.connection.options.type === 'postgres') {
-      const rows = (await queryRunner.query(
-        `SELECT 1 FROM information_schema.columns
-         WHERE table_schema = current_schema() AND table_name = 'sessions' AND column_name = '${name}'`,
-      )) as unknown[];
-      return rows.length > 0;
-    }
-    const rows = (await queryRunner.query(`PRAGMA table_info("sessions")`)) as Array<{ name: string }>;
-    return rows.some(r => r.name === name);
+    const rows = (await queryRunner.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = 'sessions' AND column_name = '${name}'`,
+    )) as unknown[];
+    return rows.length > 0;
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const timestamp = queryRunner.connection.options.type === 'postgres' ? 'TIMESTAMP' : 'datetime';
+    const timestamp = 'TIMESTAMP';
     if (!(await this.hasColumn(queryRunner, 'nodeId'))) {
       await queryRunner.query(`ALTER TABLE "sessions" ADD COLUMN "nodeId" varchar(190) NULL`);
     }

@@ -3,8 +3,9 @@
 // (the CLI datasource / start:dev) and crash on `describe`.
 import { DataSource, QueryRunner } from 'typeorm';
 import { ReKeyChatStatesBySessionId1786500000000 } from './migrations/1786500000000-ReKeyChatStatesBySessionId';
+import { pgTestOptions } from '../test-utils/pg-test-db';
 
-// A real SQLite database rather than a mocked query runner: this migration rewrites rows, so the
+// A real Postgres database rather than a mocked query runner: this migration rewrites rows, so the
 // statement itself is the thing under test.
 describe('ReKeyChatStatesBySessionId migration', () => {
   const ALICE_ID = '8f5b1d9e-0c4a-4e21-9d6b-2a7c3f0e1b44';
@@ -15,12 +16,12 @@ describe('ReKeyChatStatesBySessionId migration', () => {
   let queryRunner: QueryRunner;
 
   beforeEach(async () => {
-    dataSource = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [], migrations: [] });
+    dataSource = new DataSource({ ...pgTestOptions(), entities: [], migrations: [] });
     await dataSource.initialize();
     queryRunner = dataSource.createQueryRunner();
     await queryRunner.query(`CREATE TABLE "sessions" ("id" varchar PRIMARY KEY, "name" varchar NOT NULL UNIQUE)`);
     await queryRunner.query(
-      `CREATE TABLE "chat_states" ("sessionId" varchar NOT NULL, "chatId" varchar NOT NULL, "archived" boolean NOT NULL DEFAULT (0), PRIMARY KEY ("sessionId", "chatId"))`,
+      `CREATE TABLE "chat_states" ("sessionId" varchar NOT NULL, "chatId" varchar NOT NULL, "archived" boolean NOT NULL DEFAULT false, PRIMARY KEY ("sessionId", "chatId"))`,
     );
     await queryRunner.query(
       `INSERT INTO sessions ("id", "name") VALUES ('${ALICE_ID}', 'alice'), ('${BOB_ID}', 'bob')`,
@@ -61,9 +62,9 @@ describe('ReKeyChatStatesBySessionId migration', () => {
 
   it('keeps a row already keyed by a session id when another session is named after that id', async () => {
     // A database built by synchronize holds id-keyed rows before this migration ever runs.
-    await queryRunner.query(`UPDATE sessions SET "name" = ? WHERE "id" = ?`, [ALICE_ID, BOB_ID]);
+    await queryRunner.query(`UPDATE sessions SET "name" = $1 WHERE "id" = $2`, [ALICE_ID, BOB_ID]);
     await queryRunner.query(
-      `INSERT INTO chat_states ("sessionId", "chatId", "archived") VALUES (?, 'current@c.us', 1), ('alice', 'legacy@c.us', 1)`,
+      `INSERT INTO chat_states ("sessionId", "chatId", "archived") VALUES ($1, 'current@c.us', true), ('alice', 'legacy@c.us', true)`,
       [ALICE_ID],
     );
 

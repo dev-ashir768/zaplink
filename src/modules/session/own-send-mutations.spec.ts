@@ -4,15 +4,16 @@ import type { IncomingMessage, IWhatsAppEngine } from '../../engine/interfaces/w
 import { Message, MessageStatus } from '../message/entities/message.entity';
 import { MessageSendService } from '../message/message-send.service';
 import { ACK_RECONCILE_DELAY_MS, MessageProjector } from './message-projector.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
-const settle = (): Promise<void> => new Promise(resolve => setImmediate(resolve));
+// The queued work runs real Postgres round trips, so give it wall-clock time to complete. Real timers throughout:
+// the pg pool opens connections on timers, so faking them stalls the writes.
+const settleIo = (ms = 300): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('an own-send echo losing its first insert to the REST writer', () => {
   it.each(['revoke', 'edit', 'reaction', 'ack'] as const)('preserves an in-flight %s', async change => {
-    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
     const ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
     }).initialize();
@@ -68,7 +69,7 @@ describe('an own-send echo losing its first insert to the REST writer', () => {
           projector.handleMessageAck('s1', engine, 'WA1', 'read');
           projector.handleMessageAck('s1', engine, 'WA1', 'delivered');
         }
-        await settle();
+        await settleIo();
         return { id: 'WA1', timestamp: 1 };
       },
     });
@@ -84,7 +85,7 @@ describe('an own-send echo losing its first insert to the REST writer', () => {
       await sender.sendPoll('s1', { chatId: '100@c.us', name: 'Question', options: ['A', 'B'] });
       const persistedBeforeEcho = hooks.execute.mock.calls.filter(([event]) => event === 'message:persisted').length;
       releaseEcho({ continue: true, data: echo });
-      for (let i = 0; i < 8; i++) await settle();
+      await settleIo();
       const row = await repo.findOneByOrFail({ sessionId: 's1', waMessageId: 'WA1' });
       if (change === 'revoke') {
         expect(row).toMatchObject({ type: 'revoked', body: '', metadata: null });
@@ -100,8 +101,8 @@ describe('an own-send echo losing its first insert to the REST writer', () => {
         persistedBeforeEcho + (change === 'revoke' || change === 'edit' ? 1 : 0),
       );
     } finally {
-      await jest.advanceTimersByTimeAsync(ACK_RECONCILE_DELAY_MS);
-      jest.useRealTimers();
+      // Let the ack reconcile timer run before the DataSource goes away.
+      await settleIo(ACK_RECONCILE_DELAY_MS + 100);
       engines.delete('s1');
       await ds.destroy();
     }

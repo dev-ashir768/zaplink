@@ -161,7 +161,7 @@ export class MetricsService implements OnModuleDestroy {
 
   private async renderFresh(now: number): Promise<string> {
     // The database-derived series are best-effort. Awaiting them unguarded meant a single rejected
-    // query — a statement timeout, pool exhaustion, SQLITE_BUSY under load, or a genuine outage —
+    // query — a statement timeout, pool exhaustion, or a genuine outage —
     // answered the whole scrape with a 500, so Prometheus lost the process, HTTP and webhook series
     // too, and `up` conflated "process dead" with "database unreachable": the exact incident this
     // endpoint exists to describe. The series that need no database are emitted either way, and the

@@ -14,10 +14,17 @@ import { DeduplicateTerminalWebhookFailures1787200000000 } from '../../database/
 import { ChatMediaArchiveService } from '../chat-media/chat-media-archive.service';
 import type { StorageService } from '../../common/storage/storage.service';
 import { mergeSentMetadata, updateMessageMetadata } from '../message/message-metadata';
+import { testDatabaseEnv } from '../../test-utils/pg-test-db';
 
-const describePostgres = process.env.DATABASE_TYPE === 'postgres' ? describe : describe.skip;
+const testEnv = testDatabaseEnv();
+const testServer = {
+  host: testEnv.DATABASE_HOST,
+  port: Number(testEnv.DATABASE_PORT),
+  username: testEnv.DATABASE_USERNAME,
+  password: testEnv.DATABASE_PASSWORD,
+};
 
-describePostgres('webhook and media recovery on PostgreSQL', () => {
+describe('webhook and media recovery on PostgreSQL', () => {
   let admin: DataSource;
   let ds: DataSource;
   let second: DataSource;
@@ -40,11 +47,8 @@ describePostgres('webhook and media recovery on PostgreSQL', () => {
   beforeAll(async () => {
     const options = {
       type: 'postgres' as const,
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-      database: process.env.DATABASE_NAME || 'zaplink',
+      ...testServer,
+      database: testEnv.DATABASE_NAME,
     };
     admin = await new DataSource(options).initialize();
     await admin.query(`CREATE SCHEMA "${schema}"`);

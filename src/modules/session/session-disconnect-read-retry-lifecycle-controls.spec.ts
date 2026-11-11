@@ -3,6 +3,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { Session, SessionStatus } from './entities/session.entity';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import type { EngineEventCallbacks } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = '88888888-8888-4888-8888-888888888888';
 const BOUND = '628111';
@@ -49,7 +50,7 @@ function fixture() {
     }),
   };
   const dataSource = {
-    options: { type: 'better-sqlite3' },
+    options: { ...pgTestOptions() },
     getRepository: jest.fn(() => messageRepository),
     transaction: jest.fn(async (cb: (m: unknown) => Promise<void>) => cb(manager)),
   };

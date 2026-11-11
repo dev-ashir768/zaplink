@@ -7,36 +7,18 @@ import { BuiltInFtsProvider } from './providers/builtin-fts.provider';
 import { ChatScopeService } from '../auth/chat-scope.service';
 import type { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import { AddMessagesFts1782400000000 } from '../../database/migrations/1782400000000-AddMessagesFts';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // A send through the API was once stored with the account's bare phone digits as its sender, while every
-// other writer stores the account's JID. A search filtered on that JID must find both. Runs on SQLite, and
-// on the postgres:16 service when DATABASE_TYPE=postgres.
+// other writer stores the account's JID. A search filtered on that JID must find both.
 describe('search sender filter on the account itself', () => {
   const PHONE = '628123456789';
   let ds: DataSource;
   let search: SearchService;
 
   beforeEach(async () => {
-    const postgres = process.env.DATABASE_TYPE === 'postgres';
-    ds = new DataSource(
-      postgres
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            entities: [Message],
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true },
-    );
+    ds = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
     await ds.initialize();
-    if (postgres) {
-      // The provider queries `messages` through the search path, so the table lives in the default schema.
-      await ds.query(`DROP TABLE IF EXISTS "messages" CASCADE`);
-      await ds.synchronize();
-    }
     await new AddMessagesFts1782400000000().up(ds.createQueryRunner());
     const row = (waMessageId: string, from: string, direction: MessageDirection, body: string) => ({
       sessionId: 's1',

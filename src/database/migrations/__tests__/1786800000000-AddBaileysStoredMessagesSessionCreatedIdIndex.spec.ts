@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddBaileysStoredMessagesSessionCreatedIdIndex1786800000000 } from '../1786800000000-AddBaileysStoredMessagesSessionCreatedIdIndex';
 
 describe('AddBaileysStoredMessagesSessionCreatedIdIndex migration', () => {
@@ -7,12 +8,12 @@ describe('AddBaileysStoredMessagesSessionCreatedIdIndex migration', () => {
   const NEW = 'IDX_baileys_stored_messages_session_created_id';
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     // The table and indexes as AddBaileysStoredMessages created them.
     await ds.query(
       `CREATE TABLE "baileys_stored_messages" ("id" varchar PRIMARY KEY NOT NULL, "sessionId" varchar NOT NULL, ` +
-        `"waMessageId" varchar NOT NULL, "serializedMessage" text NOT NULL, "createdAt" datetime NOT NULL DEFAULT (datetime('now')))`,
+        `"waMessageId" varchar NOT NULL, "serializedMessage" text NOT NULL, "createdAt" timestamp NOT NULL DEFAULT now())`,
     );
     await ds.query(
       `CREATE UNIQUE INDEX "UQ_baileys_stored_messages_session_wamsg" ON "baileys_stored_messages" ("sessionId", "waMessageId")`,
@@ -25,11 +26,28 @@ describe('AddBaileysStoredMessagesSessionCreatedIdIndex migration', () => {
   });
 
   const indexNames = async (): Promise<string[]> => {
-    const rows = await ds.query<{ name: string }[]>(`PRAGMA index_list("baileys_stored_messages")`);
+    const rows = await ds.query<{ name: string }[]>(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'baileys_stored_messages'`,
+    );
     return rows.map(r => r.name);
   };
-  const plan = async (sql: string): Promise<string> =>
-    (await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${sql}`)).map(r => r.detail).join(' | ');
+
+  // Postgres EXPLAIN on one connection with sequential scans (and bitmap scans) disabled, so the
+  // plan names the index a tiny test table would otherwise skip in favour of a scan.
+  const explain = async (sql: string, params: unknown[] = []): Promise<string> => {
+    const qr = ds.createQueryRunner();
+    try {
+      await qr.query('SET enable_seqscan = off');
+      await qr.query('SET enable_bitmapscan = off');
+      const rows = (await qr.query(`EXPLAIN ${sql}`, params)) as Array<{ 'QUERY PLAN': string }>;
+      return rows.map(r => r['QUERY PLAN']).join(' | ');
+    } finally {
+      await qr.query('RESET enable_seqscan');
+      await qr.query('RESET enable_bitmapscan');
+      await qr.release();
+    }
+  };
+  const plan = (sql: string): Promise<string> => explain(sql);
 
   // The cap trim's cutoff lookup (BaileysMessageStoreService.enforceLimit).
   const cutoffQuery =
@@ -42,7 +60,14 @@ describe('AddBaileysStoredMessagesSessionCreatedIdIndex migration', () => {
     const names = await indexNames();
     expect(names).toContain(NEW);
     expect(names).not.toContain(OLD);
-    const columns = await ds.query<{ name: string }[]>(`PRAGMA index_info("${NEW}")`);
+    const columns = await ds.query<{ name: string }[]>(
+      `SELECT a.attname AS name FROM pg_index i ` +
+        `JOIN pg_class c ON c.oid = i.indexrelid ` +
+        `JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) ` +
+        `WHERE c.relname = $1 AND c.relnamespace = current_schema()::regnamespace ` +
+        `ORDER BY array_position(i.indkey::int2[], a.attnum)`,
+      [NEW],
+    );
     expect(columns.map(c => c.name)).toEqual(['sessionId', 'createdAt', 'id']);
   });
 
@@ -71,13 +96,13 @@ describe('AddBaileysStoredMessagesSessionCreatedIdIndex migration', () => {
   });
 
   it('serves the cap cutoff from the index without a sort', async () => {
-    // Baseline: the old index leaves the id tiebreak to a temp B-tree.
-    expect(await plan(cutoffQuery)).toContain('TEMP B-TREE');
+    // Baseline: the old index leaves the id tiebreak to a sort step.
+    expect(await plan(cutoffQuery)).toContain('Sort');
 
     await new AddBaileysStoredMessagesSessionCreatedIdIndex1786800000000().up(ds.createQueryRunner());
 
     const after = await plan(cutoffQuery);
-    expect(after).toContain(`COVERING INDEX ${NEW}`);
-    expect(after).not.toContain('TEMP B-TREE');
+    expect(after).toContain(NEW);
+    expect(after).not.toContain('Sort');
   });
 });

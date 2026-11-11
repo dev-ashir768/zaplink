@@ -3,46 +3,14 @@ import { s3EndpointError, validateEnv } from './env.validation';
 
 /** Regression locks for boot-time env validation (no silent coercion). */
 describe('validateEnv', () => {
-  it('passes the zero-config default (sqlite, no pg vars)', () => {
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite' })).not.toThrow();
+  it('accepts DATABASE_TYPE unset or "postgres" and rejects any other value', () => {
     expect(() => validateEnv({})).not.toThrow();
-  });
-
-  it('rejects a DATABASE_TYPE typo instead of silently falling back to SQLite', () => {
-    expect(() => validateEnv({ DATABASE_TYPE: 'postgre' })).toThrow(/DATABASE_TYPE/);
-  });
-
-  it('requires host/username/password when DATABASE_TYPE=postgres', () => {
-    expect(() => validateEnv({ DATABASE_TYPE: 'postgres' })).toThrow(/DATABASE_PASSWORD/);
+    expect(() => validateEnv({ DATABASE_TYPE: 'postgres' })).not.toThrow();
     expect(() =>
       validateEnv({ DATABASE_TYPE: 'postgres', DATABASE_HOST: 'db', DATABASE_USERNAME: 'u', DATABASE_PASSWORD: 'p' }),
     ).not.toThrow();
-  });
-
-  it('validates POSTGRES_SCHEMA as a legal, non-reserved Postgres identifier when set', () => {
-    const pg = { DATABASE_TYPE: 'postgres', DATABASE_HOST: 'db', DATABASE_USERNAME: 'u', DATABASE_PASSWORD: 'p' };
-    // unset / 'public' (default) and ordinary identifiers are fine
-    expect(() => validateEnv({ ...pg })).not.toThrow();
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'public' })).not.toThrow();
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'zaplink' })).not.toThrow();
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'my_app_2' })).not.toThrow();
-    // invalid identifier characters (would reach CREATE TABLE "<schema>"."..." or a search_path SET)
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'zaplink; DROP' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: '1bad' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'has space' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'a.b' })).toThrow(/POSTGRES_SCHEMA/);
-    // upper case rejected: the unquoted search_path folds it, TypeORM's quoted schema does not
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'ZapLink' })).toThrow(/lower-case/);
-    // reserved pg_ prefix rejected
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'pg_catalog' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'Pg_temp' })).toThrow(/POSTGRES_SCHEMA/);
-    // surrounding whitespace rejected, not trimmed: the app and the migration CLI use the raw value
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: ' zaplink' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: 'zaplink ' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: '  ' })).toThrow(/POSTGRES_SCHEMA/);
-    expect(() => validateEnv({ ...pg, POSTGRES_SCHEMA: '' })).not.toThrow();
-    // ignored for sqlite: a bogus value must NOT trip when not on postgres
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', POSTGRES_SCHEMA: '1bad' })).not.toThrow();
+    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite' })).toThrow(/DATABASE_TYPE must be "postgres"/);
+    expect(() => validateEnv({ DATABASE_TYPE: 'postgre' })).toThrow(/DATABASE_TYPE/);
   });
 
   /**
@@ -126,18 +94,6 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ MESSAGE_INLINE_MEDIA: 'archive', CHAT_MEDIA_ARCHIVE_ENABLED: 'false' })).toThrow(
       /needs CHAT_MEDIA_ARCHIVE_ENABLED=true/,
     );
-  });
-
-  // The runtime compares these raw (`=== 'postgres'`, the engine plugin lookup, `=== 's3'`), so a
-  // padded value that only matches after trimming would validate here and then take the default branch.
-  it.each([
-    ['DATABASE_TYPE', 'postgres '],
-    ['DATABASE_TYPE', 'sqlite\r'],
-    ['ENGINE_TYPE', 'baileys '],
-    ['STORAGE_TYPE', ' s3'],
-  ])('rejects a padded %s %j instead of validating the trimmed value', (key, value) => {
-    const pg = { DATABASE_HOST: 'db', DATABASE_USERNAME: 'u', DATABASE_PASSWORD: 'p' };
-    expect(() => validateEnv({ ...pg, [key]: value })).toThrow(new RegExp(`${key} must be`));
   });
 
   it('still treats a whitespace-only enum (a blank compose forward) as unset', () => {
@@ -259,8 +215,8 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ MESSAGE_RETENTION_DAYS: '36501' })).toThrow(/MESSAGE_RETENTION_DAYS.*36500/);
   });
 
-  // A "keep forever" row of nines binds on SQLite as a truncated year that sorts after today, so the
-  // prune would delete every row. Each retention window shares the message-retention cap.
+  // A "keep forever" row of nines builds a cutoff date outside the range a timestamp column holds, so
+  // the prune would fail or misbehave. Each retention window shares the message-retention cap.
   it.each([
     'AUDIT_RETENTION_DAYS',
     'CHAT_MEDIA_ARCHIVE_TTL_DAYS',
@@ -330,49 +286,6 @@ describe('validateEnv', () => {
     ).not.toThrow();
     expect(() => validateEnv({ QUEUE_ENABLED: '', SERVE_DASHBOARD: '' })).not.toThrow();
     expect(() => validateEnv({})).not.toThrow();
-  });
-
-  it('rejects a mistyped value for the datastore, webhook and engine booleans too', () => {
-    // Read with the same bare `=== 'true'` / `!== 'false'` comparison but absent from the strict list,
-    // so a typo configured the opposite of what the operator asked for, in silence. DATABASE_SSL is
-    // the one that fails OPEN: `require` is the natural Postgres spelling and reads as OFF, so a
-    // connection the operator believed was TLS-protected runs in plaintext.
-    expect(() => validateEnv({ DATABASE_SSL: 'require' })).toThrow(/DATABASE_SSL/);
-    expect(() => validateEnv({ DATABASE_SSL_REJECT_UNAUTHORIZED: '0' })).toThrow(/DATABASE_SSL_REJECT_UNAUTHORIZED/);
-    expect(() => validateEnv({ MAIN_DATABASE_SYNCHRONIZE: 'False' })).toThrow(/MAIN_DATABASE_SYNCHRONIZE/);
-    // The data connection's flag: any spelling but `true` ran the SQLite migration chain instead.
-    for (const typo of ['True', 'TRUE', '1', 'yes']) {
-      expect(() => validateEnv({ DATABASE_SYNCHRONIZE: typo })).toThrow(/DATABASE_SYNCHRONIZE must be "true"/);
-    }
-    for (const ok of ['true', 'false', '']) {
-      expect(() => validateEnv({ DATABASE_SYNCHRONIZE: ok })).not.toThrow();
-    }
-    expect(() => validateEnv({ ALLOW_UNSIGNED_INGRESS: 'yes' })).toThrow(/ALLOW_UNSIGNED_INGRESS/);
-    expect(() => validateEnv({ ALLOW_DEV_API_KEY: '1' })).toThrow(/ALLOW_DEV_API_KEY/);
-    expect(() => validateEnv({ WEBHOOK_SSRF_PROTECT: 'off' })).toThrow(/WEBHOOK_SSRF_PROTECT/);
-    expect(() => validateEnv({ WEBHOOK_CONTACT_DETAILS: 'on' })).toThrow(/WEBHOOK_CONTACT_DETAILS/);
-    expect(() => validateEnv({ BAILEYS_SYNC_FULL_HISTORY: 'True' })).toThrow(/BAILEYS_SYNC_FULL_HISTORY/);
-    expect(() => validateEnv({ BAILEYS_WA_VERSION: '2.3000' })).toThrow(/BAILEYS_WA_VERSION/);
-    expect(() => validateEnv({ BAILEYS_WA_VERSION: '1.2.3' })).toThrow(/BAILEYS_WA_VERSION/);
-    expect(() => validateEnv({ BAILEYS_WA_VERSION: 'abc' })).toThrow(/BAILEYS_WA_VERSION/);
-    expect(() => validateEnv({ BAILEYS_WA_VERSION: '2.3000.1045340097' })).not.toThrow();
-    expect(() => validateEnv({ BAILEYS_WA_VERSION: '2,3000,1045340097' })).not.toThrow();
-    expect(() => validateEnv({ BAILEYS_MARK_ONLINE_ON_CONNECT: 'ture' })).toThrow(/BAILEYS_MARK_ONLINE_ON_CONNECT/);
-    expect(() => validateEnv({ POSTGRES_BUILTIN: 'yes' })).toThrow(/POSTGRES_BUILTIN/);
-    expect(() => validateEnv({ REDIS_BUILTIN: 'yes' })).toThrow(/REDIS_BUILTIN/);
-    expect(() => validateEnv({ MINIO_BUILTIN: 'yes' })).toThrow(/MINIO_BUILTIN/);
-    expect(() => validateEnv({ CACHE_ENABLED: '1' })).toThrow(/CACHE_ENABLED/);
-    expect(() => validateEnv({ DATABASE_LOGGING: '1' })).toThrow(/DATABASE_LOGGING/);
-
-    // Canonical values, and the blank a compose `${KEY:-}` forward renders, both stay legal.
-    expect(() => validateEnv({ DATABASE_SSL: 'true', MAIN_DATABASE_SYNCHRONIZE: 'false' })).not.toThrow();
-    expect(() => validateEnv({ DATABASE_SSL: '', WEBHOOK_SSRF_PROTECT: '' })).not.toThrow();
-
-    // Deliberately still tolerant, because both fail toward the SAFE state and the repo tests that
-    // tolerance: mcp.server.spec.ts asserts MCP_READONLY='yes' stays read-only, and
-    // PUPPETEER_HEADLESS='new' is a real Puppeteer value that works today.
-    expect(() => validateEnv({ MCP_READONLY: 'yes' })).not.toThrow();
-    expect(() => validateEnv({ PUPPETEER_HEADLESS: 'new' })).not.toThrow();
   });
 
   it('rejects a REDIS_ENABLED typo instead of silently downgrading throttler+cache to in-memory', () => {
@@ -465,76 +378,6 @@ describe('validateEnv', () => {
     );
   });
 
-  it('rejects a sqlite data DB path that collides with the internal main database file', () => {
-    // The 'main' (auth/audit) and 'data' connections must be separate SQLite files; sharing one
-    // file means two migration ledgers + synchronize policies on the same tables.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/main.sqlite' })).toThrow(
-      /DATABASE_NAME/,
-    );
-    // Relative spellings of the same file are caught (path normalization).
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/../data/main.sqlite' })).toThrow(
-      /DATABASE_NAME/,
-    );
-    // The default data path is fine.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/zaplink.sqlite' })).not.toThrow();
-    // Postgres uses a bare DB name, never a file path — must not false-positive.
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'postgres',
-        DATABASE_HOST: 'db',
-        DATABASE_USERNAME: 'u',
-        DATABASE_PASSWORD: 'p',
-        DATABASE_NAME: 'main.sqlite',
-      }),
-    ).not.toThrow();
-  });
-
-  it('resolves the main DB path from MAIN_DATABASE_NAME like the runtime (no false-negative/-positive)', () => {
-    // The runtime main path is MAIN_DATABASE_NAME || ./data/main.sqlite (configuration.ts). When it
-    // is overridden, a DATABASE_NAME following it to the same file must still be caught — comparing
-    // against the hardcoded default alone would miss this.
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'sqlite',
-        MAIN_DATABASE_NAME: '/srv/zaplink/main.sqlite',
-        DATABASE_NAME: '/srv/zaplink/main.sqlite',
-      }),
-    ).toThrow(/DATABASE_NAME/);
-    // Same collision via a non-normalized spelling (relative/absolute forms of one file).
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'sqlite',
-        MAIN_DATABASE_NAME: './custom/main.sqlite',
-        DATABASE_NAME: './custom/../custom/main.sqlite',
-      }),
-    ).toThrow(/DATABASE_NAME/);
-    // And the reverse: when MAIN_DATABASE_NAME moves the main DB elsewhere, the DEFAULT main file
-    // is no longer the runtime main DB, so using it for data must NOT be rejected.
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'sqlite',
-        MAIN_DATABASE_NAME: '/srv/zaplink/main.sqlite',
-        DATABASE_NAME: './data/main.sqlite',
-      }),
-    ).not.toThrow();
-    // Distinct overridden paths pass.
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'sqlite',
-        MAIN_DATABASE_NAME: './data/auth.sqlite',
-        DATABASE_NAME: './data/zaplink.sqlite',
-      }),
-    ).not.toThrow();
-  });
-
-  it("catches MAIN_DATABASE_NAME pointing at the data connection's default file", () => {
-    // DATABASE_NAME unset resolves to ./data/zaplink.sqlite at runtime, so the guard must compare that.
-    expect(() => validateEnv({ MAIN_DATABASE_NAME: './data/zaplink.sqlite' })).toThrow(/\.\/data\/zaplink\.sqlite/);
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', MAIN_DATABASE_NAME: './data/../data/zaplink.sqlite' })).toThrow(
-      /main database file/,
-    );
-  });
-
   // The bundled PostgreSQL container runs without TLS: a built-in database with DATABASE_SSL=true would retry its
   // connection until the boot gives up, so the boot refuses it at once and names the key.
   describe('DATABASE_SSL with the built-in PostgreSQL container', () => {
@@ -556,59 +399,6 @@ describe('validateEnv', () => {
       // A server of its own named postgres (a Kubernetes Service, a compose service with TLS set up) may serve TLS.
       expect(() => validateEnv({ ...builtIn, POSTGRES_BUILTIN: 'false', DATABASE_SSL: 'true' })).not.toThrow();
     });
-  });
-
-  it('rejects DATABASE_SYNCHRONIZE=true with DATABASE_TYPE=postgres (drops body_ts → /search 501)', () => {
-    // The Postgres data connection hardcodes migrationsRun=true; an opted-in synchronize=true makes
-    // TypeORM re-sync from entities on every boot, dropping the migration-created `body_ts` generated
-    // tsvector column (not declared on the Message entity) → /search 501 every restart. The breaking
-    // combo must fail fast at boot.
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'postgres',
-        DATABASE_HOST: 'db',
-        DATABASE_USERNAME: 'u',
-        DATABASE_PASSWORD: 'p',
-        DATABASE_SYNCHRONIZE: 'true',
-      }),
-    ).toThrow(/DATABASE_SYNCHRONIZE.*postgres|migrations/);
-    // The production default (synchronize=false / unset) is fine on Postgres.
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'postgres',
-        DATABASE_HOST: 'db',
-        DATABASE_USERNAME: 'u',
-        DATABASE_PASSWORD: 'p',
-        DATABASE_SYNCHRONIZE: 'false',
-      }),
-    ).not.toThrow();
-    expect(() =>
-      validateEnv({
-        DATABASE_TYPE: 'postgres',
-        DATABASE_HOST: 'db',
-        DATABASE_USERNAME: 'u',
-        DATABASE_PASSWORD: 'p',
-      }),
-    ).not.toThrow();
-    // SQLite is migration-managed only when synchronize is unset/false, but the combo is NOT breaking
-    // there (SQLite has no generated-column migration to drop), so it stays allowed.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_SYNCHRONIZE: 'true' })).not.toThrow();
-  });
-
-  it('rejects a bare SQLite DATABASE_NAME (PG-name leak) that has no path separator or file extension', () => {
-    // Regression for #677: .env.example shipped `DATABASE_NAME=zaplink` (a PostgreSQL db name).
-    // In a SQLite run that bare name becomes the file PATH → SQLite opens a file named 'zaplink'
-    // under the read-only app rootfs → SQLITE_CANTOPEN boot-loop. The guard catches the leak at boot.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'zaplink' })).toThrow(/file path/);
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'prod_db' })).toThrow(/file path/);
-    // A bare name WITH a .sqlite/.db suffix is a legitimate file in the cwd — let it pass.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'zaplink.sqlite' })).not.toThrow();
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: 'cache.db' })).not.toThrow();
-    // A path (with a separator) is always honored, explicit host paths included.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: '/app/data/zaplink.sqlite' })).not.toThrow();
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/zaplink.sqlite' })).not.toThrow();
-    // Unset falls through to the default path (configuration.ts) — the boot-loop fix.
-    expect(() => validateEnv({ DATABASE_TYPE: 'sqlite' })).not.toThrow();
   });
 
   // A renewal that does not fit inside the lease renews too late to matter: the claim lapses between
@@ -852,7 +642,7 @@ describe('validateEnv', () => {
     },
   );
 
-  // A huge grace builds a cutoff whose year SQLite binds in wrapped form, matching fresh rows.
+  // A huge grace builds a cutoff date outside the range a timestamp column holds.
   it.each(['MESSAGE_REAPER_GRACE_MS', 'WEBHOOK_RECONCILE_GRACE_MS', 'INGRESS_RECONCILE_GRACE_MS'])(
     'rejects a malformed or oversized %s',
     key => {

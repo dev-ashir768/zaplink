@@ -111,10 +111,6 @@ export class SessionController {
       `${MAX_SESSION_CONFIG_BYTES} bytes serialised as JSON.`,
   })
   @ApiResponse({ status: 409, description: 'Session name already exists' })
-  @ApiResponse({
-    status: 503,
-    description: 'On SQLite, another database transaction stayed open for 10 s; nothing was stored, so retry.',
-  })
   async create(@Body() dto: CreateSessionDto, @CurrentApiKey() apiKey?: ApiKey): Promise<SessionResponseDto> {
     // A session proxy carries the session's egress, including the gateway's fetches of caller-supplied
     // URLs, so choosing one is a deployment decision: ADMIN only, like PATCH :sessionId/proxy. The
@@ -311,8 +307,7 @@ export class SessionController {
     status: 503,
     description:
       'The session could not be read, checked or claimed for the delete because the database did not answer ' +
-      '(nothing is deleted), or, on SQLite, another database transaction stayed open for 10 s before a delete ' +
-      'transaction (no further rows are removed). Retry the delete.',
+      '(nothing is deleted). Retry the delete.',
   })
   async delete(@Param('sessionId', SessionIdPipe) id: string): Promise<void> {
     const session = await this.sessionService.findOneForDelete(id);

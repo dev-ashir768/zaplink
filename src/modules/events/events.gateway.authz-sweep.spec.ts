@@ -9,10 +9,11 @@ import { ApiKeyUsageTracker } from '../auth/api-key-usage-tracker.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from './events.gateway';
 import type { WSErrorResponse, WSSubscribedResponse } from './dto/ws-messages.dto';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The gateway's periodic re-validation of the keys behind its live sockets, against a REAL
- * better-sqlite3 api_keys table and the real AuthService/ApiKeyUsageTracker.
+ * Postgres api_keys table and the real AuthService/ApiKeyUsageTracker.
  *
  * A stub cannot carry this: the sweep's whole risk is a fingerprint that moves for a column the
  * authentication hot path rewrites on its own (lastUsedAt, usageCount, updatedAt), which would
@@ -89,7 +90,7 @@ describe('EventsGateway API-key authorization sweep', () => {
       ?.message;
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [ApiKey], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [ApiKey], synchronize: true });
     await ds.initialize();
     repo = ds.getRepository(ApiKey);
   });
@@ -188,22 +189,6 @@ describe('EventsGateway API-key authorization sweep', () => {
 
     expect(open.disconnect).not.toHaveBeenCalled();
     expect(later.disconnect).not.toHaveBeenCalled();
-  });
-
-  it('evicts a socket when its stored expiry becomes invalid', async () => {
-    const { apiKey, rawKey } = await service.createApiKey({ name: 'invalid expiry' });
-    const sock = await connect(rawKey);
-
-    await repo.query('UPDATE api_keys SET expiresAt = ? WHERE id = ?', ['not-a-date', apiKey.id]);
-    const current = await repo.findOneByOrFail({ id: apiKey.id });
-    expect(current.expiresAt).toBeInstanceOf(Date);
-    expect(Number.isFinite(current.expiresAt!.getTime())).toBe(false);
-    await expect(service.validateApiKey(rawKey, CLIENT_IP)).rejects.toThrow('API key has expired');
-
-    await sweep();
-
-    expect(sock.disconnect).toHaveBeenCalledWith(true);
-    expect(evictionMessage(sock)).toBe('API key has expired');
   });
 
   it('evicts on the snapshot expiry when the api_keys table cannot be read', async () => {

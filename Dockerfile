@@ -41,8 +41,6 @@ COPY scripts/postinstall.js ./scripts/
 # Coolify (and similar PaaS) promote every ${VAR} referenced in the compose file to a build-time
 # variable, so docker-compose.yml's `NODE_ENV=${NODE_ENV:-production}` leaks NODE_ENV=production
 # into this stage and a bare `npm ci` would skip @nestjs/cli → `sh: 1: nest: not found` (exit 127).
-# (docker-compose.dev.yml forwards `NODE_ENV=${NODE_ENV:-development}`, so the dev build only sees
-# production when the host sets it.)
 # This stage only builds dist/ and the dashboard SPA and never launches a browser; the production
 # stage downloads Chrome explicitly. Skip the Puppeteer postinstall download so @puppeteer/browsers 3
 # does not try to extract a zip here, where no archiver is installed.
@@ -85,10 +83,6 @@ ENV NODE_ENV=production
 # --no-sandbox would otherwise get a chromium that can't launch. Verified on real arm64 hardware:
 # with --no-install-recommends the package is dropped, and chromium launches fine under --no-sandbox.
 ARG TARGETARCH
-# sqlite3 ships the CLI so an in-container scripts/backup.sh run takes online-consistent SQLite
-# snapshots (.backup) instead of plain-copying a live database (which can archive a torn file). The
-# DATABASE_TYPE=postgres half of the same script needs pg_dump, installed further down.
-#
 # ffmpeg backs the opt-in media-conversion endpoints, and also repairs an existing gap: whatsapp-web.js
 # requires fluent-ffmpeg at module load and calls it for video-to-webp animated stickers, so
 # sendSticker with a video mimetype has been failing in this image for want of the binary. Measured
@@ -125,11 +119,10 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     curl \
     unzip \
     procps \
-    sqlite3 \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# The PostgreSQL client for the DATABASE_TYPE=postgres half of backup.sh/restore.sh, which the
+# The PostgreSQL client for backup.sh/restore.sh, which the
 # runbook drives in-container. Debian bookworm ships client 15 and pg_dump refuses a newer server
 # outright ("aborting because of server version mismatch", reproduced against the postgres:16 the
 # bundled compose file runs), so the distro package would install a pg_dump that cannot dump our own
@@ -152,8 +145,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 # Verify with `gpg --show-keys --with-fingerprint scripts/pgdg-ACCC4CF8.asc`:
 #   B97B0AFC AA1A47F0 44F244A0 7FCC7D46 ACCC4CF8, uid "PostgreSQL Debian Repository".
 #
-# 10 packages arrive with it on top of the list above (12 on a bare base; sqlite3 already brings
-# libreadline8), including a full perl interpreter: /usr/bin/pg_dump is a symlink to
+# About a dozen packages arrive with it on top of the list above, including a full perl interpreter: /usr/bin/pg_dump is a symlink to
 # postgresql-common's pg_wrapper, which is a perl script. Trivy on the built image, with the release
 # job's own settings (CRITICAL,HIGH + ignore-unfixed + .trivyignore): 0 findings, the bar the ffmpeg
 # layer above was held to. Counting unfixed ones too, the perl packages carry 8 CRITICAL/HIGH with
@@ -205,9 +197,7 @@ COPY scripts/postinstall.js scripts/atomic-write.js scripts/patch-wwebjs-201832.
 #
 # --ignore-scripts: this stage has no compiler toolchain, and npm still auto-runs
 # `node-gyp rebuild` for any package shipping a binding.gyp without its own install
-# script (better-sqlite3's major bump ships N-API prebuilds inside the package, so
-# its runtime loader picks prebuilds/<platform>-<arch>.node — compiling here would
-# fail on the missing python). The other native optionals (cpu-features,
+# script (compiling here would fail on the missing python). The native optionals (cpu-features,
 # msgpackr-extract) are optional=true with runtime fallbacks. The patchers that DO
 # need to run are the explicit fatal invocations below; baileys' preinstall is only
 # a node-version check that the engines field enforces anyway.
@@ -298,7 +288,7 @@ COPY --from=builder /app/dashboard/dist ./dashboard/dist
 # entrypoint re-owns any wrong-owned path under /app/data at every start for the mounted-volume
 # case. A full /app chown walks every production dependency file (issue #1045: ~35 minutes on a
 # small VPS) and duplicates their metadata into a new image layer.
-RUN mkdir -p ./data/sessions ./data/media ./data/plugins && \
+RUN mkdir -p ./data/sessions ./data/media && \
     chown -R zaplink:zaplink ./data
 
 # The non-root zaplink user has no home of its own (`useradd -r`, no -m). Chromium resolves the home
@@ -312,10 +302,8 @@ ENV HOME=/app/data
 ENV XDG_CONFIG_HOME=/tmp/.config
 ENV XDG_CACHE_HOME=/tmp/.cache
 
-# Operator backup/restore scripts. docs/11-operational-runbooks.md drives them in-container
-# (`docker exec` against the named-volume mount at /app/data), and the sqlite3 CLI installed above
-# is there for backup.sh's online-consistent snapshots — but the scripts themselves were never
-# copied into the image. lib-env.sh is sourced by both, never executed. backup.sh/restore.sh carry
+# Operator backup/restore scripts, run in-container (`docker exec` against the named-volume mount at
+# /app/data). lib-env.sh is sourced by both, never executed. backup.sh/restore.sh carry
 # the exec bit in the repo and COPY preserves it, so no chmod is needed.
 COPY scripts/backup.sh scripts/restore.sh scripts/lib-env.sh ./scripts/
 

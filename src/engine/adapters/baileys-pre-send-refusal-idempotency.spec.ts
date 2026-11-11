@@ -17,6 +17,7 @@ import { SendIdempotencyService } from '../../modules/message/idempotency/send-i
 import { SendIdempotencyInterceptor } from '../../modules/message/idempotency/send-idempotency.interceptor';
 import { BaileysMessaging, type BaileysMessagingHost } from './baileys-messaging';
 import type { SendTextMessageDto } from '../../modules/message/dto/send-message.dto';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * Baileys refuses a phone number WhatsApp reports as unregistered after its number check, and a quoted message
@@ -101,8 +102,7 @@ describe('a keyed Baileys send refused before its message is built', () => {
     }).compile();
     service = module.get(MessageSendService);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [SendIdempotencyKey],
       synchronize: true,
     });

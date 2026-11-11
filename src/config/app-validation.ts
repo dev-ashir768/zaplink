@@ -32,9 +32,9 @@ export const GLOBAL_VALIDATION_OPTIONS: ValidationPipeOptions = {
 
 /**
  * Refuses a request body holding U+0000 anywhere. PostgreSQL rejects it in every text and varchar value
- * and bound parameter, so it failed the lookup or write behind the route as a 500 while SQLite took it.
- * The restore is exempt: a SQLite backup may hold one in a message, and the importers drop it from the
- * same free-text columns the entities clean.
+ * and bound parameter, so it would fail the lookup or write behind the route as a 500. The restore is
+ * exempt: a backup may hold one in a message, and the importers drop it from the same free-text columns
+ * the entities clean.
  */
 export class NulBodyPipe implements PipeTransform {
   transform(value: unknown, { type, metatype }: ArgumentMetadata): unknown {

@@ -12,7 +12,7 @@ export const MAX_AUDIT_PAGE_SIZE = 200;
 
 /**
  * Caller-supplied text is cut to these lengths before it is stored. The first three match the
- * entity's varchar lengths, which SQLite does not enforce; errorMessage is a text column with no
+ * entity's varchar lengths; errorMessage is a text column with no
  * declared bound. Without the clamp one row could carry a request path of many kilobytes.
  */
 const MAX_USER_AGENT_LENGTH = 500;

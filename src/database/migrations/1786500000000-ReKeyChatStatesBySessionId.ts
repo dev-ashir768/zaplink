@@ -30,8 +30,7 @@ export class ReKeyChatStatesBySessionId1786500000000 implements MigrationInterfa
   }
 
   /**
-   * Correlated-subquery UPDATE rather than `UPDATE ... FROM`, which SQLite and PostgreSQL spell
-   * differently.
+   * Correlated-subquery UPDATE rather than `UPDATE ... FROM`.
    *
    * Static, not a module-level export: TypeORM loads every exported function in this directory as a
    * migration class. Also run by import-data, whose archive may predate this re-key; that caller sets

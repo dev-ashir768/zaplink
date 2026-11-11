@@ -8,7 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * these rows. A boot-time service used to run the conversion on every start. `type` has no index, so each
  * start read the whole table (four times, before the HTTP port opened), and on PostgreSQL the runtime
  * pool's statement timeout cancelled it once the table was large. A migration runs once, on a pool without
- * that timeout. The service now runs only where migrations never run: SQLite under DATABASE_SYNCHRONIZE=true.
+ * that timeout.
  *
  * call_log and poll_creation are left out on purpose: a row stored before #265 carries no call or poll
  * metadata, so relabelling it would render an empty call or poll bubble. The mapping is forward-only and
@@ -34,9 +34,7 @@ export class BackfillLegacyMessageTypes1791300000000 implements MigrationInterfa
     // Boot and CLI migrations run on a pool without the runtime statement_timeout (pg-boot-migrations.ts),
     // and MigrationExecutor wraps a lone pending migration in its own transaction, so lift any role- or
     // database-level default for this transaction only, exactly like AddWebhookDeliveryFailureLookupIndex.
-    if (queryRunner.dataSource.options.type === 'postgres') {
-      await queryRunner.query('SET LOCAL statement_timeout = 0');
-    }
+    await queryRunner.query('SET LOCAL statement_timeout = 0');
     await BackfillLegacyMessageTypes1791300000000.backfill(queryRunner);
   }
 

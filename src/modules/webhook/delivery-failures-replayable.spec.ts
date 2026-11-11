@@ -7,6 +7,7 @@ import { WebhookDeliveryFailure } from './entities/webhook-delivery-failure.enti
 import { WebhookDeliveryService } from './webhook-delivery.service';
 import { WebhookRedriveService } from './webhook-redrive.service';
 import { WebhookService } from './webhook.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // The redrive replays a row only to the webhook it was recorded for, while that webhook still belongs to the row's
 // session. A webhook that was disabled or unsubscribed can be switched back and its rows redriven; a deleted one cannot
@@ -45,8 +46,7 @@ describe('delivery-failure replayable flag', () => {
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Webhook, WebhookDeliveryFailure],
       synchronize: true,
     }).initialize();

@@ -4,9 +4,10 @@ import { DataSource, Repository } from 'typeorm';
 import { ApiKey, ApiKeyRole } from './entities/api-key.entity';
 import { AuthService } from './auth.service';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
- * The last-admin guard against a REAL better-sqlite3 DataSource, for the part the in-memory double
+ * The last-admin guard against a REAL PostgreSQL DataSource, for the part the in-memory double
  * cannot show: how long the surviving admin lasts. A survivor that expires before the key being
  * removed only postpones the lockout, so it must not let the removal through.
  */
@@ -17,7 +18,7 @@ describe('AuthService last-admin guard and expiring admins', () => {
   const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_000);
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [ApiKey], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [ApiKey], synchronize: true });
     await ds.initialize();
     repo = ds.getRepository(ApiKey);
     const tracker = { record: jest.fn(), forget: jest.fn() } as unknown as ApiKeyUsageTracker;

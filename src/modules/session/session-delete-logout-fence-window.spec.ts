@@ -2,6 +2,7 @@ import { BadGatewayException, ConflictException } from '@nestjs/common';
 import { SessionEngineLifecycle } from './session-engine-lifecycle.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { Session, SessionStatus } from './entities/session.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = '99999999-9999-4999-8999-999999999991';
 const NAME = 'concurrent-delete-logout';
@@ -48,7 +49,7 @@ function fixture() {
     }),
   };
   const dataSource = {
-    options: { type: 'better-sqlite3' },
+    options: { ...pgTestOptions() },
     getRepository: jest.fn(() => messageRepository),
     transaction: jest.fn(async (cb: (m: unknown) => Promise<void>) => cb(manager)),
   };

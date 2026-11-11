@@ -8,6 +8,7 @@ import { NotFoundException } from '@nestjs/common';
 import { WebhookService } from './webhook.service';
 import { Webhook } from './entities/webhook.entity';
 import { Session, SessionStatus } from '../session/entities/session.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('WebhookService session-scoped access', () => {
   let ds: DataSource;
@@ -17,8 +18,7 @@ describe('WebhookService session-scoped access', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Webhook],
       synchronize: true,
     });

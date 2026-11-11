@@ -1,34 +1,16 @@
-import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { LidMapping } from '../../../engine/identity/lid-mapping.entity';
 import { LidMappingStoreService } from '../../../engine/identity/lid-mapping-store.service';
 import { AddLidMappings1781200000000 } from '../1781200000000-AddLidMappings';
 import { AddLidMappingReportSource1791400000000 } from '../1791400000000-AddLidMappingReportSource';
 
 describe('AddLidMappingReportSource migration', () => {
-  const pg = process.env.DATABASE_TYPE === 'postgres';
-  const server = {
-    type: 'postgres' as const,
-    host: process.env.DATABASE_HOST || '127.0.0.1',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
   const migration = new AddLidMappingReportSource1791400000000();
   let ds: DataSource;
-  let admin: DataSource | undefined;
-  let schema: string;
 
   beforeEach(async () => {
-    schema = `lid_report_${randomUUID().replace(/-/g, '')}`;
-    admin = pg ? await new DataSource(server).initialize() : undefined;
-    if (admin) await admin.query(`CREATE SCHEMA "${schema}"`);
-    ds = await new DataSource(
-      pg
-        ? { ...server, schema, extra: { options: `-c search_path=${schema},public` }, entities: [LidMapping] }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [LidMapping] },
-    ).initialize();
+    ds = await new DataSource({ ...pgTestOptions(), entities: [LidMapping] }).initialize();
     const runner = ds.createQueryRunner();
     await new AddLidMappings1781200000000().up(runner);
     await runner.release();
@@ -36,10 +18,6 @@ describe('AddLidMappingReportSource migration', () => {
 
   afterEach(async () => {
     await ds.destroy();
-    if (admin) {
-      await admin.query(`DROP SCHEMA "${schema}" CASCADE`);
-      await admin.destroy();
-    }
   });
 
   it('preserves legacy data conservatively, upgrades an actual report, and does not renew trust on retry', async () => {

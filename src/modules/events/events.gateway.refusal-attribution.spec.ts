@@ -9,6 +9,7 @@ import { ApiKeyUsageTracker } from '../auth/api-key-usage-tracker.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditLog } from '../audit/entities/audit-log.entity';
 import { EventsGateway } from './events.gateway';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * A refusal of a STORED key over the socket names that key in its audit row, as the REST guard,
@@ -49,8 +50,7 @@ describe('EventsGateway audit rows for a refused stored key', () => {
 
   beforeAll(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [ApiKey, AuditLog],
       synchronize: true,
     });

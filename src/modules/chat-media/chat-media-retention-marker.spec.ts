@@ -8,6 +8,7 @@ import { StorageService } from '../../common/storage/storage.service';
 import { Message, MessageDirection, MessageStatus } from '../message/entities/message.entity';
 import { updateMessageMetadata } from '../message/message-metadata';
 import { ChatMediaArchiveService } from './chat-media-archive.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const config = (values: Record<string, unknown>): ConfigService =>
   ({ get: (key: string, fallback?: unknown) => (key in values ? values[key] : fallback) }) as unknown as ConfigService;
@@ -17,24 +18,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Retention removes an archived file. Under MESSAGE_INLINE_MEDIA=archive the row then has no copy of the media
- * left, and it must stop saying it has one. SQLite in a file, since a test closes and reopens it; on PostgreSQL
- * (DATABASE_TYPE=postgres) a schema of its own, since the marker is found with SQL that differs by dialect.
+ * left, and it must stop saying it has one.
  */
 describe('archive-only media after retention removes the file', () => {
-  const pg = process.env.DATABASE_TYPE === 'postgres';
-  const server = {
-    type: 'postgres' as const,
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
-  let schema = '';
-  const onServer = async (sql: string): Promise<void> => {
-    const admin = await new DataSource(server).initialize();
-    await admin.query(sql).finally(() => admin.destroy());
-  };
   let dir: string;
   let ds: DataSource;
   let repository: Repository<Message>;
@@ -42,16 +28,7 @@ describe('archive-only media after retention removes the file', () => {
 
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-retention-marker-'));
-    if (pg) {
-      schema = `retention_marker_${randomUUID().replace(/-/g, '')}`;
-      await onServer(`CREATE SCHEMA "${schema}"`);
-    }
-    const entities = [Message];
-    ds = await new DataSource(
-      pg
-        ? { ...server, schema, extra: { options: `-c search_path=${schema},public` }, entities, synchronize: true }
-        : { type: 'better-sqlite3', database: path.join(dir, 'data.sqlite'), entities, synchronize: true },
-    ).initialize();
+    ds = await new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true }).initialize();
     repository = ds.getRepository(Message);
     storage = new StorageService(config({ 'storage.type': 'local', 'storage.localPath': path.join(dir, 'media') }));
   });
@@ -59,7 +36,6 @@ describe('archive-only media after retention removes the file', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     if (ds.isInitialized) await ds.destroy();
-    if (pg) await onServer(`DROP SCHEMA "${schema}" CASCADE`);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -242,7 +218,7 @@ describe('archive-only media after retention removes the file', () => {
   it('lets the event loop run between the marker lookups of large inline copies', async () => {
     const archive = service('inline');
     for (let i = 0; i < 5; i++) await archivedRow(archive, {}, randomBytes(100 * 1024));
-    // Each lookup scans a whole inline copy, and better-sqlite3 answers it without a turn of the event loop.
+    // Each lookup scans a whole inline copy; the sweep must still yield to the event loop between them.
     let turns = 0;
     let spinning = true;
     const spin = (): void => {
@@ -267,36 +243,6 @@ describe('archive-only media after retention removes the file', () => {
     for (let i = 1; i < turnsAtLookup.length; i++) {
       expect(turnsAtLookup[i]).toBeGreaterThan(turnsAtLookup[i - 1]);
     }
-  });
-
-  // PostgreSQL computes OCTET_LENGTH and IS NOT NULL from the stored header either way; SQLite does not.
-  (pg ? it.skip : it)('reads only the size of a large row in the bulk marker statement', async () => {
-    const archive = service('inline');
-    await archivedRow(archive);
-    let issued: [string, unknown[]] | undefined;
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- called through with its own receiver
-    const getRawMany = SelectQueryBuilder.prototype.getRawMany;
-    jest.spyOn(SelectQueryBuilder.prototype, 'getRawMany').mockImplementation(function (
-      this: SelectQueryBuilder<never>,
-    ) {
-      if (this.getQuery().includes('CASE WHEN')) issued = this.getQueryAndParameters();
-      return getRawMany.call(this);
-    });
-
-    expect(await archive.purgeExpired(twoDaysLater())).toBe(1);
-
-    const columns = await ds.query<Array<{ cid: number; name: string }>>(
-      `PRAGMA table_info("${repository.metadata.tableName}")`,
-    );
-    const metadata = columns.find(column => column.name === 'metadata')!.cid;
-    const program = await ds.query<Array<{ opcode: string; p2: number; p5: number }>>(
-      `EXPLAIN ${issued![0]}`,
-      issued![1],
-    );
-    // A Column read flagged for a length (p5 bit 0x40) stops at the record header; any other loads the whole value.
-    const wholeLoads = program.filter(op => op.opcode === 'Column' && op.p2 === metadata && (op.p5 & 0x40) === 0);
-    // The one is the LIKE branch, which runs only for a row of 64 KiB or less.
-    expect(wholeLoads).toHaveLength(1);
   });
 
   it.each([

@@ -2,15 +2,11 @@ import { BadRequestException } from '@nestjs/common';
 import { SEARCH_CONTAINS_RANKED_LENGTH } from './search.constants';
 
 /**
- * What the built-in index (SQLite FTS5, unicode61) makes of a query, as an upper bound on its words. A
- * run of letters or digits is one word. ASCII punctuation separates. Any other character outside ASCII
- * may separate or be part of a word, depending on what the index's own Unicode table knows of it: the
- * ones it knows as marks, punctuation or symbols separate, and private use, a letter it does not split
- * on and every code point that table predates (among them recent emoji and marks) are parts of words.
+ * An upper bound on the words of a query. A run of letters or digits is one word. ASCII punctuation
+ * separates. Any other character outside ASCII may separate or be part of a word, so the count allows for
+ * either (see wordsOf).
  *
- * The 21 letters its tokenizer still splits on are left out of the run, so they count among the other
- * characters. search-terms.spec.ts compares every code point, and strings of them, with the bundled
- * SQLite, so an upgrade that moves one fails there instead of silently loosening the bound.
+ * The 21 letters below are left out of the run, so they count among the other characters.
  */
 const RUN_CHAR = /^(?![ᦰ-ᧀᧈᧉᳲᳳ])[\p{L}\p{N}]$/u;
 

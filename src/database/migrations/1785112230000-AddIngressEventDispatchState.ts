@@ -13,28 +13,22 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * migration never runs), and the reconciler would mass-replay the entire dedup log on deploy.
  * recordOrSkip writes 'pending' explicitly, so new rows need no default.
  *
- * Dual-dialect (SQLite + PostgreSQL), idempotent via an information_schema/PRAGMA column probe
- * (mirrors AddMessageAuthor). Hand-authored because `synchronize` is off for the `data` connection
- * on PostgreSQL (and optional on SQLite via DATABASE_SYNCHRONIZE=false).
+ * Idempotent via an information_schema column probe (mirrors AddMessageAuthor). Hand-authored
+ * because `synchronize` is off for the `data` connection.
  */
 export class AddIngressEventDispatchState1785112230000 implements MigrationInterface {
   name = 'AddIngressEventDispatchState1785112230000';
 
   private async hasColumn(queryRunner: QueryRunner, name: string): Promise<boolean> {
-    if (queryRunner.connection.options.type === 'postgres') {
-      const rows = (await queryRunner.query(
-        `SELECT 1 FROM information_schema.columns
-         WHERE table_schema = current_schema() AND table_name = 'ingress_events' AND column_name = '${name}'`,
-      )) as unknown[];
-      return rows.length > 0;
-    }
-    const rows = (await queryRunner.query(`PRAGMA table_info("ingress_events")`)) as Array<{ name: string }>;
-    return rows.some(r => r.name === name);
+    const rows = (await queryRunner.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = 'ingress_events' AND column_name = '${name}'`,
+    )) as unknown[];
+    return rows.length > 0;
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const isPostgres = queryRunner.connection.options.type === 'postgres';
-    const ts = isPostgres ? 'timestamp' : 'datetime';
+    const ts = 'timestamp';
 
     if (!(await this.hasColumn(queryRunner, 'dispatchState'))) {
       await queryRunner.query(`ALTER TABLE "ingress_events" ADD COLUMN "dispatchState" varchar NULL`);

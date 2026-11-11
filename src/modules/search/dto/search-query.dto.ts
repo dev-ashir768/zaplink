@@ -23,8 +23,7 @@ import type { SearchMatch } from '../search.types';
  * bounds `dateFrom`/`dateTo` use `@IsNumber()` within the safe integer range: beyond it a number is no longer an
  * exact integer and no timestamp reaches it, and the cap is the DTO's own, so it holds on both databases (a
  * bigint column only overflows far above it, on PostgreSQL); `limit`/`offset` use `@IsInt()`, because they are
- * bound straight into `LIMIT ?`/`OFFSET ?` where better-sqlite3 rejects a fractional value with
- * SQLITE_MISMATCH: a fraction has to be a 400 here rather than a driver-level 500. `sessionIds` and
+ * bound straight into `LIMIT`/`OFFSET`: a fraction has to be a 400 here rather than a driver-level 500. `sessionIds` and
  * `chatIds` are intentionally absent: both scopes are injected by SearchService from the caller's
  * API-key allowedSessions/allowedChats (never user-supplied).
  */
@@ -37,7 +36,7 @@ export class SearchQueryDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(SEARCH_QUERY_MAX_LENGTH)
-  // PostgreSQL refuses U+0000 in a bound parameter, and SQLite's FTS5 in a contains query: both a 500.
+  // PostgreSQL refuses U+0000 in a bound parameter, which would be a 500.
   @NoNulCharacter()
   q!: string;
 

@@ -11,6 +11,7 @@ import { persistHistoryMessages } from '../../modules/session/message-history-pr
 import { createLogger } from '../../common/services/logger.service';
 import { ConcurrencyLimiter } from '../../common/utils/concurrency-limiter';
 import type { IncomingMessage } from '../interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const PHONE_JID = '628111@s.whatsapp.net';
 const PHONE_CHAT = '628111@c.us';
@@ -43,8 +44,7 @@ describe('Baileys history revokes across LID and phone chat keys', () => {
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session, BaileysStoredMessage],
       synchronize: true,
     }).initialize();

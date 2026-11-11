@@ -1,14 +1,14 @@
 import { containsRankedText, foldForMatching } from './search-terms';
 
 /**
- * Relevance of a match=contains candidate, computed in the application so both dialects rank alike
+ * Relevance of a match=contains candidate, computed in the application
  * (see BuiltInFtsProvider.searchContains for why ranking left the database).
  *
  * Each term scores by its best occurrence in the body, compared folded (case and accents dropped):
  *  - 3 as a whole word (`invoice` in "pay the invoice today"),
  *  - 2 at the start of a word (`invoice` in "invoiced"),
  *  - 1 inside a word (`voic` in "invoice"),
- *  - 0 when the folded body does not contain it (a short term SQLite's ASCII-only LIKE matched).
+ *  - 0 when the folded body does not contain it.
  * The score is the sum over the terms, so a message matching more terms as words ranks higher. It
  * reads only the one body, never statistics of other messages, so it reveals nothing outside the
  * caller's scope, and only its first SEARCH_CONTAINS_RANKED_LENGTH characters.

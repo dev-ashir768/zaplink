@@ -11,8 +11,7 @@ import { positiveIntFromEnv } from '../../common/utils/env-int';
 
 /**
  * True when a write failed because the parent `sessions` row is absent (a foreign-key violation),
- * as opposed to any other persistence error. Covers SQLite (`SQLITE_CONSTRAINT[_FOREIGNKEY]`) and
- * Postgres (`23503`). TypeORM wraps the driver error in a QueryFailedError, so check both the
+ * as opposed to any other persistence error (Postgres `23503`). TypeORM wraps the driver error in a QueryFailedError, so check both the
  * wrapper and `driverError`.
  */
 function isMissingParentSessionError(err: unknown): boolean {
@@ -21,11 +20,7 @@ function isMissingParentSessionError(err: unknown): boolean {
   if (code === '23503') {
     return true; // Postgres foreign_key_violation
   }
-  const message = e?.message ?? '';
-  if (typeof code === 'string' && code.startsWith('SQLITE_CONSTRAINT')) {
-    return code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || /FOREIGN KEY/i.test(message);
-  }
-  return /FOREIGN KEY constraint failed/i.test(message);
+  return false;
 }
 
 @Injectable()
@@ -132,11 +127,8 @@ export class BaileysMessageStoreService implements BaileysMessageStore {
     const { BufferJSON } = await this.loadLib();
     const serializedMessage = JSON.stringify(msg, BufferJSON.replacer);
     // Idempotent: the same message arrives from the send return AND the messages.upsert echo.
-    // createdAt is set explicitly so the stored value carries millisecond precision — matching the
-    // :createdAt bound param used in enforceLimit(). Without this, SQLite's datetime('now') stores
-    // second-precision (e.g. '…:11') while the JS Date bound serializes as '…:11.000', and SQLite
-    // string-compares '…:11' < '…:11.000' = TRUE, causing every same-second row to be over-evicted
-    // and the store to be wiped to ~0.
+    // createdAt is set explicitly so the stored value has the same (millisecond) precision as the
+    // JS Date bound as :createdAt in enforceLimit().
     try {
       await this.repo.upsert({ sessionId, waMessageId, serializedMessage, createdAt: new Date() }, [
         'sessionId',

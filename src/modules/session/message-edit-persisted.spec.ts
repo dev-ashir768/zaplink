@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { DataSource, type Repository } from 'typeorm';
 import { Message, MessageDirection, MessageStatus } from '../message/entities/message.entity';
 import { MessageProjector } from './message-projector.service';
@@ -14,14 +13,16 @@ import type {
   IncomingMessage,
   IWhatsAppEngine,
 } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions, testSchemaName } from '../../test-utils/pg-test-db';
 
 // A plugin search provider keeps its index in step through `message:persisted`, treating every emission as
 // an upsert keyed by the row id (docs/27). A stored message whose text changes must reach it again, as a
-// revoked one does, or the index keeps serving the text the sender replaced. Runs on SQLite, and on the
-// postgres:16 service when DATABASE_TYPE=postgres.
+// revoked one does, or the index keeps serving the text the sender replaced. Runs on the test PostgreSQL
+// database.
 describe('message:persisted after a stored message changes its text', () => {
   const CHAT = '15550001111@c.us';
   let db: DataSource;
+  let schema: string;
   let repository: Repository<Message>;
   let projector: MessageProjector;
   let engine: IWhatsAppEngine;
@@ -74,26 +75,9 @@ describe('message:persisted after a stored message changes its text', () => {
 
   beforeEach(async () => {
     receivedGate = undefined;
-    db = new DataSource(
-      process.env.DATABASE_TYPE === 'postgres'
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            schema: `edit_persisted_${randomUUID().replace(/-/g, '')}`,
-            entities: [Message],
-            synchronize: false,
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true },
-    );
+    schema = testSchemaName();
+    db = new DataSource({ ...pgTestOptions(schema), entities: [Message], synchronize: true });
     await db.initialize();
-    if (db.options.type === 'postgres') {
-      await db.query(`CREATE SCHEMA "${db.options.schema}"`);
-      await db.synchronize();
-    }
     repository = db.getRepository(Message);
     hookManager = {
       execute: jest.fn(async (event: string, data: unknown) => {
@@ -118,7 +102,7 @@ describe('message:persisted after a stored message changes its text', () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    if (db.options.type === 'postgres') await db.query(`DROP SCHEMA IF EXISTS "${String(db.options.schema)}" CASCADE`);
+    await db.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await db.destroy();
   });
 

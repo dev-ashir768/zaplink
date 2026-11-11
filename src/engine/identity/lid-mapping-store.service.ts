@@ -14,8 +14,8 @@ import { resolveNonNegativeIntEnv } from '../../config/configuration';
 export const LID_MAPPING_CACHE_DEFAULT = 5000;
 
 /**
- * SQLite binds at most 32766 variables in one statement (Postgres 65535), so an `IN (...)` over a
- * large allowlist is chunked. Small enough to stay well inside both, large enough that a realistic
+ * Postgres binds at most 65535 parameters in one statement, so an `IN (...)` over a
+ * large allowlist is chunked. Small enough to stay well inside that, large enough that a realistic
  * allowlist is one round trip.
  */
 const LID_QUERY_CHUNK = 500;

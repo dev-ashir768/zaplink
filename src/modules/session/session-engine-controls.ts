@@ -22,7 +22,6 @@ import { BaileysStoredMessage } from '../../engine';
 import { ChatState } from '../../engine/adapters/baileys-chat-state.entity';
 import { StatusUpdate } from '../status-store/entities/status-update.entity';
 import { closeSessionWrites } from '../../common/utils/session-write-scope';
-import { awaitNoOpenTransaction } from '../../common/utils/shared-connection';
 import { EngineFactory } from '../../engine/engine.factory';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
@@ -47,38 +46,7 @@ import {
 } from './session-engine-lifecycle.service';
 
 /**
- * Rows of the tables that grow with traffic (messages, webhook outbox events, webhook delivery failures)
- * removed per statement when a session is deleted. On SQLite this is the most a batch may take: far below the
- * bind-parameter limit, and the loop sizes each batch to the time the last one took (see
- * SESSION_DELETE_BATCH_TARGET_MS_SQLITE), because one writer serves every session and each message row also
- * fires the full-text index trigger. A larger batch costs a little less per row but stalls longer: a
- * 300k-message session deletes 1.2 to 1.7 times faster at 2000 rows than at 500 (it depends on the load of the
- * host), with a longer worst statement. Most of the gain over the first batched delete comes from leaving the
- * session out of the delete's condition, see deleteTrafficRowsInBatches.
- */
-export const SESSION_DELETE_BATCH_SIZE_SQLITE = 2000;
-
-/**
- * How long a SQLite batch should take. The driver runs a statement on the event loop, so this is the longest
- * the process is held for one batch. The cost per row rises with the size of the database (about 75 microseconds
- * per row at 300k messages, 170 at 1.2M), which a fixed row count turned into a stall that grew with the history.
- * A batch costs less per row the larger it is, so a shorter target bounds the stall more tightly and lengthens
- * the whole delete: at 150 ms it takes about 1.4 times as long as at 2000 rows a batch, at 250 ms 1.0 to 1.2 times.
- */
-export const SESSION_DELETE_BATCH_TARGET_MS_SQLITE = 150;
-
-/** The first SQLite batch and the least one may shrink to, so a slow database is never started on a large batch. */
-export const SESSION_DELETE_BATCH_MIN_SQLITE = 250;
-
-/**
- * The pause after a SQLite batch. Yielding for one turn of the event loop lets a request take one step, but a
- * request takes several turns and each was followed by the next batch, so it waited out several batches. A
- * short pause lets it finish before the next one starts.
- */
-export const SESSION_DELETE_PAUSE_MS_SQLITE = 5;
-
-/**
- * The same on PostgreSQL, where a statement does not hold the process and a larger batch buys little (a million
+ * Rows removed per statement when a session is deleted. A larger batch buys little (a million
  * small rows on an analyzed table delete in about the same few seconds at 500 or 2000 rows). What bounds a
  * statement there is its time under the statement timeout, and that follows the bytes of the rows it deletes: a
  * message that keeps its media inline stores megabytes per row. So it keeps the smaller batch and its headroom.
@@ -92,15 +60,6 @@ export const SESSION_DELETE_BATCH_SIZE_POSTGRES = 500;
  * the delete take longer than linear, by seconds at 300,000 rows and far more beyond.
  */
 export const SESSION_DELETE_READ_AHEAD_POSTGRES = 20;
-
-/**
- * The size of the next SQLite batch: the last one scaled to the target time, growing by at most a factor of two
- * so a fast first batch cannot overshoot into a slow one, and kept between the floor and the ceiling.
- */
-export function nextSqliteDeleteBatchSize(rows: number, tookMs: number): number {
-  const scaled = Math.round((rows * SESSION_DELETE_BATCH_TARGET_MS_SQLITE) / Math.max(tookMs, 1));
-  return Math.max(SESSION_DELETE_BATCH_MIN_SQLITE, Math.min(SESSION_DELETE_BATCH_SIZE_SQLITE, rows * 2, scaled));
-}
 
 /** One table's pass of the batched delete: the repository to delete from and the reader of the next page of ids. */
 type TrafficPass = { rows: Repository<{ id: string }>; next: (take: number) => Promise<string[]> };
@@ -1096,11 +1055,9 @@ export class SessionEngineControls {
       // parent in one transaction. For
       // messages/message_batches this is load-bearing: they carry a plain sessionId with no FK, so
       // nothing else would ever remove them. webhooks/templates/baileys_stored_messages (and
-      // automation_rules) DO declare an ON DELETE CASCADE FK that fires on BOTH engines —
-      // better-sqlite3 defaults `foreign_keys` ON and TypeORM's driver re-asserts it at connection
-      // creation — so their explicit deletes are belt-and-braces rather than required; they stay
-      // because depending on a pragma neither this file nor a test pins is a thinner guarantee than
-      // an explicit delete, and the ordering mirrors the restore path's explicit-clear. chat_states and
+      // automation_rules) DO declare an ON DELETE CASCADE FK, so their explicit deletes are
+      // belt-and-braces rather than required; they stay because an explicit delete does not depend on
+      // the schema keeping that FK, and the ordering mirrors the restore path's explicit-clear. chat_states and
       // status_updates are in the no-FK group too, and so are the session's webhook outbox rows,
       // webhook delivery-failure records, integration dead-letter rows (which keep full payloads) and
       // send idempotency claims (which keep the stored response of a send for 24 h, so a session
@@ -1113,7 +1070,6 @@ export class SessionEngineControls {
       // instance-keyed inbound dedup record, payload already dropped after dispatch, always pruned
       // after INGRESS_DEDUP_RETENTION_DAYS), lid_mappings (a global cache by design) and audit_logs (the audit trail).
       await this.deleteTrafficRowsInBatches(session, hooks.ownsClaim);
-      const dataSource = this.host.dataSource();
       await this.withDeleteClaim(session, hooks.ownsClaim, async manager => {
         await manager.delete(Message, { sessionId: id });
         await manager.delete(MessageBatch, { sessionId: id });
@@ -1149,10 +1105,7 @@ export class SessionEngineControls {
       // a session's id there; it is compared as text, so only a name that really is an id withholds itself.
       // Keyed by `id`, not `session.id`: TypeORM clears a removed entity's primary key, so session.id
       // is undefined here and the purge would refuse it as an unsafe key and remove nothing.
-      const legacyId =
-        dataSource.options.type === 'postgres'
-          ? Raw(alias => `CAST(${alias} AS text) = :legacyId`, { legacyId: session.name })
-          : session.name;
+      const legacyId = Raw(alias => `CAST(${alias} AS text) = :legacyId`, { legacyId: session.name });
       const nameIsAnId = await this.sessionRepository.exists({ where: { id: legacyId } }).catch(() => true);
       await this.engineFactory.purgeSessionData(id, nameIsAnId ? undefined : session.name);
     } catch (error) {
@@ -1224,25 +1177,21 @@ export class SessionEngineControls {
    * Remove a session's rows of the tables that grow with traffic (its messages, its webhook outbox records
    * and its webhook delivery failures) in batches, ahead of the transaction that removes everything else.
    * One DELETE over a session that has stored millions of rows ran past PostgreSQL's statement timeout,
-   * which failed the whole delete (every retry the same) and, on SQLite, blocked the one event loop for the
-   * length of the statement while each message row also fired the full-text index trigger.
+   * which failed the whole delete (every retry the same).
    *
    * The batches are not one atomic unit: a failure part-way leaves the session with fewer rows, and
    * repeating the delete finishes the job. Nothing new can land meanwhile, because the engine is gone and
-   * the closing write scope refuses outbound writes. SQLite resolves each statement within the same tick, so
-   * the loop pauses between batches to let the event loop run, and sizes each batch to the time the last one took.
+   * the closing write scope refuses outbound writes.
    *
    * A batch is removed by primary key alone. Its ids were read for this session a statement earlier, so a
-   * sessionId condition beside the id list adds no safety, and it costs: SQLite plans the delete as a walk
-   * over the session's remaining rows that filters on the list, once per batch (PostgreSQL does too while its
-   * statistics are missing or stale), which made a long history take longer than linear.
+   * sessionId condition beside the id list adds no safety, and it costs: PostgreSQL plans the delete as a
+   * walk over the session's remaining rows while its statistics are missing or stale.
    */
   private async deleteTrafficRowsInBatches(session: Session, ownsClaim?: () => boolean): Promise<void> {
     const sessionId = session.id;
     const dataSource = this.host.dataSource();
-    const postgres = dataSource.options.type === 'postgres';
-    let size = postgres ? SESSION_DELETE_BATCH_SIZE_POSTGRES : SESSION_DELETE_BATCH_MIN_SQLITE;
-    const readAhead = postgres ? SESSION_DELETE_READ_AHEAD_POSTGRES : 1;
+    const size = SESSION_DELETE_BATCH_SIZE_POSTGRES;
+    const readAhead = SESSION_DELETE_READ_AHEAD_POSTGRES;
     const head = (entity: EntityTarget<{ id: string; sessionId: string }>): TrafficPass => {
       const repository = dataSource.getRepository(entity);
       let ahead: string[] = [];
@@ -1271,17 +1220,13 @@ export class SessionEngineControls {
     ];
     for (const { rows, next } of passes) {
       for (;;) {
-        const started = performance.now();
         const ids = await next(size);
         if (ids.length === 0) break;
         await this.withDeleteClaim(session, ownsClaim, async manager => {
           await manager.getRepository(rows.target).delete({ id: In(ids) });
         });
         if (ids.length < size) break;
-        if (!postgres) size = nextSqliteDeleteBatchSize(ids.length, performance.now() - started);
-        await new Promise<void>(resolve =>
-          postgres ? setImmediate(resolve) : setTimeout(resolve, SESSION_DELETE_PAUSE_MS_SQLITE),
-        );
+        await new Promise<void>(resolve => setImmediate(resolve));
       }
     }
   }
@@ -1293,12 +1238,6 @@ export class SessionEngineControls {
     remove: (manager: EntityManager) => Promise<void>,
   ): Promise<void> {
     const dataSource = this.host.dataSource();
-    // A savepoint on SQLite's shared connection could be rolled back by an unrelated caller.
-    if (!(await awaitNoOpenTransaction(dataSource))) {
-      throw new ServiceUnavailableException(
-        `Session ${session.id} was not deleted: another database transaction stayed open. Retry the delete.`,
-      );
-    }
     await dataSource.transaction(async manager => {
       if (this.host.nodeId !== undefined) {
         const { affected } = await manager

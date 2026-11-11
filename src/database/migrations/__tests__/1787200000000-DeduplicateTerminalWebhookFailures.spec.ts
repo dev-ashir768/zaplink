@@ -1,9 +1,10 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { DeduplicateTerminalWebhookFailures1787200000000 } from '../1787200000000-DeduplicateTerminalWebhookFailures';
 
 describe('terminal webhook failure identity migration', () => {
   it('preserves replay data while merging keyed duplicates and allows rollback', async () => {
-    const ds = await new DataSource({ type: 'better-sqlite3', database: ':memory:' }).initialize();
+    const ds = await new DataSource({ ...pgTestOptions() }).initialize();
     try {
       await ds.query(`CREATE TABLE webhook_delivery_failures (id text PRIMARY KEY, "webhookId" text,
         "idempotencyKey" text, attempts integer, payload text, "createdAt" text)`);

@@ -13,6 +13,7 @@ import { MessageNotFoundError } from '../../common/errors/message-not-found.erro
 import { createLogger } from '../../common/services/logger.service';
 import { ConcurrencyLimiter } from '../../common/utils/concurrency-limiter';
 import type { IncomingMessage } from '../interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const CHAT = '628111@s.whatsapp.net';
 const SELF = '628222@s.whatsapp.net';
@@ -46,8 +47,7 @@ describe('Baileys history revokes', () => {
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session, BaileysStoredMessage],
       synchronize: true,
     }).initialize();
@@ -253,11 +253,11 @@ describe('Baileys history revokes', () => {
   it('clears an original still downloading its media without live fanout', async () => {
     const photo = target({ message: { imageMessage: { mimetype: 'image/jpeg', caption: 'withdrawn secret' } } });
     events.handleMessagesUpsert({ messages: [photo], type: 'notify' });
-    for (let i = 0; i < 20 && !releaseMedia; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    for (let i = 0; i < 400 && !releaseMedia; i++) await new Promise<void>(resolve => setTimeout(resolve, 5));
     expect(releaseMedia).toBeDefined();
     await capture([revoke()]);
     releaseMedia();
-    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setTimeout(resolve, 5));
     await cleared();
     expect((await raw.getMessage('s1', 'M1'))?.message).toBeNull();
   });
@@ -439,7 +439,7 @@ describe('Baileys history revokes', () => {
     previews.recordMessage(current);
     release('628111');
     await Promise.all(jobs);
-    for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve));
+    for (let i = 0; i < 10; i++) await new Promise(resolve => setTimeout(resolve, 5));
     expect((await raw.getMessage('s1', 'M1'))?.message).toEqual(current.message);
     expect(previews.listChats().find(chat => chat.id === '628111@c.us')?.lastMessage).toBe('current connection body');
     expect(liveFanout).not.toHaveBeenCalled();

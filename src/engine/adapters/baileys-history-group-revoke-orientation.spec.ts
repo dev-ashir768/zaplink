@@ -11,6 +11,7 @@ import { persistHistoryMessages } from '../../modules/session/message-history-pr
 import { createLogger } from '../../common/services/logger.service';
 import { ConcurrencyLimiter } from '../../common/utils/concurrency-limiter';
 import type { IncomingMessage } from '../interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * A history revoke is keyed as the revoker's client wrote it. In a group, the message it names belongs to the
@@ -60,8 +61,7 @@ describe('Baileys history group revokes keyed from the revoker side', () => {
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session, BaileysStoredMessage],
       synchronize: true,
     }).initialize();

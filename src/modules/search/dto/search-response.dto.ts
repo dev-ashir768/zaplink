@@ -39,9 +39,8 @@ export class SearchHitDto {
   @ApiPropertyOptional({
     description:
       'Relevance score, when the provider reports one. Hits come back most relevant first, while the direction of ' +
-      "the value is the backend's: the built-in match=word score is FTS5's bm25 rank on SQLite (negative, lower is " +
-      'more relevant) and ts_rank on PostgreSQL (higher is more relevant); a match=contains score is higher for a ' +
-      'better match on both.',
+      "the value is the backend's: the built-in match=word score is PostgreSQL's ts_rank and a match=contains " +
+      'score is higher for a better match.',
     example: 0.87,
   })
   score?: number;

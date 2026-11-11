@@ -5,7 +5,7 @@ export class DeduplicateTerminalWebhookFailures1787200000000 implements Migratio
   name = 'DeduplicateTerminalWebhookFailures1787200000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type === 'postgres') await queryRunner.query('SET LOCAL statement_timeout = 0');
+    await queryRunner.query('SET LOCAL statement_timeout = 0');
     const payloadOrder = (await queryRunner.hasColumn('webhook_delivery_failures', 'payload'))
       ? 'CASE WHEN "payload" IS NOT NULL THEN 0 ELSE 1 END,'
       : '';

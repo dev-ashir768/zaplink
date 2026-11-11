@@ -22,6 +22,7 @@ import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.ent
 import { AutomationRule } from '../../database/retained-entities/automation-rule.entity';
 import * as templateRender from '../../common/utils/template-render';
 import { renderTemplate } from '../../common/utils/template-render';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const entities = [
   Session,
@@ -254,8 +255,7 @@ describe('real SQLite export reads templated batch payloads', () => {
   beforeEach(async () => {
     delete process.env.DATABASE_TYPE;
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities,
       synchronize: true,
     }).initialize();

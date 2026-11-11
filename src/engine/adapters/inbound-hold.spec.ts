@@ -23,7 +23,7 @@ import type { SessionLidResolver } from '../../modules/session/session-lid-resol
 import type { EngineEventCallbacks, IncomingMessage, IWhatsAppEngine } from '../interfaces/whatsapp-engine.interface';
 
 /**
- * Both engines against the real projector, as PostgreSQL wires them: each inbound message is admitted
+ * Both engines against the real projector, as the session wires them: each inbound message is admitted
  * on arrival, its media is downloaded only into a slot of the session's room, held until its row is
  * written, and its chat's order and any change that reaches it before its emit are kept.
  */
@@ -38,15 +38,15 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
 /**
  * The real projector over a stand-in `messages` table whose inserts a test can stall per message. With
  * `unique`, an insert of an id the table already holds fails as the real table's unique index does. With
- * `sqlite`, it is wired as SQLite is: no message is admitted before its emit.
+ * `unadmitted`, the engine is wired without an admission callback: no message is admitted before its emit.
  */
-function heldProjector(options: { unique?: boolean; sqlite?: boolean } = {}) {
+function heldProjector(options: { unique?: boolean; unadmitted?: boolean } = {}) {
   const rows: Row[] = [];
   const hookStarts: string[] = [];
   const hookedBodies: Record<string, string> = {};
   const stalls = new Map<string, Promise<void>>();
   const repo = {
-    manager: { connection: { options: { type: options.sqlite ? 'better-sqlite3' : 'postgres' } } },
+    manager: { connection: { options: { type: 'postgres' } } },
     find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn(({ where }: { where: Row }) =>
       Promise.resolve(rows.find(r => r.waMessageId === where.waMessageId) ?? null),
@@ -55,7 +55,7 @@ function heldProjector(options: { unique?: boolean; sqlite?: boolean } = {}) {
     insert: jest.fn(async (row: Row) => {
       await stalls.get(String(row.waMessageId));
       if (options.unique && rows.some(r => r.waMessageId === row.waMessageId)) {
-        throw Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+        throw Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
       }
       rows.push({ ...row });
       return { identifiers: [{ id: `pk-${String(row.waMessageId)}` }], generatedMaps: [] };
@@ -98,10 +98,10 @@ function heldProjector(options: { unique?: boolean; sqlite?: boolean } = {}) {
     statusStore as unknown as StatusStoreService,
     { resolveSenderPhone: jest.fn().mockResolvedValue(null) } as unknown as SessionLidResolver,
   );
-  // The same table SessionEngineEventWiring builds on PostgreSQL.
+  // The same table SessionEngineEventWiring builds.
   const callbacksFor = (e: IWhatsAppEngine): EngineEventCallbacks => ({
-    // Only PostgreSQL holds a message from its arrival.
-    ...(options.sqlite
+    // Without the admission callback the engine holds a message only by its own processing.
+    ...(options.unadmitted
       ? {}
       : { admitInbound: (a: Parameters<MessageProjector['admitInbound']>[2]) => projector.admitInbound('s1', e, a) }),
     onMessage: (m, t) => projector.handleInboundMessage('s1', e, m, t),
@@ -762,8 +762,8 @@ describe('Baileys inbound messages held for storage', () => {
   });
 
   it.each([
-    ['waiting for room (PostgreSQL)', true],
-    ['still downloading (SQLite)', false],
+    ['waiting for room (admitted)', true],
+    ['still downloading (not admitted)', false],
   ])('drops a reaction from another chat aimed at media %s', async (_, admitted) => {
     process.env.INBOUND_MEDIA_CONCURRENCY = '1';
     const h = heldProjector();
@@ -777,7 +777,7 @@ describe('Baileys inbound messages held for storage', () => {
       release = h.stall('H');
       callbacks = h.callbacks;
     } else {
-      // No admission callback, as SQLite wires the engine: M is held only by its own download.
+      // No admission callback: M is held only by its own download.
       release = () => download.resolve();
       downloadMediaMessage.mockImplementation(() => download.promise.then(() => stream()));
       callbacks = { onMessage: jest.fn(), onMessageReaction };
@@ -848,89 +848,92 @@ describe('Baileys inbound messages held for storage', () => {
   // holds under another chat, and a delete from the reusing chat is the delete of that delivery, never of
   // the stored message: its row keeps its content, and nothing announces it as deleted.
   describe.each([
-    ['PostgreSQL', false],
-    ['SQLite', true],
-  ])('a delivery that reuses the id of a stored message of another chat, deleted by its sender on %s', (_, sqlite) => {
-    const CHAT_A = '628111@s.whatsapp.net';
-    const CHAT_B = '628222@s.whatsapp.net';
-    const real = (): Row => ({
-      sessionId: 's1',
-      waMessageId: 'X',
-      chatId: CHAT_A,
-      direction: 'incoming',
-      type: 'text',
-      body: 'the real one',
-      metadata: null,
-    });
-    const revokeFrom = (chat: string): WAMessage => ({
-      key: { id: 'REV', remoteJid: chat, fromMe: false },
-      messageTimestamp: 1_700_000_001,
-      message: { protocolMessage: { type: 0, key: { id: 'X', remoteJid: chat, fromMe: false } } },
-    });
-
-    it.each([
-      ['text', (): WAMessage => text('X', CHAT_B)],
-      ['media', (): WAMessage => media('X', CHAT_B)],
-    ])('leaves the stored message alone when the delivery is %s', async (_kind, reuse) => {
-      process.env.INBOUND_MEDIA_CONCURRENCY = '1';
-      const h = heldProjector({ unique: true, sqlite });
-      h.rows.push(real());
-      const download = deferred<ReturnType<typeof stream>>();
-      downloadMediaMessage.mockImplementationOnce(() => download.promise);
-      const { events } = build(4, h.callbacks);
-      upsert(events, reuse(), revokeFrom(CHAT_B));
-      await flush();
-      download.resolve(stream());
-      await flush();
-
-      expect(h.rows).toEqual([real()]);
-      expect(h.announcedAs('message.revoked')).toEqual([]);
-      expect(h.announced()).toEqual([]);
-    });
-
-    // The delivery's row waits for an earlier message of its chat: on SQLite as well, it is in flight
-    // from its emit until that commit ends, and a delete from its chat reaches it there.
-    it('leaves the stored message alone when the delivery waits for an earlier message of its chat', async () => {
-      const h = heldProjector({ unique: true, sqlite });
-      h.rows.push(real());
-      const release = h.stall('EARLIER');
-      const { events } = build(4, h.callbacks);
-      upsert(events, text('EARLIER', CHAT_B), text('X', CHAT_B));
-      await flush();
-      upsert(events, revokeFrom(CHAT_B));
-      await flush();
-      release();
-      await flush();
-
-      expect(h.rows.find(r => r.waMessageId === 'X')).toEqual(real());
-      expect(h.inserted()).toEqual(['X', 'EARLIER']);
-      expect(h.announcedAs('message.revoked')).toEqual([]);
-      expect(h.announced()).toEqual(['EARLIER']);
-    });
-
-    it('still takes a later edit from the real message chat', async () => {
-      const h = heldProjector({ unique: true, sqlite });
-      h.rows.push(real());
-      const { events } = build(4, h.callbacks);
-      upsert(events, text('X', CHAT_B), revokeFrom(CHAT_B));
-      await flush();
-      upsert(events, {
-        key: { id: 'ENV', remoteJid: CHAT_A, fromMe: false },
-        messageTimestamp: 1_700_000_002,
-        message: {
-          protocolMessage: {
-            type: 14,
-            key: { id: 'X', remoteJid: CHAT_A, fromMe: false },
-            editedMessage: { conversation: 'fixed' },
-            timestampMs: 1_700_000_002_000,
-          },
-        },
+    ['admitted on arrival', false],
+    ['not admitted before the emit', true],
+  ])(
+    'a delivery that reuses the id of a stored message of another chat, deleted by its sender on %s',
+    (_, unadmitted) => {
+      const CHAT_A = '628111@s.whatsapp.net';
+      const CHAT_B = '628222@s.whatsapp.net';
+      const real = (): Row => ({
+        sessionId: 's1',
+        waMessageId: 'X',
+        chatId: CHAT_A,
+        direction: 'incoming',
+        type: 'text',
+        body: 'the real one',
+        metadata: null,
       });
-      await flush();
+      const revokeFrom = (chat: string): WAMessage => ({
+        key: { id: 'REV', remoteJid: chat, fromMe: false },
+        messageTimestamp: 1_700_000_001,
+        message: { protocolMessage: { type: 0, key: { id: 'X', remoteJid: chat, fromMe: false } } },
+      });
 
-      expect(h.rows).toEqual([{ ...real(), body: 'fixed', metadata: { edited: true } }]);
-    });
-  });
+      it.each([
+        ['text', (): WAMessage => text('X', CHAT_B)],
+        ['media', (): WAMessage => media('X', CHAT_B)],
+      ])('leaves the stored message alone when the delivery is %s', async (_kind, reuse) => {
+        process.env.INBOUND_MEDIA_CONCURRENCY = '1';
+        const h = heldProjector({ unique: true, unadmitted });
+        h.rows.push(real());
+        const download = deferred<ReturnType<typeof stream>>();
+        downloadMediaMessage.mockImplementationOnce(() => download.promise);
+        const { events } = build(4, h.callbacks);
+        upsert(events, reuse(), revokeFrom(CHAT_B));
+        await flush();
+        download.resolve(stream());
+        await flush();
+
+        expect(h.rows).toEqual([real()]);
+        expect(h.announcedAs('message.revoked')).toEqual([]);
+        expect(h.announced()).toEqual([]);
+      });
+
+      // The delivery's row waits for an earlier message of its chat: without admission as well, it is in flight
+      // from its emit until that commit ends, and a delete from its chat reaches it there.
+      it('leaves the stored message alone when the delivery waits for an earlier message of its chat', async () => {
+        const h = heldProjector({ unique: true, unadmitted });
+        h.rows.push(real());
+        const release = h.stall('EARLIER');
+        const { events } = build(4, h.callbacks);
+        upsert(events, text('EARLIER', CHAT_B), text('X', CHAT_B));
+        await flush();
+        upsert(events, revokeFrom(CHAT_B));
+        await flush();
+        release();
+        await flush();
+
+        expect(h.rows.find(r => r.waMessageId === 'X')).toEqual(real());
+        expect(h.inserted()).toEqual(['X', 'EARLIER']);
+        expect(h.announcedAs('message.revoked')).toEqual([]);
+        expect(h.announced()).toEqual(['EARLIER']);
+      });
+
+      it('still takes a later edit from the real message chat', async () => {
+        const h = heldProjector({ unique: true, unadmitted });
+        h.rows.push(real());
+        const { events } = build(4, h.callbacks);
+        upsert(events, text('X', CHAT_B), revokeFrom(CHAT_B));
+        await flush();
+        upsert(events, {
+          key: { id: 'ENV', remoteJid: CHAT_A, fromMe: false },
+          messageTimestamp: 1_700_000_002,
+          message: {
+            protocolMessage: {
+              type: 14,
+              key: { id: 'X', remoteJid: CHAT_A, fromMe: false },
+              editedMessage: { conversation: 'fixed' },
+              timestampMs: 1_700_000_002_000,
+            },
+          },
+        });
+        await flush();
+
+        expect(h.rows).toEqual([{ ...real(), body: 'fixed', metadata: { edited: true } }]);
+      });
+    },
+  );
 
   // The session holds a change that reaches a message before its emit to the rule of the row it will
   // become, which needs the direction and the sender from the arrival on.
@@ -1235,13 +1238,13 @@ describe('Baileys inbound messages held for storage', () => {
       const kinds = ['edit', 'delete', 'reaction'] as const;
 
       describe.each([
-        ['PostgreSQL', false],
-        ['SQLite', true],
-      ])('on %s', (_, sqlite) => {
+        ['admitted on arrival', false],
+        ['not admitted before the emit', true],
+      ])('on %s', (_, unadmitted) => {
         it.each(kinds.flatMap(kind => [true, false].map(stall => [kind, stall] as const)))(
           'lands the real %s once the delivery is refused (answer held: %s)',
           async (kind, stall) => {
-            const h = heldProjector({ unique: true, sqlite });
+            const h = heldProjector({ unique: true, unadmitted });
             h.rows.push(seeded());
             const release = stall ? h.stall('X') : undefined;
             const { store, open } = holdingReads([1]);
@@ -1270,7 +1273,7 @@ describe('Baileys inbound messages held for storage', () => {
         it.each(kinds.flatMap(kind => [true, false].map(conflicts => [kind, conflicts] as const)))(
           'holds a forged %s from a third chat until the delivery is answered, then drops it (delivery conflicts: %s)',
           async (kind, conflicts) => {
-            const h = heldProjector({ unique: true, sqlite });
+            const h = heldProjector({ unique: true, unadmitted });
             // Without a row of another message, the delivery is the message the id names.
             if (conflicts) h.rows.push(seeded());
             const release = h.stall('X');
@@ -1305,7 +1308,7 @@ describe('Baileys inbound messages held for storage', () => {
         it.each(kinds.flatMap(kind => [true, false].map(conflicts => [kind, conflicts] as const)))(
           'drops a forged %s from a third chat judged after the answer (delivery conflicts: %s)',
           async (kind, conflicts) => {
-            const h = heldProjector({ unique: true, sqlite });
+            const h = heldProjector({ unique: true, unadmitted });
             if (conflicts) h.rows.push(seeded());
             const { store, open } = holdingReads([1, 3]);
             const { events } = build(4, h.callbacks, store);
@@ -1404,12 +1407,12 @@ describe('Baileys inbound messages held for storage', () => {
       // and the removal of the conflicting copy of U fails. A message of another id that conflicts meanwhile has
       // no say in what X is.
       it.each([
-        ['PostgreSQL', false],
-        ['SQLite', true],
+        ['admitted on arrival', false],
+        ['not admitted before the emit', true],
       ])(
         'keeps holding a forged change when another id conflicts while the delivery downloads, on %s',
-        async (_, sqlite) => {
-          const h = heldProjector({ unique: true, sqlite });
+        async (_, unadmitted) => {
+          const h = heldProjector({ unique: true, unadmitted });
           h.rows.push({ waMessageId: 'U', chatId: CHAT_A, direction: 'incoming', body: 'another real one' });
           const download = deferred<ReturnType<typeof stream>>();
           downloadMediaMessage.mockImplementationOnce(() => download.promise);
@@ -1434,13 +1437,13 @@ describe('Baileys inbound messages held for storage', () => {
     });
   });
 
-  // A reaction, an edit or a delete of a message that is still being processed. PostgreSQL holds the message from
-  // its arrival, so the session keeps the change for the row whenever it comes. SQLite holds nothing before the
-  // emit, so the adapter announces the change right after it, when the session holds the message.
+  // A reaction, an edit or a delete of a message that is still being processed. An admitted message is held from
+  // its arrival, so the session keeps the change for the row whenever it comes. Without admission nothing is held
+  // before the emit, so the adapter announces the change right after it, when the session holds the message.
   describe.each([
-    ['PostgreSQL', false],
-    ['SQLite', true],
-  ])('a reaction, an edit or a delete of media still downloading, on %s', (_, sqlite) => {
+    ['admitted on arrival', false],
+    ['not admitted before the emit', true],
+  ])('a reaction, an edit or a delete of media still downloading, on %s', (_, unadmitted) => {
     const CHAT = '628111@s.whatsapp.net';
     const target = (id: string) => ({ id, remoteJid: CHAT, fromMe: false });
     const change = (id: string, content: Row): WAMessage => ({
@@ -1482,7 +1485,7 @@ describe('Baileys inbound messages held for storage', () => {
     const changesOnly = (log: string[]): string[] => log.filter(entry => !entry.startsWith('message '));
 
     it('keeps a reaction for the row of the message', async () => {
-      const h = heldProjector({ unique: true, sqlite });
+      const h = heldProjector({ unique: true, unadmitted });
       const { events } = build(4, h.callbacks);
       const release = download();
       upsert(events, media('M', CHAT));
@@ -1501,7 +1504,7 @@ describe('Baileys inbound messages held for storage', () => {
     });
 
     it('has the session hold the message when an edit reaches it, and the row takes the text', async () => {
-      const h = heldProjector({ unique: true, sqlite });
+      const h = heldProjector({ unique: true, unadmitted });
       const quotedWhenEdited: boolean[] = [];
       const rowsWhenEdited: number[] = [];
       const onMessageEdited: EngineEventCallbacks['onMessageEdited'] = e => {
@@ -1535,7 +1538,7 @@ describe('Baileys inbound messages held for storage', () => {
       ['an edit', 'fixed caption', 'caption'],
       ['an edit that repeats the text', 'caption', undefined],
     ])('hands the message over with %s and the text it arrived with', async (_, body, originalBody) => {
-      const h = heldProjector({ unique: true, sqlite });
+      const h = heldProjector({ unique: true, unadmitted });
       const handedOver: Array<Pick<IncomingMessage, 'body' | 'originalBody'>> = [];
       const { events } = build(4, {
         ...h.callbacks,
@@ -1562,7 +1565,7 @@ describe('Baileys inbound messages held for storage', () => {
     ])(
       'hands the message over with the text it arrived with after %s only if one changed it',
       async (_, bodies, originalBody) => {
-        const h = heldProjector({ unique: true, sqlite });
+        const h = heldProjector({ unique: true, unadmitted });
         const handedOver: Array<Pick<IncomingMessage, 'body' | 'originalBody'>> = [];
         const { events } = build(4, {
           ...h.callbacks,
@@ -1589,7 +1592,7 @@ describe('Baileys inbound messages held for storage', () => {
       ['an edit', 'fixed caption', true],
       ['an edit that repeats the text', 'caption', undefined],
     ])('marks the row and the message edited for %s only if it changed the text', async (_, body, edited) => {
-      const h = heldProjector({ unique: true, sqlite });
+      const h = heldProjector({ unique: true, unadmitted });
       const { events } = build(4, h.callbacks);
       const release = download();
       upsert(events, media('M', CHAT, { caption: 'caption' }));
@@ -1609,11 +1612,11 @@ describe('Baileys inbound messages held for storage', () => {
     });
 
     it(
-      sqlite
+      unadmitted
         ? 'announces them once the message has been handed on'
         : 'announces them at once, the session holds the message already',
       async () => {
-        const h = heldProjector({ unique: true, sqlite });
+        const h = heldProjector({ unique: true, unadmitted });
         const { events } = build(4, h.callbacks);
         const release = download();
         upsert(events, media('M', CHAT));
@@ -1624,13 +1627,13 @@ describe('Baileys inbound messages held for storage', () => {
         release();
         await flush();
 
-        expect(early).toEqual(sqlite ? [0, 0] : [1, 1]);
+        expect(early).toEqual(unadmitted ? [0, 0] : [1, 1]);
         expect([h.announcedAs('message.reaction').length, h.announcedAs('message.edited').length]).toEqual([1, 1]);
       },
     );
 
     it('announces a delete at once, and neither emits nor announces the message after it', async () => {
-      const h = heldProjector({ unique: true, sqlite });
+      const h = heldProjector({ unique: true, unadmitted });
       const { events } = build(4, h.callbacks);
       const release = download();
       upsert(events, media('M', CHAT, { caption: 'caption' }));
@@ -1642,8 +1645,10 @@ describe('Baileys inbound messages held for storage', () => {
       await flush();
 
       expect(h.announced()).toEqual([]);
-      // As on whatsapp-web.js a held message is stored cleared; where nothing holds it (SQLite) it is not stored.
-      expect(h.rows).toEqual(sqlite ? [] : [expect.objectContaining({ waMessageId: 'M', body: '', type: 'revoked' })]);
+      // As on whatsapp-web.js a held message is stored cleared; where nothing holds it (no admission) it is not stored.
+      expect(h.rows).toEqual(
+        unadmitted ? [] : [expect.objectContaining({ waMessageId: 'M', body: '', type: 'revoked' })],
+      );
     });
 
     it.each([
@@ -1652,7 +1657,7 @@ describe('Baileys inbound messages held for storage', () => {
     ])(
       'announces %s before the delete that follows it, and no content after the delete',
       async (_kind, first, seen) => {
-        const h = heldProjector({ unique: true, sqlite });
+        const h = heldProjector({ unique: true, unadmitted });
         const { log, callbacks } = traced(h);
         const { events } = build(4, callbacks);
         const release = download();
@@ -1665,7 +1670,7 @@ describe('Baileys inbound messages held for storage', () => {
 
         expect(changesOnly(log)).toEqual([seen, 'revoked M']);
         expect(h.announced()).toEqual([]);
-        expect(h.rows.map(r => r.body)).toEqual(sqlite ? [] : ['']);
+        expect(h.rows.map(r => r.body)).toEqual(unadmitted ? [] : ['']);
       },
     );
   });
@@ -1674,11 +1679,11 @@ describe('Baileys inbound messages held for storage', () => {
   // or a resend from the phone) as an ordinary upsert under the same id. Baileys reports an edit only for an edit
   // message, so the content arriving is no edit.
   describe.each([
-    ['PostgreSQL', false],
-    ['SQLite', true],
-  ])('a message that arrived undecrypted, on %s', (_, sqlite) => {
+    ['admitted on arrival', false],
+    ['not admitted before the emit', true],
+  ])('a message that arrived undecrypted, on %s', (_, unadmitted) => {
     it('stores and announces it once its content arrives, unedited', async () => {
-      const h = heldProjector({ unique: true, sqlite });
+      const h = heldProjector({ unique: true, unadmitted });
       const { events } = build(4, h.callbacks, memoryStore());
       const key = { id: 'M', remoteJid: '628111@s.whatsapp.net', fromMe: false };
       const stub = { key, messageTimestamp: 1_700_000_000, messageStubType: 1, messageStubParameters: ['absent'] };
@@ -1695,7 +1700,7 @@ describe('Baileys inbound messages held for storage', () => {
     });
   });
 
-  // Where nothing is admitted before the emit (SQLite), a change waits for its message, and the wait is bounded.
+  // Where nothing is admitted before the emit, a change waits for its message, and the wait is bounded.
   describe('a change of a message still being processed, where nothing is admitted before the emit', () => {
     const CHAT = '628111@s.whatsapp.net';
     const target = (id: string) => ({ id, remoteJid: CHAT, fromMe: false });
@@ -1725,7 +1730,7 @@ describe('Baileys inbound messages held for storage', () => {
     it.each([1, 4])(
       'hands the session the message, then its reactions and edits in the order they arrived (limiter of %i)',
       async k => {
-        const h = heldProjector({ unique: true, sqlite: true });
+        const h = heldProjector({ unique: true, unadmitted: true });
         const log: string[] = [];
         const to = h.callbacks;
         const { events } = build(k, {
@@ -2080,7 +2085,7 @@ describe('Baileys inbound messages held for storage', () => {
     // In the turn of the emit, so they reach the message before the session has written its row: an edit that
     // meets the row with the text it already has is no edit to the session, and takes no marker.
     it('announces what waited in the turn of the emit', async () => {
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const log: string[] = [];
       const to = h.callbacks;
       const { events } = build(4, {
@@ -2106,7 +2111,7 @@ describe('Baileys inbound messages held for storage', () => {
 
     it('lets a change go three media deadlines after it began to wait, when the message is never handed on', async () => {
       process.env.MEDIA_DOWNLOAD_TIMEOUT_MS = '30';
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const store = memoryStore();
       const read = store.getStoredMessage;
       let checked = false;
@@ -2129,7 +2134,7 @@ describe('Baileys inbound messages held for storage', () => {
     });
 
     it('holds at most 64 changes at a time, and nothing once the message is handed on', async () => {
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const { events } = build(4, h.callbacks);
       const release = download();
       upsert(events, media('M', CHAT));
@@ -2150,7 +2155,7 @@ describe('Baileys inbound messages held for storage', () => {
     // the answer of the session is held, not dropped, whatever number of others wait for their message.
     it('keeps a change that waits for the answer of the session held while 64 others wait for their message', async () => {
       const OTHER = '628222@s.whatsapp.net';
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       h.rows.push({ waMessageId: 'X', chatId: CHAT, direction: 'incoming', body: 'the real one' });
       const answer = h.stall('X'); // the row of the delivery of X waits, so the session has not answered yet
       const { events } = build(4, h.callbacks, memoryStore());
@@ -2174,7 +2179,7 @@ describe('Baileys inbound messages held for storage', () => {
 
     it('keeps a change waiting for its message while 64 others wait for the answer of the session', async () => {
       const OTHER = '628222@s.whatsapp.net';
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       h.rows.push({ waMessageId: 'X', chatId: CHAT, direction: 'incoming', body: 'the real one' });
       const answer = h.stall('X'); // the row of the delivery of X waits, so the session has not answered yet
       const { events } = build(4, h.callbacks, memoryStore());
@@ -2199,7 +2204,7 @@ describe('Baileys inbound messages held for storage', () => {
 
     it('announces the other changes, and does not process the message again, when a consumer throws', async () => {
       jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       let thrown = false;
       const onMessageReaction: EngineEventCallbacks['onMessageReaction'] = r => {
         if (!thrown) {
@@ -2223,7 +2228,7 @@ describe('Baileys inbound messages held for storage', () => {
     });
 
     it('does not make a reaction wait for itself, nor two reactions for each other', async () => {
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const { events } = build(4, h.callbacks);
       upsert(events, reaction('SELF', 'SELF', 'a'), reaction('A', 'B', 'b'), reaction('B', 'A', 'c'));
       await flush();
@@ -2235,7 +2240,7 @@ describe('Baileys inbound messages held for storage', () => {
     // An edit that cannot wait for its message is announced while the session holds nothing to mark. The message is
     // handed on with the edit applied and the text it arrived with, so its row and announcement carry the mark.
     it('marks a message whose edit was announced at once, past the 64 changes that wait', async () => {
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const { events } = build(4, h.callbacks);
       const releaseOther = download();
       const release = download();
@@ -2260,7 +2265,7 @@ describe('Baileys inbound messages held for storage', () => {
 
     it('marks a message whose edit was announced three media deadlines after it began to wait', async () => {
       process.env.MEDIA_DOWNLOAD_TIMEOUT_MS = '30';
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const store = memoryStore();
       const read = store.getStoredMessage;
       const answer = deferred<void>();
@@ -2292,7 +2297,7 @@ describe('Baileys inbound messages held for storage', () => {
       ['within the 64 changes that wait', false],
       ['past the 64 changes that wait', true],
     ])('marks a message edited and then restored to its text while it downloads, %s', async (_, pastBound) => {
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const { events } = build(4, h.callbacks);
       const releaseOther = download();
       const release = download();
@@ -2322,7 +2327,7 @@ describe('Baileys inbound messages held for storage', () => {
       ['three media deadlines after they began to wait', true],
     ])('marks a message edited and then restored to its text, its edits announced %s', async (_, late) => {
       process.env.MEDIA_DOWNLOAD_TIMEOUT_MS = '30';
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const store = memoryStore();
       const read = store.getStoredMessage;
       const answer = deferred<void>();
@@ -2352,7 +2357,7 @@ describe('Baileys inbound messages held for storage', () => {
     });
 
     it('leaves a message unmarked whose edits announced at once each repeated its text', async () => {
-      const h = heldProjector({ unique: true, sqlite: true });
+      const h = heldProjector({ unique: true, unadmitted: true });
       const { events } = build(4, h.callbacks);
       const releaseOther = download();
       const release = download();

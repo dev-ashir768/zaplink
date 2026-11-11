@@ -1,4 +1,3 @@
-/* istanbul ignore file: PG-gated, only runs under DATABASE_TYPE=postgres (test-postgres CI job). */
 import 'reflect-metadata';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
@@ -22,6 +21,15 @@ import { StatusUpdate } from '../status-store/entities/status-update.entity';
 import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.entity';
 import { AutomationRule } from '../../database/retained-entities/automation-rule.entity';
 import { postgresUtcExtra } from '../../database/postgres-utc';
+import { testDatabaseEnv } from '../../test-utils/pg-test-db';
+
+const testEnv = testDatabaseEnv();
+const testServer = {
+  host: testEnv.DATABASE_HOST,
+  port: Number(testEnv.DATABASE_PORT),
+  username: testEnv.DATABASE_USERNAME,
+  password: testEnv.DATABASE_PASSWORD,
+};
 
 const entities = [
   Session,
@@ -66,17 +74,13 @@ const optionalTables = EXPORT_TABLES.filter(entry => entry.optional).map(entry =
   table: entry.table,
   key: entry.key,
 }));
-const describePostgres = process.env.DATABASE_TYPE === 'postgres' ? describe : describe.skip;
 
-describePostgres('PostgreSQL restore tolerates absent optional archive tables', () => {
+describe('PostgreSQL restore tolerates absent optional archive tables', () => {
   jest.setTimeout(20000);
   const options = {
     type: 'postgres' as const,
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
+    ...testServer,
+    database: testEnv.DATABASE_NAME,
   };
   let admin: DataSource;
   let ds: DataSource;

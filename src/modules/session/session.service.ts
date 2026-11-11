@@ -53,7 +53,6 @@ import { sessionNotFound } from './session-id.pipe';
 import { paginate, ListOptions, resolveListWindow } from '../../common/utils/paginate';
 import { ListingMemo } from '../../common/utils/listing-memo';
 import { isTransientDbError, isUniqueViolation } from '../../common/utils/db-errors';
-import { awaitNoOpenTransaction } from '../../common/utils/shared-connection';
 import { resolveFeatureFlags } from '../../config/feature-flags';
 import {
   IWhatsAppEngine,
@@ -466,13 +465,6 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     // The findOne pre-check above is a fast path for the common case, but it's a check-then-insert
     // TOCTOU: two concurrent same-name creates both pass it, then one hits the name UNIQUE constraint.
     // Translate that violation to a 409 (matching the pre-check) instead of leaking a raw 500.
-    // On SQLite every caller shares one connection: opened beside another caller's transaction, this one would be a
-    // savepoint in it or carry that one's writes, and either rollback could undo what the other had answered for.
-    if (!(await awaitNoOpenTransaction(this.dataSource))) {
-      throw new ServiceUnavailableException(
-        `Session '${dto.name}' was not created: another database transaction stayed open. Retry the create.`,
-      );
-    }
     let saved: Session;
     try {
       saved = await this.dataSource.transaction(async manager => {
@@ -801,11 +793,6 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       await sessions.update({ id, desiredState: 'stopped' }, { desiredState: 'deleting-stopped' });
     };
     if (!this.ownership) return record(this.sessionRepository);
-    if (!(await awaitNoOpenTransaction(this.dataSource))) {
-      throw new ServiceUnavailableException(
-        `Session ${id} could not record its delete: another transaction stayed open`,
-      );
-    }
     await this.dataSource.transaction(async manager => {
       const { affected } = await manager
         .createQueryBuilder()
@@ -1782,9 +1769,8 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
    *
    * Only rows stored before the second `cutoff` (taken before the engine call) falls in go: a busy
    * chat keeps receiving messages while the batches run, and those arrived after the clear and still
-   * exist on WhatsApp. The bound stops short of that second because SQLite stores createdAt as whole
-   * seconds and compares it as text against a millisecond parameter, so a row stored later in the
-   * same second would match. A pre-clear row from that second stays until a repeat call.
+   * exist on WhatsApp. The bound stops short of that second, so a row stored later in the same second
+   * never matches. A pre-clear row from that second stays until a repeat call.
    */
   private async purgeStoredChat(sessionId: string, chatId: string, cutoff: Date): Promise<void> {
     const BATCH = 500;

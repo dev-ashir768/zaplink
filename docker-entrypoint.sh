@@ -8,7 +8,7 @@ set -e
 # A non-root start needs a data volume its uid can already write. Say so here, naming the fix,
 # rather than failing on a chown or on the first write inside Node.
 if [ "$(id -u)" != 0 ]; then
-  for dir in /app/data /app/data/sessions /app/data/media /app/data/plugins; do
+  for dir in /app/data /app/data/sessions /app/data/media; do
     if [ -e "$dir" ] && [ ! -w "$dir" ]; then
       echo "FATAL: $dir is not writable by uid $(id -u), gid $(id -g)." >&2
       echo "       A non-root start needs a data volume that user can write: in Kubernetes set" >&2
@@ -18,7 +18,7 @@ if [ "$(id -u)" != 0 ]; then
   done
 fi
 
-mkdir -p /app/data/sessions /app/data/media /app/data/plugins
+mkdir -p /app/data/sessions /app/data/media
 
 # Chromium leaves SingletonLock/SingletonSocket/SingletonCookie in each session profile and does
 # not remove them on an unclean shutdown; stale locks block the next launch ("profile appears to be

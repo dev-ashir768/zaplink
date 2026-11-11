@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { DataSource, type Repository } from 'typeorm';
 import type { WAMessage, WASocket } from '@whiskeysockets/baileys';
 import { BaileysEvents, type BaileysEventsHost } from '../../engine/adapters/baileys-events';
@@ -14,12 +13,12 @@ import type { WebhookService } from '../webhook/webhook.service';
 import type { HookManager } from '../../core/hooks';
 import type { StatusStoreService } from '../status-store/status-store.service';
 import type { SessionLidResolver } from './session-lid-resolver.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * Baileys' event buffer merges a 1:1 ack that lands within about 100 ms of a message's own upsert into that
  * upsert, as `status` (and `messageTimestamp`), and raises no messages.update for it. This runs the adapter's
- * upsert handler against the real projector and a real database (SQLite here, the postgres:16 service when
- * DATABASE_TYPE=postgres) to show that the stored status advances for the two kinds of message that can carry
+ * upsert handler against the real projector and a real PostgreSQL database to show that the stored status advances for the two kinds of message that can carry
  * one: the echo of an API send, and a message the phone typed while the gateway was down.
  */
 
@@ -76,26 +75,8 @@ describe('an ack merged into a message upsert reaches the stored row', () => {
       if (ms === ACK_RECONCILE_DELAY_MS) retries.push(timer);
       return timer;
     });
-    db = new DataSource(
-      process.env.DATABASE_TYPE === 'postgres'
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            schema: `merged_ack_${randomUUID().replace(/-/g, '')}`,
-            entities: [Session, Message],
-            synchronize: false,
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [Session, Message], synchronize: true },
-    );
+    db = new DataSource({ ...pgTestOptions(), entities: [Session, Message], synchronize: true });
     await db.initialize();
-    if (db.options.type === 'postgres') {
-      await db.query(`CREATE SCHEMA "${db.options.schema}"`);
-      await db.synchronize();
-    }
     repo = db.getRepository(Message);
     hookGate = undefined;
     storedReadGate = undefined;

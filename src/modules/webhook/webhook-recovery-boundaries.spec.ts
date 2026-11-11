@@ -13,6 +13,12 @@ import { WebhookReconcilerService } from './webhook-reconciler.service';
 import { WebhookRedriveService } from './webhook-redrive.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
 import { producerConnectWaitMs } from '../queue/redis-connection';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
+
+/** Polls in real time until `done` holds: database round trips do not settle within a turn of the event loop. */
+const waitFor = async (done: () => boolean, ms = 5_000): Promise<void> => {
+  for (const end = Date.now() + ms; !done() && Date.now() < end;) await new Promise(resolve => setTimeout(resolve, 5));
+};
 
 describe('webhook recovery across live ownership and configuration changes', () => {
   let ds: DataSource;
@@ -21,8 +27,7 @@ describe('webhook recovery across live ownership and configuration changes', () 
   let primary: Webhook;
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Webhook, WebhookDeliveryFailure, WebhookOutboxEvent],
       synchronize: true,
     }).initialize();
@@ -114,7 +119,7 @@ describe('webhook recovery across live ownership and configuration changes', () 
         return use(new Response(null, { status: 200 }));
       });
       const running = redrive.redrive({});
-      for (let i = 0; i < 100 && called < 4; i++) await new Promise(resolve => setImmediate(resolve));
+      await waitFor(() => called >= 4);
       expect(called).toBe(4);
       if (change === 'delete') await webhooks.delete(primary.id);
       else

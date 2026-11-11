@@ -2,6 +2,7 @@ import { SessionEngineLifecycle } from './session-engine-lifecycle.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { Session, SessionStatus } from './entities/session.entity';
 import { EngineStatus, type EngineEventCallbacks } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = '44444444-4444-4444-8444-444444444444';
 const BOUND = '628555';
@@ -42,7 +43,7 @@ async function link(boundPhone: string | null, linkedPhone: string) {
   const webhooks = { dispatch: jest.fn().mockResolvedValue(undefined) };
   const lifecycle = new SessionEngineLifecycle(
     repository as never,
-    { options: { type: 'better-sqlite3' } } as never,
+    { options: { ...pgTestOptions() } } as never,
     { create: jest.fn(() => engine), purgeSessionData: jest.fn() } as never,
     new EngineRegistry(),
     { clear: jest.fn() } as never,

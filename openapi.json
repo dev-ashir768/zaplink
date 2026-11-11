@@ -662,16 +662,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "On SQLite, another database transaction stayed open for 10 s; nothing was stored, so retry.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         },
         "summary": "Create a new WhatsApp session",
@@ -900,7 +890,7 @@
             }
           },
           "503": {
-            "description": "The session could not be read, checked or claimed for the delete because the database did not answer (nothing is deleted), or, on SQLite, another database transaction stayed open for 10 s before a delete transaction (no further rows are removed). Retry the delete.",
+            "description": "The session could not be read, checked or claimed for the delete because the database did not answer (nothing is deleted). Retry the delete.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8332,7 +8322,7 @@
             }
           },
           "409": {
-            "description": "Refused, with the reason in `code`. IMPORT_ALREADY_RUNNING: another import is running — wait for it. EXPORT_IN_PROGRESS: a data export is running; wait for it. IMPORT_NESTED_TRANSACTION: another database transaction holds this connection, so a restore could not be made durable — retry with nothing else in flight. IMPORT_WOULD_ORPHAN_ENGINES: sessions the backup would remove are running, starting or waiting to relaunch here — retry with stopOrphans=true to stop them in-request, or force=true to proceed and restart after. Only the last of these is retryable with stopOrphans; the others leave nothing to decide",
+            "description": "Refused, with the reason in `code`. IMPORT_ALREADY_RUNNING: another import is running — wait for it. EXPORT_IN_PROGRESS: a data export is running; wait for it. IMPORT_WOULD_ORPHAN_ENGINES: sessions the backup would remove are running, starting or waiting to relaunch here — retry with stopOrphans=true to stop them in-request, or force=true to proceed and restart after. Only the last of these is retryable with stopOrphans; the others leave nothing to decide",
             "content": {
               "application/json": {
                 "schema": {
@@ -16176,7 +16166,7 @@
   "info": {
     "title": "ZapLink API",
     "description": "Open Source WhatsApp API Gateway - Free, Self-Hosted HTTP API\n\n**Gateway-wide responses.** Three statuses are returned by middleware before routing, so any operation can emit them:\n\n- `415 Unsupported Media Type` — the request body carries a `Content-Encoding` other than `identity`. The aggregate in-flight body cap counts wire bytes, so a compressed body would be admitted on its compressed size and then inflated past the memory it is meant to bound. Send the body uncompressed.\n- `413 Payload Too Large`: the declared `Content-Length` is more than the gateway could hold in flight for this caller even when idle. The body is not read; retrying it unchanged cannot succeed.\n- `503 Service Unavailable` with `Retry-After` — the gateway already has too much request body data in flight (the body is not read; retry after the given delay), or, without `Retry-After`, shutdown teardown has begun: every route except `/api/health` and `/api/health/*` then answers it with `Connection: close`.\n\nEvery operation that takes an API key can also answer `429 Too Many Requests` (the per-IP rate-limit windows; with send pacing on, a send can also be refused with `code: SEND_PACING_LIMITED` and `retryAfterSeconds`) and `500 Internal Server Error` (an unexpected failure, or `code: ENGINE_PAGE_ERROR` when WhatsApp Web threw inside the page during a whatsapp-web.js send or status post). Error bodies follow the `ErrorResponse` schema.",
-    "version": "0.29.1",
+    "version": "1.0.0",
     "contact": {
       "name": "ZapLink",
       "url": "https://github.com/dev-ashir768/zaplink",
@@ -20333,7 +20323,6 @@
           "type": {
             "type": "string",
             "enum": [
-              "sqlite",
               "postgres"
             ],
             "example": "postgres"
@@ -20362,7 +20351,7 @@
           },
           "database": {
             "type": "string",
-            "description": "Database name under PostgreSQL; empty under SQLite.",
+            "description": "PostgreSQL database name.",
             "example": "zaplink"
           },
           "schema": {
@@ -20567,7 +20556,6 @@
           "type": {
             "type": "string",
             "enum": [
-              "sqlite",
               "postgres"
             ],
             "description": "Absent keeps the stored selection, which the rest of the section then applies to. While the environment pins another selection than the stored one, a section without it writes nothing."
@@ -23357,7 +23345,7 @@
           },
           "score": {
             "type": "number",
-            "description": "Relevance score, when the provider reports one. Hits come back most relevant first, while the direction of the value is the backend's: the built-in match=word score is FTS5's bm25 rank on SQLite (negative, lower is more relevant) and ts_rank on PostgreSQL (higher is more relevant); a match=contains score is higher for a better match on both.",
+            "description": "Relevance score, when the provider reports one. Hits come back most relevant first, while the direction of the value is the backend's: the built-in match=word score is PostgreSQL's ts_rank and a match=contains score is higher for a better match.",
             "example": 0.87
           }
         },
@@ -23437,7 +23425,7 @@
           },
           "code": {
             "type": "string",
-            "description": "A stable machine-readable reason, on some errors only: SESSION_NAME_TEARDOWN_PENDING (409), SESSION_STOP_INCOMPLETE, SESSION_LOGOUT_INCOMPLETE and SESSION_FORCE_KILL_INCOMPLETE (502), SEND_PACING_LIMITED (429), ENGINE_PAGE_ERROR (500, whatsapp-web.js: WhatsApp Web threw inside the page during a send or status post), IMPORT_ALREADY_RUNNING, EXPORT_IN_PROGRESS, IMPORT_WOULD_ORPHAN_ENGINES and IMPORT_NESTED_TRANSACTION (409), IDEMPOTENCY_KEY_INVALID (400), IDEMPOTENCY_KEY_REUSED (422), IDEMPOTENCY_KEY_IN_PROGRESS and IDEMPOTENCY_OUTCOME_UNKNOWN (409), POLL_OPTION_NOT_FOUND (400, whatsapp-web.js vote-poll)."
+            "description": "A stable machine-readable reason, on some errors only: SESSION_NAME_TEARDOWN_PENDING (409), SESSION_STOP_INCOMPLETE, SESSION_LOGOUT_INCOMPLETE and SESSION_FORCE_KILL_INCOMPLETE (502), SEND_PACING_LIMITED (429), ENGINE_PAGE_ERROR (500, whatsapp-web.js: WhatsApp Web threw inside the page during a send or status post), IMPORT_ALREADY_RUNNING, EXPORT_IN_PROGRESS and IMPORT_WOULD_ORPHAN_ENGINES (409), IDEMPOTENCY_KEY_INVALID (400), IDEMPOTENCY_KEY_REUSED (422), IDEMPOTENCY_KEY_IN_PROGRESS and IDEMPOTENCY_OUTCOME_UNKNOWN (409), POLL_OPTION_NOT_FOUND (400, whatsapp-web.js vote-poll)."
           },
           "retryAfterSeconds": {
             "type": "integer",

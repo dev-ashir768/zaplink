@@ -24,9 +24,8 @@ export const SEARCH_DEFAULT_LIMIT = 50;
 export const SEARCH_QUERY_MAX_LENGTH = 1000;
 
 /**
- * Most words in `q`, counted as the index counts them (see search-terms.ts). Each one costs a pass over
- * every message that matches, and the built-in provider runs on the event loop, so a query of hundreds
- * of words froze every session for seconds. A whitespace-separated word repeated is one word: the
+ * Most words in `q`, counted as search-terms.ts counts them. Each one costs a pass over every message
+ * that matches, so a query of hundreds of words is refused. A whitespace-separated word repeated is one word: the
  * provider collapses repeats.
  */
 export const SEARCH_TERMS_MAX = 32;
@@ -36,8 +35,8 @@ export const SEARCH_MATCH_MODES = ['word', 'contains'] as const satisfies readon
 
 /**
  * Shortest term a match=contains search can look up in a trigram index: a trigram is three characters,
- * so a shorter term has none (SQLite's trigram table returns nothing for it, pg_trgm scans every row).
- * A query needs at least one term this long, counted in letters and digits in a row on Postgres, whose
+ * so a shorter term has none (pg_trgm scans every row for it).
+ * A query needs at least one term this long, counted in letters and digits in a row, since
  * pg_trgm takes trigrams from nothing else; shorter ones only narrow what it found.
  */
 export const SEARCH_CONTAINS_MIN_TERM_LENGTH = 3;
@@ -45,9 +44,7 @@ export const SEARCH_CONTAINS_MIN_TERM_LENGTH = 3;
 /**
  * Most characters the terms of a match=contains query may hold together, counted after folding and
  * without the spaces between them. The trigram index checks every trigram of a term on every message
- * that holds all of them, and on SQLite synchronously: a query of `the` repeated, on 200k messages of
- * which 40% hold `the`, `het` and `eth`, took about 100 ms at 64 characters whether written as one term
- * or as several, and 2.8 s at 1000. A longer query answers 400; match=word runs it.
+ * that holds all of them, so the cost grows with the length of the terms. A longer query answers 400; match=word runs it.
  */
 export const SEARCH_CONTAINS_TERMS_MAX_LENGTH = 64;
 
@@ -55,7 +52,7 @@ export const SEARCH_CONTAINS_TERMS_MAX_LENGTH = 64;
  * How many candidates a match=contains search ranks: the most recently stored matches, fetched from
  * the index in recency order so the database stops once it holds this many, then ranked in the
  * application. With SEARCH_CONTAINS_RANKED_LENGTH it bounds the ranking work of one search (ranking
- * every match in SQL took about 100 ms on SQLite and 1.6 s on Postgres for 200k matches) and is
+ * every match in SQL took about 1.6 s on Postgres for 200k matches) and is
  * therefore also the most `total` can report in this mode. Fixed rather than env-driven, like
  * SEARCH_OFFSET_MAX.
  */

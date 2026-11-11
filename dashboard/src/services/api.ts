@@ -679,7 +679,7 @@ export interface InfraStatus {
 // Secrets are never returned — `*Set` flags indicate whether a value is stored.
 export interface SavedConfig {
   database: {
-    type: 'sqlite' | 'postgres';
+    type: 'postgres';
     builtIn: boolean;
     // Whether the saved config states the built-in mode of this service. False when a host the environment
     // pins decides it, when the file does not select the service (the first boot writes every flag as false),
@@ -714,7 +714,7 @@ export interface SavedConfig {
 export interface SaveConfigPayload {
   database?: {
     // Absent keeps the stored selection; the form leaves out a type the environment pins.
-    type?: 'sqlite' | 'postgres';
+    type?: 'postgres';
     builtIn?: boolean;
     host?: string;
     port?: string;

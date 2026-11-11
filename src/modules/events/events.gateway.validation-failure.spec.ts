@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditLog } from '../audit/entities/audit-log.entity';
 import { EventsGateway } from './events.gateway';
 import type { WSErrorResponse, WSSubscribedResponse } from './dto/ws-messages.dto';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * A key the gateway could not read is not a key it refused. When the key table fails, the handshake and the
@@ -56,8 +57,7 @@ describe('EventsGateway when the API key table cannot be read', () => {
 
   beforeAll(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [ApiKey, AuditLog],
       synchronize: true,
     });

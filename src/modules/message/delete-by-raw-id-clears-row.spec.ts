@@ -10,6 +10,7 @@ import type { WebhookService } from '../webhook/webhook.service';
 import type { HookManager } from '../../core/hooks';
 import type { StatusStoreService } from '../status-store/status-store.service';
 import type { SessionLidResolver } from '../session/session-lid-resolver.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * whatsapp-web.js stores a message under its serialized id (`<fromMe>_<chat>_<id>`), and its delete accepts either
@@ -56,8 +57,7 @@ describe('POST messages/delete on whatsapp-web.js', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, Session],
       synchronize: true,
     });

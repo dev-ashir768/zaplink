@@ -77,8 +77,8 @@ function redactSessionProxyCredentials(rows: SessionRow[]): void {
 
 /**
  * Postgres carries a STORED generated tsvector column `body_ts` (FTS) that `SELECT *` picks up.
- * It is a server-maintained index artifact, not payload: strip it so backups stay dialect-neutral
- * (and small). The import's explicit column list already ignores it in older archives.
+ * It is a server-maintained index artifact, not payload: strip it so backups stay
+ * small. The import's explicit column list already ignores it in older archives.
  */
 function stripBodyTs(rows: MessageRow[]): void {
   for (const row of rows) {
@@ -96,7 +96,7 @@ function stripBodyTs(rows: MessageRow[]): void {
  * carries a few hundred bytes of scaffolding regardless of what was said.
  */
 function stripInlineMediaPayload(row: MessageRow, exceedsBudget: (encodedBytes: number) => boolean): void {
-  // `metadata` is TEXT on both dialects and the export reads through a raw query that never hydrates
+  // `metadata` is a TEXT column and the export reads through a raw query that never hydrates
   // an entity, so the value is always a string here.
   const raw = row.metadata;
   if (typeof raw !== 'string') return;
@@ -190,8 +190,8 @@ function stripBatchInlineMedia(row: MessageBatchRow, exceedsBudget: (encodedByte
 
 // A per-table export step for InfraDataService.exportData: which backup key the rows land under, the
 // physical table to read, whether a genuinely-absent table is tolerable, and the per-table hooks that
-// stay explicit because they encode real decisions (credential redaction, dialect artifacts, the
-// inline-media budget).
+// stay explicit because they encode real decisions (credential redaction, generated index
+// columns, the inline-media budget).
 export interface ExportTable<K extends keyof MigrationTables = keyof MigrationTables> {
   /** Backup key in `tables`/`counts` — the published response shape (see MigrationTablesDto). */
   key: K;

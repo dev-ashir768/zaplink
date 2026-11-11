@@ -3,6 +3,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { Session, SessionStatus } from './entities/session.entity';
 import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
 import { SessionStoppedException } from './session-engine-controls';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = '99999999-9999-4999-8999-999999999999';
 
@@ -42,7 +43,7 @@ function fixture() {
   };
   const lifecycle = new SessionEngineLifecycle(
     repository as never,
-    { options: { type: 'better-sqlite3' } } as never,
+    { options: { ...pgTestOptions() } } as never,
     factory as never,
     new EngineRegistry(),
     { clear: jest.fn() } as never,

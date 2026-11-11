@@ -26,7 +26,8 @@ import type {
 type Row = Record<string, unknown>;
 
 const flush = async (): Promise<void> => {
-  for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve));
+  // Real Postgres round trips: wall-clock time, not just event-loop turns.
+  for (let i = 0; i < 5; i++) await new Promise(resolve => setTimeout(resolve, 20));
 };
 
 // TypeORM's FindOperator, read without importing its internals.
@@ -155,7 +156,7 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
   const uniqueIndex = (): void => {
     insertGate = row =>
       rows.some(r => r.waMessageId === row.waMessageId)
-        ? Promise.reject(Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }))
+        ? Promise.reject(Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }))
         : Promise.resolve();
   };
 
@@ -299,50 +300,6 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
       expect(rows[0].body).toBe('edited');
       expect(dispatched('message.received')[0].body).toBe('edited');
     });
-
-    it.each(['edit', 'revoke'].flatMap(kind => [true, false].map(exact => ({ kind, exact }))))(
-      'keeps SQLite persisted notifications consistent with a held $kind (exact=$exact)',
-      async ({ kind, exact }) => {
-        const hook = deferred<void>();
-        build('better-sqlite3', jest.fn().mockResolvedValue('628001'));
-        const archived: Row[] = [];
-        Object.assign(projector, {
-          chatMediaArchive: {
-            archive: jest.fn((row: Row) => {
-              archived.push({ ...row });
-              return Promise.resolve();
-            }),
-          },
-        });
-        hookManager.execute.mockImplementation(async (event: string, data: unknown) => {
-          if (event === 'message:received') await hook.promise;
-          return { data };
-        });
-        const receipt = projector.handleInboundMessage('s1', engine, message('A', lid))!;
-        const target = exact ? lid : phone;
-        if (kind === 'edit') projector.applyMessageEditQueued('s1', edit(target, 'edited'));
-        else
-          projector.handleMessageRevoked('s1', engine, { ...message('A', target), revokedId: 'A' } as RevokedMessage, {
-            fromMe: false,
-          });
-        await flush();
-        hook.resolve();
-        await receipt.settled;
-        await flush();
-        expect(persistedHooks().length).toBeGreaterThan(0);
-        expect(archived).toHaveLength(1);
-        expect(archived[0]).toMatchObject({
-          body: kind === 'edit' ? 'edited' : '',
-          type: kind === 'edit' ? 'text' : 'revoked',
-        });
-        expect(
-          persistedHooks().every(
-            row =>
-              row.body === (kind === 'edit' ? 'edited' : '') && row.type === (kind === 'edit' ? 'text' : 'revoked'),
-          ),
-        ).toBe(true);
-      },
-    );
 
     it('keeps an own-send echo behind an identity check started during its hook', async () => {
       const lookup = deferred<string | null>();
@@ -627,44 +584,30 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
     expect(announced).toEqual(expect.objectContaining({ body: 'fixed', edited: true }));
   });
 
-  it('marks a message edited while its insert is out, where nothing holds the arrival (SQLite)', async () => {
-    build('better-sqlite3');
-    const stall = deferred<void>();
-    insertGate = () => stall.promise;
-    projector.handleInboundMessage('s1', engine, message('A', 'chat1', { body: 'original' }));
-    await flush();
-    projector.applyMessageEditQueued('s1', { messageId: 'A', body: 'edited' } as never);
-    await flush();
-    stall.resolve();
-    await flush();
-
-    expect(rows).toEqual([expect.objectContaining({ body: 'edited', metadata: { edited: true } })]);
-  });
-
   // A REST edit of a send the account's phone composed reaches the echo while it waits for its row.
-  describe.each([
-    ['PostgreSQL', 'postgres'],
-    ['SQLite', 'better-sqlite3'],
-  ])('an own-send echo that a REST edit reaches before its row is written, on %s', (_name, type) => {
-    const CHAT = '15550001111@c.us';
+  describe.each([['PostgreSQL', 'postgres']])(
+    'an own-send echo that a REST edit reaches before its row is written, on %s',
+    (_name, type) => {
+      const CHAT = '15550001111@c.us';
 
-    it('stores the row with the edit and its marker', async () => {
-      build(type);
-      const hook = deferred<void>();
-      hookManager.execute.mockImplementationOnce(async (_event: string, data: unknown) => {
-        await hook.promise;
-        return { continue: true, data };
+      it('stores the row with the edit and its marker', async () => {
+        build(type);
+        const hook = deferred<void>();
+        hookManager.execute.mockImplementationOnce(async (_event: string, data: unknown) => {
+          await hook.promise;
+          return { continue: true, data };
+        });
+        const ticket = type === 'postgres' ? admit(arrival('A', CHAT, false, false, true)) : undefined;
+        projector.handleOwnSendEcho('s1', engine, message('A', CHAT, { fromMe: true, body: 'sent' }), ticket);
+        await flush();
+        await projector.recordOutboundMessageEdit('s1', 'A', 'rest edit', { kind: 'edit', chatId: CHAT, fromMe: true });
+        hook.resolve();
+        await flush();
+
+        expect(rows).toEqual([expect.objectContaining({ body: 'rest edit', metadata: { edited: true } })]);
       });
-      const ticket = type === 'postgres' ? admit(arrival('A', CHAT, false, false, true)) : undefined;
-      projector.handleOwnSendEcho('s1', engine, message('A', CHAT, { fromMe: true, body: 'sent' }), ticket);
-      await flush();
-      await projector.recordOutboundMessageEdit('s1', 'A', 'rest edit', { kind: 'edit', chatId: CHAT, fromMe: true });
-      hook.resolve();
-      await flush();
-
-      expect(rows).toEqual([expect.objectContaining({ body: 'rest edit', metadata: { edited: true } })]);
-    });
-  });
+    },
+  );
 
   // The entry exists from the arrival, and a change that names another chat or the other party has to be
   // held to the rule of the row it will become from then on, not only once the message is emitted.
@@ -957,19 +900,6 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
       await expect(receipt?.settled).resolves.toEqual({ conflict: true });
     });
 
-    it('leaves the stored row alone on SQLite too, while the delivery runs its hook chain', async () => {
-      build('better-sqlite3');
-      rows.push(stored());
-      uniqueIndex();
-      projector.handleInboundMessage('s1', engine, message('A', OTHER, { body: 'repeat' }));
-      projector.handleMessageRevoked('s1', engine, revoke(OTHER), { fromMe: false });
-      await flush();
-
-      expect(rows).toEqual([stored()]);
-      expect(dispatched('message.revoked')).toEqual([]);
-      expect(eventsGateway.emitMessageRevoked).not.toHaveBeenCalled();
-    });
-
     it('keeps the revoke for the delivery itself, which is stored cleared where nothing holds the id', async () => {
       rows.push(stored());
       uniqueIndex();
@@ -1064,128 +994,32 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
   // The echo of a send the REST writer already stored loses its insert to that row. What reached the message
   // while it waited is written onto the row once the row says it is the message, and a change that arrives
   // while the row is read came after it and is stored after it.
-  describe.each([
-    ['PostgreSQL', 'postgres'],
-    ['SQLite', 'better-sqlite3'],
-  ])('an own-send echo whose insert lost to the stored send, on %s', (_name, type) => {
-    const CHAT = '15550001111@c.us';
-    const edit = (body: string): void =>
-      projector.applyMessageEditQueued('s1', { messageId: 'A', body, chatId: CHAT, fromMe: true } as never);
-    const react = (reaction: string): void =>
-      projector.applyReactionQueued('s1', { messageId: 'A', chatId: CHAT, reaction, senderId: CHAT });
+  describe.each([['PostgreSQL', 'postgres']])(
+    'an own-send echo whose insert lost to the stored send, on %s',
+    (_name, type) => {
+      const CHAT = '15550001111@c.us';
+      const edit = (body: string): void =>
+        projector.applyMessageEditQueued('s1', { messageId: 'A', body, chatId: CHAT, fromMe: true } as never);
+      const react = (reaction: string): void =>
+        projector.applyReactionQueued('s1', { messageId: 'A', chatId: CHAT, reaction, senderId: CHAT });
 
-    /**
-     * The echo waits in its hook chain while `earlier` reaches it and before the REST send's row exists.
-     * Its insert then loses to that row, and the read that judges the row is held while `later` arrives.
-     */
-    const lose = async (earlier: () => void, later: () => void): Promise<void> => {
-      build(type);
-      uniqueIndex();
-      const hook = deferred<void>();
-      hookManager.execute.mockImplementationOnce(async (_event: string, data: unknown) => {
-        await hook.promise;
-        return { continue: true, data };
-      });
-      const ticket = type === 'postgres' ? admit(arrival('A', CHAT, false, false, true)) : undefined;
-      projector.handleOwnSendEcho('s1', engine, message('A', CHAT, { fromMe: true, body: 'orig' }), ticket);
-      await flush();
-      earlier();
-      await flush();
-      rows.push({ sessionId: 's1', waMessageId: 'A', chatId: CHAT, direction: 'outgoing', type: 'text', body: 'orig' });
-      const read = repo.findOne as jest.Mock;
-      const open = deferred<void>();
-      const unrestricted = read.getMockImplementation() as (arg: unknown) => Promise<unknown>;
-      read.mockImplementationOnce(async (arg: unknown) => {
-        await open.promise;
-        return unrestricted(arg);
-      });
-      hook.resolve();
-      await flush();
-      later();
-      await flush();
-      open.resolve();
-      await flush();
-      expect(dispatched('message.sent')).toHaveLength(1);
-    };
-
-    it('writes the edit recorded for the echo onto the row, marked edited', async () => {
-      await lose(
-        () => edit('v1'),
-        () => undefined,
-      );
-
-      expect(rows[0].body).toBe('v1');
-      expect((rows[0].metadata as Row).edited).toBe(true);
-    });
-
-    it('writes the REST edit recorded for the echo onto the row, marked edited', async () => {
-      await lose(
-        () => void projector.recordOutboundMessageEdit('s1', 'A', 'v1', { kind: 'edit', chatId: CHAT, fromMe: true }),
-        () => undefined,
-      );
-
-      expect(rows[0].body).toBe('v1');
-      expect((rows[0].metadata as Row).edited).toBe(true);
-    });
-
-    it('writes the reaction recorded for the echo onto the row', async () => {
-      await lose(
-        () => react('thumb'),
-        () => undefined,
-      );
-
-      expect((rows[0].metadata as Row).reactions).toEqual({ [CHAT]: 'thumb' });
-    });
-
-    it('stores an edit that arrives while the row is read after the one recorded for the echo', async () => {
-      await lose(
-        () => edit('v1'),
-        () => edit('v2'),
-      );
-
-      expect(rows[0].body).toBe('v2');
-      expect((rows[0].metadata as Row).edited).toBe(true);
-      expect(
-        (eventsGateway.emitMessageEdited.mock.calls as Array<[string, { body: string }]>).map(c => c[1].body),
-      ).toEqual(['v1', 'v2']);
-    });
-
-    it('stores a reaction that arrives while the row is read after the one recorded for the echo', async () => {
-      await lose(
-        () => react('thumb'),
-        () => react('heart'),
-      );
-
-      expect((rows[0].metadata as Row).reactions).toEqual({ [CHAT]: 'heart' });
-    });
-  });
-
-  // What reached an echo while its hook chain ran is written onto its row once its insert settled, on the
-  // message's mutation chain. When that write is slow, a later change of the message waits behind it, so the
-  // older body is not stored over the newer one, whether the insert lost to the stored send or landed.
-  describe.each([
-    ['PostgreSQL', 'postgres'],
-    ['SQLite', 'better-sqlite3'],
-  ])('an own-send echo whose recorded edit is written slowly, on %s', (_name, type) => {
-    const CHAT = '15550001111@c.us';
-    const edit = (body: string): void =>
-      projector.applyMessageEditQueued('s1', { messageId: 'A', body, chatId: CHAT, fromMe: true } as never);
-
-    /** `v1` reaches the echo in its hook chain; its write is held while `v2` arrives, then released. */
-    const holdWrite = async (storedBySend: boolean): Promise<void> => {
-      build(type);
-      uniqueIndex();
-      const hook = deferred<void>();
-      hookManager.execute.mockImplementationOnce(async (_event: string, data: unknown) => {
-        await hook.promise;
-        return { continue: true, data };
-      });
-      const ticket = type === 'postgres' ? admit(arrival('A', CHAT, false, false, true)) : undefined;
-      projector.handleOwnSendEcho('s1', engine, message('A', CHAT, { fromMe: true, body: 'orig' }), ticket);
-      await flush();
-      edit('v1');
-      await flush();
-      if (storedBySend) {
+      /**
+       * The echo waits in its hook chain while `earlier` reaches it and before the REST send's row exists.
+       * Its insert then loses to that row, and the read that judges the row is held while `later` arrives.
+       */
+      const lose = async (earlier: () => void, later: () => void): Promise<void> => {
+        build(type);
+        uniqueIndex();
+        const hook = deferred<void>();
+        hookManager.execute.mockImplementationOnce(async (_event: string, data: unknown) => {
+          await hook.promise;
+          return { continue: true, data };
+        });
+        const ticket = type === 'postgres' ? admit(arrival('A', CHAT, false, false, true)) : undefined;
+        projector.handleOwnSendEcho('s1', engine, message('A', CHAT, { fromMe: true, body: 'orig' }), ticket);
+        await flush();
+        earlier();
+        await flush();
         rows.push({
           sessionId: 's1',
           waMessageId: 'A',
@@ -1194,41 +1028,144 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
           type: 'text',
           body: 'orig',
         });
-      }
-      const open = deferred<void>();
-      let held = 0;
-      const update = repo.update as jest.Mock;
-      const unrestricted = update.getMockImplementation() as (where: Row, patch: Row) => Promise<unknown>;
-      update.mockImplementation(async (where: Row, patch: Row) => {
-        if (patch.body === 'v1') {
-          held++;
+        const read = repo.findOne as jest.Mock;
+        const open = deferred<void>();
+        const unrestricted = read.getMockImplementation() as (arg: unknown) => Promise<unknown>;
+        read.mockImplementationOnce(async (arg: unknown) => {
           await open.promise;
-        }
-        return unrestricted(where, patch);
+          return unrestricted(arg);
+        });
+        hook.resolve();
+        await flush();
+        later();
+        await flush();
+        open.resolve();
+        await flush();
+        expect(dispatched('message.sent')).toHaveLength(1);
+      };
+
+      it('writes the edit recorded for the echo onto the row, marked edited', async () => {
+        await lose(
+          () => edit('v1'),
+          () => undefined,
+        );
+
+        expect(rows[0].body).toBe('v1');
+        expect((rows[0].metadata as Row).edited).toBe(true);
       });
-      hook.resolve();
-      await flush();
-      expect(held).toBe(1);
-      edit('v2');
-      await flush();
-      open.resolve();
-      await flush();
-    };
 
-    it('keeps a later edit behind the write of the one recorded for an echo that lost its insert', async () => {
-      await holdWrite(true);
+      it('writes the REST edit recorded for the echo onto the row, marked edited', async () => {
+        await lose(
+          () => void projector.recordOutboundMessageEdit('s1', 'A', 'v1', { kind: 'edit', chatId: CHAT, fromMe: true }),
+          () => undefined,
+        );
 
-      expect(rows).toHaveLength(1);
-      expect(rows[0].body).toBe('v2');
-    });
+        expect(rows[0].body).toBe('v1');
+        expect((rows[0].metadata as Row).edited).toBe(true);
+      });
 
-    it('keeps a later edit behind the write of the one recorded for an echo whose insert landed', async () => {
-      await holdWrite(false);
+      it('writes the reaction recorded for the echo onto the row', async () => {
+        await lose(
+          () => react('thumb'),
+          () => undefined,
+        );
 
-      expect(rows).toHaveLength(1);
-      expect(rows[0].body).toBe('v2');
-    });
-  });
+        expect((rows[0].metadata as Row).reactions).toEqual({ [CHAT]: 'thumb' });
+      });
+
+      it('stores an edit that arrives while the row is read after the one recorded for the echo', async () => {
+        await lose(
+          () => edit('v1'),
+          () => edit('v2'),
+        );
+
+        expect(rows[0].body).toBe('v2');
+        expect((rows[0].metadata as Row).edited).toBe(true);
+        expect(
+          (eventsGateway.emitMessageEdited.mock.calls as Array<[string, { body: string }]>).map(c => c[1].body),
+        ).toEqual(['v1', 'v2']);
+      });
+
+      it('stores a reaction that arrives while the row is read after the one recorded for the echo', async () => {
+        await lose(
+          () => react('thumb'),
+          () => react('heart'),
+        );
+
+        expect((rows[0].metadata as Row).reactions).toEqual({ [CHAT]: 'heart' });
+      });
+    },
+  );
+
+  // What reached an echo while its hook chain ran is written onto its row once its insert settled, on the
+  // message's mutation chain. When that write is slow, a later change of the message waits behind it, so the
+  // older body is not stored over the newer one, whether the insert lost to the stored send or landed.
+  describe.each([['PostgreSQL', 'postgres']])(
+    'an own-send echo whose recorded edit is written slowly, on %s',
+    (_name, type) => {
+      const CHAT = '15550001111@c.us';
+      const edit = (body: string): void =>
+        projector.applyMessageEditQueued('s1', { messageId: 'A', body, chatId: CHAT, fromMe: true } as never);
+
+      /** `v1` reaches the echo in its hook chain; its write is held while `v2` arrives, then released. */
+      const holdWrite = async (storedBySend: boolean): Promise<void> => {
+        build(type);
+        uniqueIndex();
+        const hook = deferred<void>();
+        hookManager.execute.mockImplementationOnce(async (_event: string, data: unknown) => {
+          await hook.promise;
+          return { continue: true, data };
+        });
+        const ticket = type === 'postgres' ? admit(arrival('A', CHAT, false, false, true)) : undefined;
+        projector.handleOwnSendEcho('s1', engine, message('A', CHAT, { fromMe: true, body: 'orig' }), ticket);
+        await flush();
+        edit('v1');
+        await flush();
+        if (storedBySend) {
+          rows.push({
+            sessionId: 's1',
+            waMessageId: 'A',
+            chatId: CHAT,
+            direction: 'outgoing',
+            type: 'text',
+            body: 'orig',
+          });
+        }
+        const open = deferred<void>();
+        let held = 0;
+        const update = repo.update as jest.Mock;
+        const unrestricted = update.getMockImplementation() as (where: Row, patch: Row) => Promise<unknown>;
+        update.mockImplementation(async (where: Row, patch: Row) => {
+          if (patch.body === 'v1') {
+            held++;
+            await open.promise;
+          }
+          return unrestricted(where, patch);
+        });
+        hook.resolve();
+        await flush();
+        expect(held).toBe(1);
+        edit('v2');
+        await flush();
+        open.resolve();
+        await flush();
+      };
+
+      it('keeps a later edit behind the write of the one recorded for an echo that lost its insert', async () => {
+        await holdWrite(true);
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0].body).toBe('v2');
+      });
+
+      it('keeps a later edit behind the write of the one recorded for an echo whose insert landed', async () => {
+        await holdWrite(false);
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0].body).toBe('v2');
+      });
+    },
+  );
 
   it('stores a reaction and an ack that arrived before the emit once the row is written', async () => {
     const t = admit(arrival('A', 'chat1'));
@@ -1439,17 +1376,5 @@ describe('MessageProjector holding inbound messages (PostgreSQL)', () => {
     engines.delete('s1');
 
     expect(room()).toBeUndefined();
-  });
-
-  it('holds nothing on SQLite: no admission, and the untouched path stores and announces as before', async () => {
-    build('better-sqlite3');
-    expect(projector.holdsInbound).toBe(false);
-
-    projector.handleInboundMessage('s1', engine, message('A', 'chat1'));
-    await flush();
-
-    expect(insertedIds()).toEqual(['A']);
-    expect(dispatched('message.received')).toHaveLength(1);
-    expect((projector as unknown as { rooms: Map<string, unknown> }).rooms.size).toBe(0);
   });
 });

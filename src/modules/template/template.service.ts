@@ -33,8 +33,7 @@ export class TemplateService {
     });
 
     try {
-      // No transaction of its own: on SQLite's single shared connection the rollback of the unique
-      // violation handled below would also discard what other callers wrote while it was open.
+      // No transaction of its own: a single-row save needs none, and the unique violation is handled below.
       const saved = await this.templateRepository.save(template, { transaction: false });
       this.logger.log('Template created', { sessionId, templateId: saved.id, name: saved.name });
       return saved;

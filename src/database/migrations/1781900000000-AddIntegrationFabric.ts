@@ -4,11 +4,10 @@ export class AddIntegrationFabric1781900000000 implements MigrationInterface {
   name = 'AddIntegrationFabric1781900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const isPostgres = queryRunner.dataSource.options.type === 'postgres';
-    const ts = isPostgres ? 'timestamp' : 'datetime';
-    const now = isPostgres ? 'NOW()' : "(datetime('now'))";
-    const boolTrue = isPostgres ? 'true' : '1';
-    const boolFalse = isPostgres ? 'false' : '0';
+    const ts = 'timestamp';
+    const now = 'NOW()';
+    const boolTrue = 'true';
+    const boolFalse = 'false';
 
     if (!(await queryRunner.hasTable('plugin_instances'))) {
       await queryRunner.query(

@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddWebhookOutboxEvents1786200000000 } from '../1786200000000-AddWebhookOutboxEvents';
 
 describe('AddWebhookOutboxEvents migration', () => {
@@ -6,7 +7,7 @@ describe('AddWebhookOutboxEvents migration', () => {
   const migration = new AddWebhookOutboxEvents1786200000000();
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
   });
 
@@ -17,7 +18,9 @@ describe('AddWebhookOutboxEvents migration', () => {
   it('creates the table with both indexes', async () => {
     await migration.up(ds.createQueryRunner());
 
-    const cols: { name: string }[] = await ds.query(`PRAGMA table_info("webhook_outbox_events")`);
+    const cols: { name: string }[] = await ds.query(
+      `SELECT column_name AS name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'webhook_outbox_events'`,
+    );
     expect(cols.map(c => c.name).sort()).toEqual(
       [
         'attempts',
@@ -33,7 +36,9 @@ describe('AddWebhookOutboxEvents migration', () => {
         'webhookId',
       ].sort(),
     );
-    const indexes: { name: string }[] = await ds.query(`PRAGMA index_list("webhook_outbox_events")`);
+    const indexes: { name: string }[] = await ds.query(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'webhook_outbox_events'`,
+    );
     expect(indexes.map(i => i.name).sort()).toContain('UQ_webhook_outbox_events_webhook_key');
     expect(indexes.map(i => i.name)).toContain('IDX_webhook_outbox_events_state_createdAt');
   });
@@ -57,7 +62,7 @@ describe('AddWebhookOutboxEvents migration', () => {
 
     await migration.down(ds.createQueryRunner());
     const tables: unknown[] = await ds.query(
-      `SELECT name FROM sqlite_master WHERE type='table' AND name='webhook_outbox_events'`,
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'webhook_outbox_events'`,
     );
     expect(tables).toHaveLength(0);
     // Reverting a database where up() took the early return must not throw on a missing index.

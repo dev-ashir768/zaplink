@@ -1,18 +1,19 @@
 import { DataSource, QueryRunner } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddMessagesWaMessageIdUnique1781300000000 } from '../1781300000000-AddMessagesWaMessageIdUnique';
 
 describe('AddMessagesWaMessageIdUnique migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     await ds.query(
       `CREATE TABLE "messages" ("id" varchar PRIMARY KEY NOT NULL, "sessionId" varchar NOT NULL, ` +
         `"waMessageId" varchar, "chatId" varchar NOT NULL, "from" varchar NOT NULL, "to" varchar NOT NULL, ` +
         `"body" text, "type" varchar NOT NULL DEFAULT ('text'), "direction" varchar NOT NULL DEFAULT ('outgoing'), ` +
         `"timestamp" bigint, "metadata" text, "status" varchar NOT NULL DEFAULT ('sent'), ` +
-        `"createdAt" datetime NOT NULL DEFAULT (datetime('now')))`,
+        `"createdAt" timestamp NOT NULL DEFAULT now())`,
     );
     await ds.query(`CREATE INDEX "IDX_messages_sessionId_waMessageId" ON "messages" ("sessionId", "waMessageId")`);
   });
@@ -24,7 +25,7 @@ describe('AddMessagesWaMessageIdUnique migration', () => {
   const insert = (id: string, sessionId: string, waMessageId: string | null, createdAt: string): Promise<unknown> =>
     ds.query(
       `INSERT INTO "messages" ("id","sessionId","waMessageId","chatId","from","to","body","type","direction","timestamp","status","createdAt") ` +
-        `VALUES (?,?,?,'c@c.us','c@c.us','me@c.us','hi','text','incoming',1,'sent',?)`,
+        `VALUES ($1,$2,$3,'c@c.us','c@c.us','me@c.us','hi','text','incoming',1,'sent',$4)`,
       [id, sessionId, waMessageId, createdAt],
     );
 

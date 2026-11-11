@@ -25,13 +25,8 @@ import { SessionOwnershipService } from './session-ownership.service';
 import { ShutdownService } from '../../common/services/shutdown.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import {
-  SESSION_DELETE_BATCH_MIN_SQLITE,
   SESSION_DELETE_BATCH_SIZE_POSTGRES,
-  SESSION_DELETE_BATCH_SIZE_SQLITE,
-  SESSION_DELETE_BATCH_TARGET_MS_SQLITE,
-  SESSION_DELETE_PAUSE_MS_SQLITE,
   SESSION_DELETE_READ_AHEAD_POSTGRES,
-  nextSqliteDeleteBatchSize,
   ServerShuttingDownException,
   SessionStoppedException,
 } from './session-engine-controls';
@@ -97,6 +92,7 @@ import { AuditService } from '../audit/audit.service';
 import { SessionController } from './session.controller';
 import { ChatScopeService } from '../auth/chat-scope.service';
 import type { ApiKey } from '../auth/entities/api-key.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /** The (action, context) pair of one audit call, typed so assertions do not fall back to `any`. */
 const auditCall = (mock: jest.Mock, index = 0): [string, { sessionId?: string; metadata?: Record<string, unknown> }] =>
@@ -186,9 +182,8 @@ describe('SessionService', () => {
       // shape the production code does before the `insert()` generated-maps merge.
       create: jest.fn().mockImplementation((data: Partial<Message>) => ({ ...data }) as Message),
       save: jest.fn().mockResolvedValue(undefined),
-      // `insert()` returns an InsertResult; `identifiers[0]` carries the PK on both SQLite + Postgres.
-      // `generatedMaps[0]` carries createdAt (Postgres yes; SQLite historically no — left absent here to
-      // match the local SQLite default DB).
+      // `insert()` returns an InsertResult; `identifiers[0]` carries the PK. `generatedMaps[0]` would carry
+      // createdAt on Postgres; it is left absent here so the code's fallback is exercised.
       insert: jest.fn().mockResolvedValue({
         identifiers: [{ id: 'gen-uuid-1' }],
         generatedMaps: [],
@@ -210,7 +205,7 @@ describe('SessionService', () => {
     };
 
     dataSource = {
-      options: { type: 'better-sqlite3' } as DataSource['options'],
+      options: { ...pgTestOptions() },
       // Session delete removes the messages, the outbox records and the delivery failures in batches through the
       // data source's own repositories.
       getRepository: jest
@@ -453,32 +448,30 @@ describe('SessionService', () => {
 
       await service.delete('sess-uuid-1');
 
-      expect(repository.exists).toHaveBeenCalledWith({ where: { id: uuidName } });
+      expect(repository.exists).toHaveBeenCalledWith({
+        where: { id: expect.objectContaining({ _objectLiteralParameters: { legacyId: uuidName } }) as unknown },
+      });
       expect(engineFactory.purgeSessionData).toHaveBeenCalledWith('sess-uuid-1', uuidName);
     });
 
     // The name rule lets a session be named after another session's id, whatever that id looks like
     // (an import accepts any safe key). The dirs that name points at are then the other session's
     // live credentials, so the name is kept out of the purge.
-    it.each(['better-sqlite3', 'postgres'] as const)(
-      "delete() preserves another imported session's id-keyed directories on %s",
-      async dialect => {
-        Object.assign(dataSource, { options: { type: dialect } });
-        (repository.findOne as jest.Mock).mockResolvedValue(
-          createMockSession({ id: 'sess-uuid-1', name: 'imported-bob' }),
-        );
-        (repository.exists as jest.Mock).mockResolvedValue(true);
-        await service.delete('sess-uuid-1');
-        expect(repository.exists).toHaveBeenCalled();
-        expect((engineFactory.purgeSessionData as jest.Mock).mock.calls).toEqual([['sess-uuid-1', undefined]]);
-      },
-    );
+    it("delete() preserves another imported session's id-keyed directories", async () => {
+      Object.assign(dataSource, { options: { type: 'postgres' } });
+      (repository.findOne as jest.Mock).mockResolvedValue(
+        createMockSession({ id: 'sess-uuid-1', name: 'imported-bob' }),
+      );
+      (repository.exists as jest.Mock).mockResolvedValue(true);
+      await service.delete('sess-uuid-1');
+      expect(repository.exists).toHaveBeenCalled();
+      expect((engineFactory.purgeSessionData as jest.Mock).mock.calls).toEqual([['sess-uuid-1', undefined]]);
+    });
 
     it.each([false, true])('executes the text ID lookup before legacy cleanup (collision: %s)', async collision => {
-      // The portable cast runs through the real TypeORM parser and SQLite driver.
+      // The text cast runs through the real TypeORM parser and Postgres driver.
       const sql = new DataSource({
-        type: 'better-sqlite3',
-        database: ':memory:',
+        ...pgTestOptions(),
         entities: [Session],
         synchronize: true,
       });
@@ -511,7 +504,9 @@ describe('SessionService', () => {
 
       await service.delete('sess-uuid-1');
 
-      expect(repository.exists).toHaveBeenCalledWith({ where: { id: 'imported-bob' } });
+      expect(repository.exists).toHaveBeenCalledWith({
+        where: { id: expect.objectContaining({ _objectLiteralParameters: { legacyId: 'imported-bob' } }) as unknown },
+      });
       expect(engineFactory.purgeSessionData).toHaveBeenCalledTimes(1);
       expect((engineFactory.purgeSessionData as jest.Mock).mock.calls[0]).toEqual(['sess-uuid-1', undefined]);
     });
@@ -1315,28 +1310,24 @@ describe('SessionService', () => {
     });
 
     /**
-     * The shape better-sqlite3 actually throws under write contention: the token lives on `code`,
-     * and the message reads `database is locked`. TypeORM copies the driver's own properties onto
-     * QueryFailedError and rewrites the message to `SqliteError: database is locked`, so the token
-     * appears in neither message. A classifier matching `SQLITE_BUSY` as text cannot fire on either.
+     * The shape pg throws while the server is starting up (cannot_connect_now): the SQLSTATE lives on
+     * `code`, and no message names a connection problem. TypeORM copies the driver's own properties onto
+     * QueryFailedError, so only a classifier reading `code` can tell it is transient.
      */
-    const sqliteBusy = (): QueryFailedError => {
-      const driverError = Object.assign(new Error('database is locked'), {
-        name: 'SqliteError',
-        code: 'SQLITE_BUSY',
-      });
-      return new QueryFailedError('UPDATE sessions SET status = ?', [], driverError);
+    const pgNotReady = (): QueryFailedError => {
+      const driverError = Object.assign(new Error('the database system is starting up'), { code: '57P03' });
+      return new QueryFailedError('UPDATE sessions SET status = $1', [], driverError);
     };
 
-    it('retries a locked-database launch failure, which no message text reveals', async () => {
+    it('retries a not-ready-database launch failure, which no message text reveals', async () => {
       (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
       (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
       (engineFactory.create as jest.Mock).mockClear().mockReturnValue(mockEngine);
-      const busy = sqliteBusy();
+      const busy = pgNotReady();
       // The premise of reading `code`: the token is absent from every message on this error.
-      expect(busy.message).not.toContain('SQLITE_BUSY');
-      expect(busy.driverError.message).not.toContain('SQLITE_BUSY');
-      expect((busy as unknown as { code: string }).code).toBe('SQLITE_BUSY');
+      expect(busy.message).not.toContain('57P03');
+      expect(busy.driverError.message).not.toContain('57P03');
+      expect((busy as unknown as { code: string }).code).toBe('57P03');
 
       mockEngine.initialize.mockRejectedValueOnce(busy).mockResolvedValueOnce(undefined);
 
@@ -1348,10 +1339,7 @@ describe('SessionService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
       (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
       (engineFactory.create as jest.Mock).mockClear().mockReturnValue(mockEngine);
-      const driverError = Object.assign(new Error('no such column: nope'), {
-        name: 'SqliteError',
-        code: 'SQLITE_ERROR',
-      });
+      const driverError = Object.assign(new Error('column "nope" does not exist'), { code: '42703' });
       mockEngine.initialize.mockRejectedValue(new QueryFailedError('SELECT nope', [], driverError));
 
       await expect(service.start('sess-uuid-1')).rejects.toBeInstanceOf(QueryFailedError);
@@ -1466,7 +1454,7 @@ describe('SessionService', () => {
       expect(mockEngine.forceDestroy).toHaveBeenCalled();
     });
 
-    it('removes the rest of the child rows and the session explicitly in one transaction after the traffic batches (SQLite cascade is off)', async () => {
+    it('removes the rest of the child rows and the session explicitly in one transaction after the traffic batches (no reliance on FK cascades)', async () => {
       const session = createMockSession();
       (repository.findOne as jest.Mock).mockResolvedValue(session);
 
@@ -1479,7 +1467,7 @@ describe('SessionService', () => {
       await service.delete('sess-uuid-1');
 
       // messages/message_batches have no FK; webhooks/templates/baileys_stored_messages declare an
-      // ON DELETE CASCADE FK, but SQLite runs with foreign_keys OFF so it never fires — delete() must
+      // ON DELETE CASCADE FK, but delete() does not rely on it firing — it must
       // clear ALL of them explicitly or a session delete orphans them (webhooks retain the secret).
       expect(managerDelete).toHaveBeenCalledWith(Message, { sessionId: 'sess-uuid-1' });
       expect(managerDelete).toHaveBeenCalledWith(MessageBatch, { sessionId: 'sess-uuid-1' });
@@ -1509,15 +1497,13 @@ describe('SessionService', () => {
     });
 
     describe('messages', () => {
-      // A SQLite batch is sized by the clock: the first has the floor's size, and the next scales by how long the
-      // last one took. This clock reads the target later on every call, so each batch looks exactly on target and
-      // the size holds at the floor; the sizing tests below set the step themselves.
-      const BATCH = SESSION_DELETE_BATCH_MIN_SQLITE;
-      let clockStep = SESSION_DELETE_BATCH_TARGET_MS_SQLITE;
+      // A steady clock for the batches: each call reads a little later.
+      const BATCH = SESSION_DELETE_BATCH_SIZE_POSTGRES;
+      let clockStep = 1;
       let clock: jest.SpyInstance;
       beforeEach(() => {
         let now = 0;
-        clockStep = SESSION_DELETE_BATCH_TARGET_MS_SQLITE;
+        clockStep = 1;
         clock = jest.spyOn(performance, 'now').mockImplementation(() => (now += clockStep));
       });
       afterEach(() => {
@@ -1602,36 +1588,8 @@ describe('SessionService', () => {
         expect(query.andWhere).toHaveBeenCalledWith('message.id > :lastId', { lastId: `m${100 + BATCH - 1}` });
       });
 
-      // PostgreSQL's statement time follows the bytes of the rows (inline media payloads), so it keeps a fixed
-      // smaller batch whatever the clock says; SQLite starts at the floor and scales to the target. The values are
-      // pinned here on purpose.
-      it('keeps PostgreSQL batches at a fixed size however long a batch takes', async () => {
-        (dataSource as { options: unknown }).options = { type: 'postgres' };
-        clockStep = 10 * SESSION_DELETE_BATCH_TARGET_MS_SQLITE;
-        (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        const size = SESSION_DELETE_BATCH_SIZE_POSTGRES;
-        const query = messageQuery(stamped(0, size), stamped(size, size), stamped(2 * size, 3));
-        outboxRepository.find.mockResolvedValueOnce(ids(0, size + 3));
-
-        await service.delete('sess-uuid-1');
-
-        expect(SESSION_DELETE_BATCH_SIZE_POSTGRES).toBe(500);
-        expect(takes(query)).toEqual([size, size, size, size]);
-        expect(
-          (outboxRepository.delete.mock.calls as Array<[{ id: { value: string[] } }]>).map(
-            ([criteria]) => criteria.id.value.length,
-          ),
-        ).toEqual([size, 3]);
-        expect(failureRepository.find).toHaveBeenCalledWith({
-          select: { id: true },
-          where: { sessionId: 'sess-uuid-1' },
-          take: size * SESSION_DELETE_READ_AHEAD_POSTGRES,
-        });
-      });
-
       // The outbox records and the delivery failures have no index that orders a session's rows, so a read after
-      // every batch goes back over the session's whole range. On PostgreSQL one read feeds several batches; SQLite
-      // reads one batch at a time.
+      // every batch goes back over the session's whole range, so one read feeds several batches.
       it.each([
         ['outbox records', () => outboxRepository],
         ['delivery failures', () => failureRepository],
@@ -1672,85 +1630,6 @@ describe('SessionService', () => {
         expect(leftBeforeTransaction).toBe(0);
       });
 
-      it('reads the outbox records one batch at a time on SQLite', async () => {
-        (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        outboxRepository.find.mockResolvedValueOnce(ids(0, BATCH)).mockResolvedValueOnce(ids(BATCH, 3));
-
-        await service.delete('sess-uuid-1');
-
-        expect(outboxRepository.find.mock.calls.map(([options]) => (options as { take: number }).take)).toEqual([
-          BATCH,
-          BATCH,
-        ]);
-      });
-
-      it.each([
-        ['scales to the target time', 1000, 300, 500],
-        ['grows by at most a factor of two', 300, 20, 600],
-        ['never passes the ceiling', 1500, 20, 2000],
-        ['never drops below the floor', 300, 5000, 250],
-        ['reads a zero duration as one millisecond', 250, 0, 500],
-      ])('sizes the next SQLite batch: %s', (_name: string, rows: number, tookMs: number, expected: number) => {
-        expect(nextSqliteDeleteBatchSize(rows, tookMs)).toBe(expected);
-      });
-
-      // SQLite runs a batch on the event loop, so between batches it pauses long enough for a request that needs
-      // several turns to finish; PostgreSQL's driver gives the loop its turns and only yields.
-      it.each([
-        ['better-sqlite3', SESSION_DELETE_BATCH_MIN_SQLITE, 2],
-        ['postgres', SESSION_DELETE_BATCH_SIZE_POSTGRES, 0],
-      ])('pauses between the batches on %s', async (type: string, size: number, pauses: number) => {
-        (dataSource as { options: unknown }).options = { type };
-        (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        messageQuery(stamped(0, size), stamped(size, size), stamped(2 * size, 3));
-        const timers = jest.spyOn(global, 'setTimeout');
-
-        try {
-          await service.delete('sess-uuid-1');
-
-          expect(SESSION_DELETE_PAUSE_MS_SQLITE).toBe(5);
-          expect(timers.mock.calls.filter(([, ms]) => ms === SESSION_DELETE_PAUSE_MS_SQLITE)).toHaveLength(pauses);
-        } finally {
-          timers.mockRestore();
-        }
-      });
-
-      it('starts a SQLite delete at the floor and grows to the ceiling while batches are fast', async () => {
-        clockStep = 1;
-        (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        const query = messageQuery(
-          stamped(0, 250),
-          stamped(250, 500),
-          stamped(750, 1000),
-          stamped(1750, 2000),
-          stamped(3750, 2000),
-          stamped(5750, 10),
-        );
-
-        await service.delete('sess-uuid-1');
-
-        expect(SESSION_DELETE_BATCH_MIN_SQLITE).toBe(250);
-        expect(SESSION_DELETE_BATCH_SIZE_SQLITE).toBe(2000);
-        // Six pages with a timestamp, then the read for the rows without one, which keep the size the loop reached.
-        expect(takes(query)).toEqual([250, 500, 1000, 2000, 2000, 2000, 2000]);
-        expect(outboxRepository.find).toHaveBeenCalledWith({
-          select: { id: true },
-          where: { sessionId: 'sess-uuid-1' },
-          take: 2000,
-        });
-      });
-
-      it('shrinks a SQLite batch when the last one ran long, down to the floor', async () => {
-        clockStep = 4 * SESSION_DELETE_BATCH_TARGET_MS_SQLITE;
-        (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        const query = messageQuery(stamped(0, 250), stamped(250, 250), stamped(500, 250), stamped(750, 9));
-
-        await service.delete('sess-uuid-1');
-
-        // 250 rows in four times the target would be 62 rows: held at the floor.
-        expect(takes(query)).toEqual([250, 250, 250, 250, 250]);
-      });
-
       it.each([
         ['a session with a partial last batch', 2 * BATCH + 7, 4, 3],
         ['a session that fills its last batch exactly', 2 * BATCH, 4, 2],
@@ -1789,14 +1668,15 @@ describe('SessionService', () => {
 
       it('and the webhook outbox records are removed in batches the same way', async () => {
         (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        outboxRepository.find.mockResolvedValueOnce(ids(0, BATCH)).mockResolvedValueOnce(ids(BATCH, 3));
+        // One read ahead covers both batches.
+        outboxRepository.find.mockResolvedValueOnce(ids(0, BATCH + 3));
 
         await service.delete('sess-uuid-1');
 
         expect(outboxRepository.find).toHaveBeenCalledWith({
           select: { id: true },
           where: { sessionId: 'sess-uuid-1' },
-          take: BATCH,
+          take: BATCH * SESSION_DELETE_READ_AHEAD_POSTGRES,
         });
         expect(outboxRepository.delete).toHaveBeenCalledTimes(2);
         expect(outboxRepository.delete).toHaveBeenNthCalledWith(1, { id: In(ids(0, BATCH).map(row => row.id)) });
@@ -1809,14 +1689,15 @@ describe('SessionService', () => {
 
       it('and the webhook delivery failures are removed in batches the same way', async () => {
         (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
-        failureRepository.find.mockResolvedValueOnce(ids(0, BATCH)).mockResolvedValueOnce(ids(BATCH, 3));
+        // One read ahead covers both batches.
+        failureRepository.find.mockResolvedValueOnce(ids(0, BATCH + 3));
 
         await service.delete('sess-uuid-1');
 
         expect(failureRepository.find).toHaveBeenCalledWith({
           select: { id: true },
           where: { sessionId: 'sess-uuid-1' },
-          take: BATCH,
+          take: BATCH * SESSION_DELETE_READ_AHEAD_POSTGRES,
         });
         expect(failureRepository.delete).toHaveBeenCalledTimes(2);
         expect(failureRepository.delete).toHaveBeenNthCalledWith(1, { id: In(ids(0, BATCH).map(row => row.id)) });
@@ -2805,7 +2686,7 @@ describe('SessionService', () => {
       };
 
       beforeAll(async () => {
-        db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+        db = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
         await db.initialize();
         sessions = db.getRepository(Session);
       });
@@ -5406,7 +5287,7 @@ describe('SessionService', () => {
 
     it('a failed write on one row does not stop the rows after it', async () => {
       (repository.update as jest.Mock)
-        .mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'))
+        .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'))
         .mockResolvedValueOnce({ affected: 1 });
 
       const marked = await service.markLapsedDisconnected(
@@ -5441,7 +5322,7 @@ describe('SessionService', () => {
       let sessions: Repository<Session>;
 
       beforeAll(async () => {
-        db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+        db = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
         await db.initialize();
         sessions = db.getRepository(Session);
       });
@@ -6449,17 +6330,8 @@ describe('SessionService', () => {
       }
     });
 
-    // better-sqlite3 writes within the arrival's own task, so nothing is held there and the engines
-    // run exactly as before; PostgreSQL inserts asynchronously and gets the arrival tickets.
-    it('offers admitInbound to the engine on PostgreSQL only', async () => {
-      const sqlite = await startAndCapture();
-      expect(sqlite).not.toHaveProperty('admitInbound');
-      await service.stop('sess-uuid-1');
-
-      (messageRepository as unknown as { manager: unknown }).manager = {
-        connection: { options: { type: 'postgres' } },
-      };
-      mockEngine.initialize.mockClear();
+    // PostgreSQL inserts asynchronously, so the engine gets the arrival tickets.
+    it('offers admitInbound to the engine', async () => {
       const postgres = await startAndCapture();
       const ticket = postgres.admitInbound?.({ id: 'wa-1', chatId: 'peer@c.us', needsRoom: false, status: false });
       expect(typeof ticket?.reserve).toBe('function');
@@ -6872,7 +6744,9 @@ describe('SessionService', () => {
 
     it('fails open on a transient insert error: message.sent still dispatches', async () => {
       const callbacks = await startAndCaptureCallbacks();
-      (messageRepository.insert as jest.Mock).mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+      (messageRepository.insert as jest.Mock).mockRejectedValueOnce(
+        Object.assign(new Error('canceling statement due to lock timeout'), { code: '55P03' }),
+      );
 
       callbacks.onMessageCreate!(makeMessage({ id: 'wa-out-busy', from: 'me@c.us', to: 'peer@c.us', fromMe: true }));
       await flush();
@@ -7589,9 +7463,9 @@ describe('SessionService', () => {
       // The emit lives AFTER the dedup gate. A re-fire that hits the UNIQUE(sessionId, waMessageId)
       // constraint must not emit message:persisted — no row was durably stored on this attempt.
       const callbacks = await startAndCaptureCallbacks();
-      // Emulate the SQLite UNIQUE-violation phrasing that `isUniqueViolation` matches via regex.
+      // A Postgres unique violation (23505), which `isUniqueViolation` reads from the code.
       (messageRepository.insert as jest.Mock).mockRejectedValueOnce(
-        new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId'),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
 
       callbacks.onMessage!(makeMessage({ id: 'wa-dup-1', fromMe: false }));
@@ -7604,13 +7478,15 @@ describe('SessionService', () => {
     });
 
     it('does not emit message:persisted when insert throws a transient (non-unique) error', async () => {
-      // Fail-open on transient DB errors (SQLITE_BUSY, lock-timeout, connection drop) is correct for
+      // Fail-open on transient DB errors (lock-timeout, connection drop) is correct for
       // webhook/WS dispatch — a real inbound message must never be dropped. But the row was never
       // stored and dbMessage.id is undefined, so the message:persisted hook must NOT fire (it would
       // hand plugins an id-less payload for a row that isn't in the DB). The hook is gated on a
       // `persisted` flag set only after the generated-maps merge succeeds. Webhook/WS still dispatch.
       const callbacks = await startAndCaptureCallbacks();
-      (messageRepository.insert as jest.Mock).mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+      (messageRepository.insert as jest.Mock).mockRejectedValueOnce(
+        Object.assign(new Error('canceling statement due to lock timeout'), { code: '55P03' }),
+      );
 
       callbacks.onMessage!(makeMessage({ id: 'wa-busy-1', fromMe: false }));
       await flush();
@@ -8276,7 +8152,7 @@ describe('SessionService', () => {
         // first delivery: new row
         .mockResolvedValueOnce({ identifiers: [{ id: 'gen-uuid-1' }], generatedMaps: [], raw: undefined })
         .mockRejectedValueOnce({
-          driverError: { code: 'SQLITE_CONSTRAINT_UNIQUE', message: 'UNIQUE constraint failed' },
+          driverError: { code: '23505', message: 'duplicate key value violates unique constraint' },
         }); // re-fire
 
       const msg: IncomingMessage = {
@@ -8999,7 +8875,7 @@ describe('SessionService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(createMockSession());
       (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
       mockEngine.initialize.mockImplementationOnce(() => {
-        (repository.findOne as jest.Mock).mockRejectedValue(new Error('SQLITE_BUSY: database is locked'));
+        (repository.findOne as jest.Mock).mockRejectedValue(new Error('Connection terminated unexpectedly'));
         return Promise.resolve();
       });
 
@@ -9018,7 +8894,7 @@ describe('SessionService', () => {
       (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
       mockEngine.initialize.mockImplementationOnce(() => {
         (repository.findOne as jest.Mock)
-          .mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'))
+          .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'))
           .mockResolvedValue(null);
         return Promise.resolve();
       });
@@ -9398,14 +9274,13 @@ describe('SessionService', () => {
       expect(bounds[1].value).toBe(bounds[0].value);
     });
 
-    // SQLite stores createdAt as whole seconds and compares it as text against the bound parameter,
-    // so a millisecond cutoff would also match a row stored later in the cutoff's own second.
+    // A millisecond cutoff must not match a row stored later in the cutoff's own second.
     describe('against a real database', () => {
       let db: DataSource;
       let messages: Repository<Message>;
 
       beforeAll(async () => {
-        db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+        db = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
         await db.initialize();
         messages = db.getRepository(Message);
       });
@@ -9655,7 +9530,7 @@ describe('SessionService', () => {
       let messages: Repository<Message>;
 
       beforeAll(async () => {
-        db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+        db = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
         await db.initialize();
         messages = db.getRepository(Message);
         const row = (
@@ -11006,7 +10881,7 @@ describe('SessionService', () => {
       let sessions: Repository<Session>;
 
       beforeAll(async () => {
-        db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+        db = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
         await db.initialize();
         sessions = db.getRepository(Session);
       });

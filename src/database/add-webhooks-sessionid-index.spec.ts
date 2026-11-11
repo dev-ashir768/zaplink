@@ -19,31 +19,27 @@ describe('AddWebhooksSessionIdIndex migration', () => {
   const migration = new AddWebhooksSessionIdIndex1782200000000();
 
   it('creates an IF-NOT-EXISTS index on webhooks.sessionId', async () => {
-    const qr = makeQueryRunner('sqlite');
+    const qr = makeQueryRunner('postgres');
     await migration.up(qr as never);
     expect(sqlOf(qr).join('\n')).toMatch(
       /CREATE INDEX IF NOT EXISTS "IDX_webhooks_sessionId" ON "webhooks" \("sessionId"\)/,
     );
   });
 
-  it('lifts the statement_timeout on Postgres only (never on SQLite)', async () => {
+  it('lifts the statement_timeout', async () => {
     const pg = makeQueryRunner('postgres');
     await migration.up(pg as never);
     expect(sqlOf(pg).some(s => /SET LOCAL statement_timeout = 0/.test(s))).toBe(true);
-
-    const sqlite = makeQueryRunner('sqlite');
-    await migration.up(sqlite as never);
-    expect(sqlOf(sqlite).some(s => /SET LOCAL/.test(s))).toBe(false);
   });
 
   it('is a no-op when the webhooks table does not exist (fresh DB mid-bootstrap)', async () => {
-    const qr = makeQueryRunner('sqlite', /* hasWebhooks */ false);
+    const qr = makeQueryRunner('postgres', /* hasWebhooks */ false);
     await migration.up(qr as never);
     expect(sqlOf(qr).some(s => /CREATE INDEX/.test(s))).toBe(false);
   });
 
   it('drops the index on down()', async () => {
-    const qr = makeQueryRunner('sqlite');
+    const qr = makeQueryRunner('postgres');
     await migration.down(qr as never);
     expect(sqlOf(qr).join('\n')).toMatch(/DROP INDEX IF EXISTS "IDX_webhooks_sessionId"/);
   });

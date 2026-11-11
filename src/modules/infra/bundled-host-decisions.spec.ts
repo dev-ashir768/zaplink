@@ -190,7 +190,6 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
   // The host the next boot dials reaches the container exactly when this case's host does: a pinned one outranks a
   // file host of the other kind, and a file host is read as is.
   const reached = c.reach;
-  const blankProjectDatabaseHost = c.service === 'database' && c.position === 'pinned' && c.host.trim() === '';
 
   it('may start the container unless a pin names another server', async () => {
     arrange(c);
@@ -235,11 +234,6 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
         c.service === 'database'
           ? { database: { type: 'postgres', builtIn: true } }
           : { storage: { type: 's3', builtIn: true } };
-      if (blankProjectDatabaseHost) {
-        expect(() => saved(payload)).toThrow(/DATABASE_HOST is required/);
-        expect(fs.writeFileSync).not.toHaveBeenCalled();
-        return;
-      }
       const env = saved(payload);
       const keep = c.position === 'pinned' || reached;
       if (c.service === 'database') expect(env.DATABASE_PASSWORD).toBe(keep ? 'StoredPw789!' : 'zaplink');
@@ -257,11 +251,6 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
         c.service === 'database'
           ? { database: { type: 'postgres', builtIn: true } }
           : { storage: { type: 's3', builtIn: true } };
-      if (blankProjectDatabaseHost) {
-        expect(() => saved(payload)).toThrow(/DATABASE_HOST is required/);
-        expect(fs.writeFileSync).not.toHaveBeenCalled();
-        return;
-      }
       const env = saved(payload);
       if (c.service === 'database')
         expect([env.DATABASE_USERNAME, env.DATABASE_NAME, env.POSTGRES_SCHEMA]).toEqual(
@@ -279,11 +268,6 @@ describe.each(cases.map(c => [label(c), c] as const))('%s', (_label, c) => {
         : c.service === 'redis'
           ? { redis: { enabled: true, host: c.host, port: '6379' }, queue: { enabled: false } }
           : { storage: { type: 's3', s3Endpoint: c.host, s3Region: 'us-east-1' } };
-    if (blankProjectDatabaseHost) {
-      expect(() => saved(section)).toThrow(/DATABASE_HOST is required/);
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
-      return;
-    }
     const env = saved(section);
     expect(env[spec.flag]).toBe(c.flag === 'absent' ? undefined : c.flag);
     const sentHost = c.service === 'storage' ? c.host || undefined : c.host.trim() || 'localhost';

@@ -8,13 +8,10 @@ import type { HookManager } from '../../core/hooks';
 import type { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import type { SendPacingService } from './send-pacing.service';
 import type { MessageSendService } from './message-send.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
-/**
- * A chat thread is read with a chatId IN (...) filter, and SQLite here never has planner statistics.
- * Without them it walked the whole session through (sessionId, createdAt) to fill one chat's page,
- * so the plans of the statements getMessages actually issues are pinned against the entity schema.
- */
-describe('message list query plans on SQLite', () => {
+/** The shape of the statements getMessages issues for a page, against the entity schema. */
+describe('message list statements', () => {
   let ds: DataSource;
   let service: MessageService;
   const queries: Array<{ sql: string; params?: unknown[] }> = [];
@@ -32,8 +29,7 @@ describe('message list query plans on SQLite', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
       logging: ['query'],
@@ -66,45 +62,6 @@ describe('message list query plans on SQLite', () => {
     return page!;
   };
 
-  /** EXPLAIN QUERY PLAN of the page select getMessages issued. */
-  const pagePlan = async (): Promise<string> => {
-    const page = pageQuery();
-    const rows = await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${page.sql}`, page.params);
-    return rows.map(r => r.detail).join(' | ');
-  };
-
-  const countPlan = async (): Promise<string> => {
-    const count = queries.find(q => q.sql.includes('COUNT('));
-    expect(count).toBeDefined();
-    const rows = await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${count!.sql}`, count!.params);
-    return rows.map(r => r.detail).join(' | ');
-  };
-
-  it('seeks one user chat through the (sessionId, chatId, createdAt) index', async () => {
-    // A user chat expands to several dialect candidates (@c.us and @s.whatsapp.net at least).
-    await service.getMessages('s1', { chatId: '628123@c.us', limit: 50 });
-
-    expect(await pagePlan()).toContain('IDX_messages_sessionId_chatId_createdAt (sessionId=? AND chatId=?)');
-    expect(await countPlan()).toContain('IDX_messages_sessionId_chatId_createdAt (sessionId=? AND chatId=?)');
-  });
-
-  it('reads a single-candidate chat from the same index in order, with no sort', async () => {
-    await service.getMessages('s1', { chatId: '120363@g.us', limit: 50 });
-
-    const plan = await pagePlan();
-    expect(plan).toContain('IDX_messages_sessionId_chatId_createdAt (sessionId=? AND chatId=?)');
-    expect(plan).not.toContain('TEMP B-TREE');
-  });
-
-  it('keeps the unfiltered list on the (sessionId, createdAt) index with no sort', async () => {
-    await service.getMessages('s1', { limit: 50 });
-
-    const plan = await pagePlan();
-    expect(plan).toContain('(sessionId=?)');
-    expect(plan).not.toContain('chatId');
-    expect(plan).not.toContain('TEMP B-TREE');
-  });
-
   /**
    * A sort evaluates its result columns for every matching row before the limit applies, so a size
    * computed in the ordered statement read the stored payload of every row in the chat. The size is
@@ -130,11 +87,7 @@ describe('message list query plans on SQLite', () => {
     expect(sizes[0].sql).not.toMatch(/(^|[^_])LENGTH\(/);
     expect(sizes[0].sql).not.toContain('ORDER BY');
   });
-  /**
-   * The page rows are read by id, from about ten ids on SQLite prefers the session or chat index for that
-   * statement and visits every row of it (the same session of 300k rows took 20 ms a statement, against 0.05
-   * ms by key). Every read of the page's rows has to be a primary key lookup, whatever the list is filtered by.
-   */
+  /** The page rows are read by id, whatever the list is filtered by. */
   describe('the reads of a page by id', () => {
     const seedChat = async (): Promise<void> => {
       const repo = ds.getRepository(Message);
@@ -155,15 +108,8 @@ describe('message list query plans on SQLite', () => {
       );
       queries.length = 0;
     };
-    const plansOfReadsById = async (): Promise<string[]> => {
-      const reads = queries.filter(q => /"message"\."id" IN/.test(q.sql) && !/^\s*SELECT\s+COUNT/i.test(q.sql));
-      const plans: string[] = [];
-      for (const read of reads) {
-        const rows = await ds.query<{ detail: string }[]>(`EXPLAIN QUERY PLAN ${read.sql}`, read.params);
-        plans.push(rows.map(r => r.detail).join(' | '));
-      }
-      return plans;
-    };
+    const readsById = (): Array<{ sql: string; params?: unknown[] }> =>
+      queries.filter(q => /"message"\."id" IN/.test(q.sql) && !/^\s*SELECT\s+COUNT/i.test(q.sql));
 
     it.each([
       ['an unfiltered list', {}],
@@ -180,17 +126,13 @@ describe('message list query plans on SQLite', () => {
           orderBy: 'timestamp' as const,
         },
       ],
-    ])('looks %s up by primary key', async (_label, options) => {
+    ])('reads the rows of %s by id', async (_label, options) => {
       await seedChat();
 
       const { messages } = await service.getMessages('s1', { ...options, limit: 100, inlineMedia: false });
 
       expect(messages).toHaveLength(100);
-      const plans = await plansOfReadsById();
-      expect(plans).toHaveLength(2);
-      for (const plan of plans) {
-        expect(plan).toBe('SEARCH message USING INDEX sqlite_autoindex_messages_1 (id=?)');
-      }
+      expect(readsById()).toHaveLength(2);
     });
 
     it('reads a page chunk without the list order', async () => {

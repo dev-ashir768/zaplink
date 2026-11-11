@@ -1,4 +1,3 @@
-import { resolve } from 'path';
 import { normalizeS3KeyPrefix } from '../common/storage/s3-key-prefix';
 import { namesBundledContainer } from '../modules/docker/bundled-host';
 import { resolveBodyLimit } from './bootstrap-security';
@@ -6,45 +5,8 @@ import { parseBodyLimitBytes } from './inflight-body-budget';
 
 type EnvConfig = Record<string, unknown>;
 
-// Default SQLite file of the 'main' (auth/audit) connection. The runtime path is env-overridable via
-// MAIN_DATABASE_NAME (configuration.ts), so the collision guard below must resolve the EFFECTIVE
-// path — comparing against this constant alone would false-negative when MAIN_DATABASE_NAME moves
-// the main DB and DATABASE_NAME follows it, and false-positive when the main DB moved away but
-// DATABASE_NAME still points at the (now unused) default file.
-const MAIN_DB_DEFAULT_PATH = './data/main.sqlite';
-// Default SQLite file of the 'data' connection (configuration.ts / data-source.ts), for the same reason.
-const DATA_DB_DEFAULT_PATH = './data/zaplink.sqlite';
-
-// Duplicated rather than imported from configuration.ts (see MAIN_DB_DEFAULT_PATH above); the spec
-// asserts the two agree.
+// Duplicated rather than imported from configuration.ts; the spec asserts the two agree.
 const MAX_TIMER_MS = 2147483647;
-
-/**
- * Collision guard shared by boot validation (validateEnv below) and the migration CLI
- * (src/database/data-source.ts / data-source-main.ts — the TypeORM CLI never runs ConfigModule's
- * validate(), so both entry points apply this guard themselves). When the 'data' connection is
- * SQLite (explicit or defaulted), its file must not BE the 'main' connection's file: two TypeORM
- * connections on one SQLite file run separate migration ledgers + synchronize policies against the
- * same tables. Both paths are resolved exactly like the runtime (MAIN_DATABASE_NAME / DATABASE_NAME
- * overriding the defaults in configuration.ts) and normalized to absolute, so a relative spelling
- * ('./data/../data/main.sqlite') or an absolute path naming the same file is caught. Returns the
- * error message on collision, null otherwise.
- */
-export function sqliteDataMainPathCollision(config: EnvConfig): string | null {
-  const read = (key: string): string | undefined => {
-    const value = config[key];
-    return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
-  };
-  // Postgres uses a bare database NAME, never a file path — no collision is possible there.
-  const dbType = read('DATABASE_TYPE');
-  if (dbType !== undefined && dbType !== 'sqlite') return null;
-  const dataDbName = read('DATABASE_NAME') || DATA_DB_DEFAULT_PATH;
-  const mainDbPath = read('MAIN_DATABASE_NAME') || MAIN_DB_DEFAULT_PATH;
-  if (resolve(dataDbName) === resolve(mainDbPath)) {
-    return `DATABASE_NAME (${dataDbName}) must not point at the main database file (${mainDbPath}); use a separate file`;
-  }
-  return null;
-}
 
 /**
  * POSTGRES_SCHEMA rule shared by boot validation and the Infrastructure save path: a legal,
@@ -122,9 +84,9 @@ export function s3EndpointError(config: EnvConfig): string | null {
 /**
  * Fail-fast environment validation. Wired as ConfigModule's `validate`
  * callback so a misconfigured deployment is rejected at BOOT instead of silently
- * coercing (e.g. a `DATABASE_TYPE=postgre` typo falling back to SQLite) or failing on
+ * coercing (e.g. a `DATABASE_TYPE=postgre` typo) or failing on
  * the first query. Hand-rolled to avoid adding a `joi` dependency; same guarantees:
- *   - DATABASE_TYPE must be a known value (no silent SQLite fallback on a typo)
+ *   - DATABASE_TYPE, when set, must be "postgres"
  *   - Postgres requires host/username/password
  *   - PORT / DATABASE_PORT / REDIS_PORT must be valid integer ports
  */
@@ -137,16 +99,17 @@ export function validateEnv(config: EnvConfig): EnvConfig {
   };
 
   // The engine/storage/database selectors are checked RAW, like NODE_ENV below: every reader compares
-  // process.env verbatim, so a padded 'postgres ' that only matched after trimming validated clean and
-  // then booted SQLite. Whitespace-only still means unset, as a blank compose forward does everywhere.
+  // process.env verbatim, so a padded 'postgres ' that only matched after trimming would validate clean
+  // and then fail every reader's comparison. Whitespace-only still means unset, as a blank compose forward does everywhere.
   const rawEnum = (key: string): string | undefined => {
     const value = config[key];
     return typeof value === 'string' && value.trim() !== '' ? value : undefined;
   };
 
+  // PostgreSQL is the only database. DATABASE_TYPE is accepted only as "postgres" so an old config fails loudly.
   const dbType = rawEnum('DATABASE_TYPE');
-  if (dbType && dbType !== 'sqlite' && dbType !== 'postgres') {
-    errors.push(`DATABASE_TYPE must be "sqlite" or "postgres" (got ${JSON.stringify(dbType)})`);
+  if (dbType && dbType !== 'postgres') {
+    errors.push(`DATABASE_TYPE must be "postgres" (got ${JSON.stringify(dbType)}): ZapLink runs on PostgreSQL only`);
   }
 
   // Whitelist the registered engine/storage ids so a typo fails fast at boot: an unknown ENGINE_TYPE
@@ -204,12 +167,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     errors.push(`NODE_ENV must be one of ${nodeEnvAllowed.map(v => `"${v}"`).join(', ')} (got "${rawNodeEnv}")`);
   }
 
-  if (dbType === 'postgres') {
-    for (const key of ['DATABASE_HOST', 'DATABASE_USERNAME', 'DATABASE_PASSWORD']) {
-      if (!str(key)) {
-        errors.push(`${key} is required when DATABASE_TYPE=postgres`);
-      }
-    }
+  {
     // The Postgres data connection always runs migrations (app.module.ts hardcodes migrationsRun=true).
     // An opted-in DATABASE_SYNCHRONIZE=true makes TypeORM re-sync the schema from entities on every
     // boot, which immediately DROPS the migration-created `body_ts` generated tsvector column (the
@@ -219,7 +177,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     // actually be enabled downstream.
     if (config['DATABASE_SYNCHRONIZE'] === 'true') {
       errors.push(
-        'DATABASE_SYNCHRONIZE=true is not allowed with DATABASE_TYPE=postgres: the Postgres data connection always runs migrations, and synchronize would drop the migration-created body_ts tsvector column that /search depends on (returns 501 on every restart). Set DATABASE_SYNCHRONIZE=false (the production default) and manage the schema via migrations.',
+        'DATABASE_SYNCHRONIZE=true is not allowed: the data connection always runs migrations, and synchronize would drop the migration-created body_ts tsvector column that /search depends on (returns 501 on every restart). Set DATABASE_SYNCHRONIZE=false (the production default) and manage the schema via migrations.',
       );
     }
     // POSTGRES_SCHEMA is optional (defaults to 'public' in configuration.ts). When set, validate it
@@ -246,29 +204,6 @@ export function validateEnv(config: EnvConfig): EnvConfig {
       errors.push(
         `DATABASE_SSL=true cannot reach the built-in PostgreSQL container (POSTGRES_BUILTIN=true, DATABASE_HOST=${dbHost}), ` +
           'which runs without TLS: set DATABASE_SSL=false where it is set (data/.env.generated, the project .env or the environment)',
-      );
-    }
-  } else {
-    // SQLite (explicit or default): DATABASE_NAME is a file path for the 'data' connection. It must
-    // not resolve to the 'main' DB file — two TypeORM connections on one SQLite file run separate
-    // migration ledgers + synchronize policies against the same tables, risking schema divergence and
-    // lock contention. The main path is resolved like the runtime (MAIN_DATABASE_NAME || default),
-    // not assumed to be the default file. (Postgres DATABASE_NAME is a bare db name, so this never
-    // applies there.)
-    const collision = sqliteDataMainPathCollision(config);
-    if (collision) {
-      errors.push(collision);
-    }
-    const dataDbName = str('DATABASE_NAME');
-    // Reject a bare name with no path separator and no .sqlite/.db suffix — the exact signature of a
-    // PostgreSQL DATABASE_NAME (e.g. 'zaplink') leaking into a SQLite run (#677). That bare name becomes
-    // the SQLite file PATH, opening a file named 'zaplink' under the read-only app rootfs →
-    // SQLITE_CANTOPEN boot-loop. A genuine SQLite path always has a separator or a file suffix.
-    if (dataDbName && !dataDbName.includes('/') && !dataDbName.includes('\\') && !/\.(sqlite|db)$/i.test(dataDbName)) {
-      errors.push(
-        `DATABASE_NAME must be a file path under the data volume for SQLite (e.g. ./data/zaplink.sqlite); got ${JSON.stringify(
-          dataDbName,
-        )}. A bare name is the PostgreSQL DB name — leave DATABASE_NAME unset for SQLite to use the default ./data/zaplink.sqlite.`,
       );
     }
   }
@@ -375,10 +310,8 @@ export function validateEnv(config: EnvConfig): EnvConfig {
   ]) {
     checkInt(key);
   }
-  // TypeORM binds a Date on SQLite with its year cut to the last 4 digits, so a cutoff before about
-  // year -2000 (roughly 1.48M days back) can bind as a year that sorts after today and the prune
-  // deletes every row. A "keep forever" row of nines is such a value. 36500 is a conservative cap
-  // well inside the safe range. Keep in step with MAX_MESSAGE_RETENTION_DAYS in
+  // A "keep forever" row of nines would put the cutoff far outside the range a Date binds safely;
+  // 36500 (about a century) is a conservative cap. Keep in step with MAX_MESSAGE_RETENTION_DAYS in
   // message-retention.service.ts.
   for (const key of [
     'MESSAGE_RETENTION_DAYS',
@@ -705,7 +638,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     // `=== 'true'`: a typo keeps the main connection on its migrations, so an operator who meant to
     // opt into synchronize for api_keys/audit_logs silently does not get it.
     'MAIN_DATABASE_SYNCHRONIZE',
-    // Same for the data connection: on SQLite a typo silently runs the migration chain instead.
+    // Same for the data connection: a typo silently runs the migration chain instead.
     'DATABASE_SYNCHRONIZE',
     // Read with `=== 'true'` by the plugin ingress gate: a typo turns an intentional
     // `ALLOW_UNSIGNED_INGRESS=true` back off, and a route the operator meant to open stops loading.

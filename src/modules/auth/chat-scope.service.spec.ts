@@ -4,6 +4,7 @@ import { DataSource, FindOperator, Repository } from 'typeorm';
 import { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import { LidMapping } from '../../engine/identity/lid-mapping.entity';
 import { Session } from '../session/entities/session.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const PHONE = '919999999999';
 const LID = '555000111';
@@ -155,8 +156,7 @@ describe('ChatScopeService over the shared lid table, with two sessions', () => 
 
   beforeEach(async () => {
     ds = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [LidMapping, Session],
       synchronize: true,
     }).initialize();

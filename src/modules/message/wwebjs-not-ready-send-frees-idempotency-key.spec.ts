@@ -22,6 +22,7 @@ import {
   PAGE_RELOADING_MESSAGE,
   WwebjsLifecycle,
 } from '../../engine/adapters/wwebjs-lifecycle';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * A whatsapp-web.js send that the adapter refuses with the retryable 409 before the page is asked (the session is not
@@ -107,8 +108,7 @@ describe('a keyed whatsapp-web.js send refused with the not-ready 409', () => {
     }).compile();
     service = module.get(MessageSendService);
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [SendIdempotencyKey],
       synchronize: true,
     });

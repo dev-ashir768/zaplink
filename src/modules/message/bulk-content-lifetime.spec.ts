@@ -13,6 +13,7 @@ import type { MessageService } from './message.service';
 import { MessageBatch, BatchStatus } from './entities/message-batch.entity';
 import { Message } from './entities/message.entity';
 import { SendPacingService } from './send-pacing.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -31,8 +32,7 @@ describe('Bulk content lifetimes', () => {
 
   beforeEach(async () => {
     db = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message, MessageBatch],
       synchronize: true,
     });

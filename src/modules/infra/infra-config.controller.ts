@@ -59,7 +59,7 @@ import {
 // values are never echoed back — a `*Set` boolean indicates whether one is stored.
 interface SavedConfigResponse {
   database: {
-    type: 'sqlite' | 'postgres';
+    type: 'postgres';
     builtIn: boolean;
     builtInSet: boolean;
     host: string;
@@ -137,8 +137,8 @@ export class InfraConfigController {
 
     // A value supplied by the host environment or the project .env outranks data/.env.generated at
     // every boot (load-env's override:false order), so the form must read it back instead of the
-    // first-run defaults — otherwise a compose `environment:` deployment shows whatsapp-web.js/sqlite
-    // while the process actually runs baileys/postgres (#1313). isEnvPinned's boot snapshot excludes
+    // first-run defaults — otherwise a compose `environment:` deployment shows whatsapp-web.js
+    // while the process actually runs baileys (#1313). isEnvPinned's boot snapshot excludes
     // file-sourced keys, so a value that only ever lived in data/.env.generated is NOT pinned and the
     // freshly-saved file still wins over process.env's stale boot-time copy — keeping the
     // "saved, pending restart" form state intact until the reboot applies it (#226/#1082). A pinned
@@ -150,16 +150,14 @@ export class InfraConfigController {
     // Secrets (passwords, S3 keys) are never returned; the form shows a "set" indicator
     // and an empty submission preserves the stored value (see saveConfig). This lets
     // the dashboard hydrate the form so a save no longer overwrites unseen fields (#226).
-    const databaseType = effective('DATABASE_TYPE') === 'postgres' ? 'postgres' : 'sqlite';
     return {
       database: {
-        type: databaseType,
+        type: 'postgres',
         ...savedBuiltInMode('database', saved),
         host: effective('DATABASE_HOST') || '',
         port: effective('DATABASE_PORT') || '',
         username: effective('DATABASE_USERNAME') || '',
-        // The form sends this back for a PostgreSQL save; under SQLite the key holds a file path, not a name.
-        database: databaseType === 'postgres' ? effective('DATABASE_NAME') || '' : '',
+        database: effective('DATABASE_NAME') || '',
         schema: effective('POSTGRES_SCHEMA') || 'public',
         poolSize: Number(effective('DATABASE_POOL_SIZE')) || 10,
         sslEnabled: effective('DATABASE_SSL') === 'true',
@@ -226,7 +224,7 @@ export class InfraConfigController {
       const existing = readGeneratedEnv();
       const updates: Record<string, string> = {};
       // Keys to remove from the merged result — used to drop stale settings when the
-      // user switches mode (postgres->sqlite, s3->local, built-in->external) so a reload
+      // user switches mode (s3->local, built-in->external) so a reload
       // never sees the new mode alongside leftover keys from the old one.
       const staleKeys = new Set<string>();
 
@@ -306,7 +304,7 @@ export class InfraConfigController {
     const { updates, staleKeys } = ctx;
     // Existing values are the base; this payload's values win (secrets handled above).
     const merged: Record<string, string> = { ...existing, ...updates };
-    // Drop keys made obsolete by a mode switch (postgres->sqlite, s3->local, built-in->external).
+    // Drop keys made obsolete by a mode switch (s3->local, built-in->external).
     for (const k of staleKeys) {
       delete merged[k];
     }

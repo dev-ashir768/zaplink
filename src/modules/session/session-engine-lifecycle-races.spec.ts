@@ -25,6 +25,7 @@ import {
   type EngineEventCallbacks,
   type IWhatsAppEngine,
 } from '../../engine/interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = 'sess-uuid-1';
 const NAME = 'test-session';
@@ -273,7 +274,7 @@ describe('SessionEngineLifecycle races', () => {
       const manager = { delete: jest.fn().mockResolvedValue({ affected: 0 }), remove: jest.fn() };
       transaction = jest.fn((work: (m: unknown) => Promise<void>) => work(manager));
       Object.assign(dataSource, {
-        options: { type: 'better-sqlite3' },
+        options: { ...pgTestOptions() },
         getRepository: jest.fn(() => rows),
         transaction,
       });

@@ -1,5 +1,3 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
 import { randomBytes } from 'crypto';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
@@ -25,8 +23,16 @@ import { AutomationRule } from '../../database/retained-entities/automation-rule
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { ChatScopeService } from '../auth/chat-scope.service';
 import { postgresUtcExtra } from '../../database/postgres-utc';
+import { pgTestOptions, testDatabaseEnv } from '../../test-utils/pg-test-db';
 
-const enabled = process.env.DATABASE_TYPE === 'postgres';
+const testEnv = testDatabaseEnv();
+const testServer = {
+  host: testEnv.DATABASE_HOST,
+  port: Number(testEnv.DATABASE_PORT),
+  username: testEnv.DATABASE_USERNAME,
+  password: testEnv.DATABASE_PASSWORD,
+};
+
 const deferred = () => {
   let resolve!: () => void;
   const promise = new Promise<void>(r => {
@@ -34,7 +40,7 @@ const deferred = () => {
   });
   return { promise, resolve };
 };
-(enabled ? describe : describe.skip)('stored message selection during data restore', () => {
+describe('stored message selection during data restore', () => {
   const schema = `message_selection_${randomBytes(4).toString('hex')}`;
   const SID = '00000000-0000-4000-8000-000000000001';
   const OLD = '00000000-0000-4000-8000-000000000011';
@@ -56,11 +62,8 @@ const deferred = () => {
   beforeAll(async () => {
     const options = {
       type: 'postgres' as const,
-      host: process.env.DATABASE_HOST || '127.0.0.1',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'fixture',
-      password: process.env.DATABASE_PASSWORD || 'fixture',
-      database: process.env.DATABASE_NAME || 'fixture',
+      ...testServer,
+      database: testEnv.DATABASE_NAME,
     };
     admin = await new DataSource(options).initialize();
     await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -96,8 +99,7 @@ const deferred = () => {
       synchronize: true,
     }).initialize();
     main = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [ApiKey],
       synchronize: true,
     }).initialize();

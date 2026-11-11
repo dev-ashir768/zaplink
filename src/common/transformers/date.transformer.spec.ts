@@ -18,16 +18,4 @@ describe('DateTransformer (cross-DB date round-trip)', () => {
     expect(DateTransformer.from(now)).toBe(now);
     expect(DateTransformer.from(null)).toBeNull();
   });
-
-  it('to(): stores an ISO string on SQLite and a native Date on Postgres; null stays null', () => {
-    const d = new Date('2026-06-20T10:00:00.000Z');
-
-    process.env.DATABASE_TYPE = 'sqlite';
-    expect(DateTransformer.to(d)).toBe('2026-06-20T10:00:00.000Z');
-
-    process.env.DATABASE_TYPE = 'postgres';
-    expect(DateTransformer.to(d)).toBe(d);
-
-    expect(DateTransformer.to(null)).toBeNull();
-  });
 });

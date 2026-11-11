@@ -20,6 +20,7 @@ import type { SessionLidResolver } from '../session/session-lid-resolver.service
 import { StorageService } from '../../common/storage/storage.service';
 import { StatusUpdate } from './entities/status-update.entity';
 import { StatusStoreService } from './status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const SESSION = 's1';
 const SELF = '620000000000@c.us';
@@ -29,7 +30,7 @@ const OTHER = '628444555666@c.us';
 const STORY = '3EB0A1B2C3D4E5F6';
 
 const settle = async (): Promise<void> => {
-  for (let n = 0; n < 10; n++) await new Promise(resolve => setTimeout(resolve, 5));
+  for (let n = 0; n < 40; n++) await new Promise(resolve => setTimeout(resolve, 10));
 };
 
 /** A step a case holds until it opens the gate, and a way to wait until the step has reached it. */
@@ -63,8 +64,7 @@ describe('a received status its poster deleted', () => {
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'owa-status-revoke-'));
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, StatusUpdate],
       synchronize: true,
     }).initialize();

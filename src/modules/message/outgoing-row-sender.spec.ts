@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, type Repository } from 'typeorm';
 import { Message, MessageDirection, MessageStatus } from './entities/message.entity';
@@ -19,11 +18,11 @@ import type { StatusStoreService } from '../status-store/status-store.service';
 import type { SessionLidResolver } from '../session/session-lid-resolver.service';
 import type { IncomingMessage, IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
 import { MessageNotFoundError } from '../../common/errors/message-not-found.error';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // Every outgoing row of one account names the same sender, whichever writer stored it: the REST send
 // path, or the own-send echo of a message composed on the linked phone. The `from` filter of the message
 // list matches a sender by its JID forms, so a row that names the account some other way drops out of it.
-// Runs on SQLite, and on the postgres:16 service when DATABASE_TYPE=postgres.
 describe('the sender stored on an outgoing row', () => {
   const PHONE = '628123456789';
   const OWN_JID = `${PHONE}@c.us`;
@@ -41,7 +40,7 @@ describe('the sender stored on an outgoing row', () => {
   const pause = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
   const flush = async (): Promise<void> => {
     for (let i = 0; i < 25; i++) await new Promise(resolve => setImmediate(resolve));
-    if (db.options.type === 'postgres') await pause(150);
+    await pause(150);
   };
   // Retries an assertion until it holds or the deadline passes. An ack is applied in the background (and one
   // that finds no row is retried once after ACK_RECONCILE_DELAY_MS), so a fixed wait can read the row first.
@@ -59,26 +58,8 @@ describe('the sender stored on an outgoing row', () => {
 
   beforeEach(async () => {
     process.env.SIMULATE_TYPING = 'false';
-    db = new DataSource(
-      process.env.DATABASE_TYPE === 'postgres'
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            schema: `outgoing_sender_${randomUUID().replace(/-/g, '')}`,
-            entities: [Session, Message],
-            synchronize: false,
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities: [Session, Message], synchronize: true },
-    );
+    db = new DataSource({ ...pgTestOptions(), entities: [Session, Message], synchronize: true });
     await db.initialize();
-    if (db.options.type === 'postgres') {
-      await db.query(`CREATE SCHEMA "${db.options.schema}"`);
-      await db.synchronize();
-    }
     messages = db.getRepository(Message);
     sessions = db.getRepository(Session);
     const session = await sessions.save({ name: 'acct', phone: PHONE } as Partial<Session>);
@@ -124,7 +105,6 @@ describe('the sender stored on an outgoing row', () => {
 
   afterEach(async () => {
     delete process.env.SIMULATE_TYPING;
-    if (db.options.type === 'postgres') await db.query(`DROP SCHEMA IF EXISTS "${String(db.options.schema)}" CASCADE`);
     await db.destroy();
   });
 

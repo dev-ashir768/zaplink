@@ -8,19 +8,17 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * message, so the earliest row (createdAt ASC, id ASC) is kept and the rest deleted. Rows with a NULL
  * waMessageId are exempt (SQL treats NULLs as distinct), preserving transient outgoing PENDING rows.
  *
- * Hand-authored because `synchronize` is off for the `data` connection. Idempotent + cross-dialect.
+ * Hand-authored because `synchronize` is off for the `data` connection. Idempotent.
  */
 export class AddMessagesWaMessageIdUnique1781300000000 implements MigrationInterface {
   name = 'AddMessagesWaMessageIdUnique1781300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    if (queryRunner.dataSource.options.type === 'postgres') {
-      // Boot and CLI migrations run on a pool without the runtime statement_timeout (pg-boot-migrations.ts);
-      // this guards the dedup DELETE / CREATE UNIQUE INDEX over the hot messages table against a role- or
-      // database-level default aborting it mid-flight. SET LOCAL is transaction-scoped (auto-reverts at
-      // COMMIT); SQLite rejects it syntactically, hence the guard.
-      await queryRunner.query('SET LOCAL statement_timeout = 0');
-    }
+    // Boot and CLI migrations run on a pool without the runtime statement_timeout (pg-boot-migrations.ts);
+    // this guards the dedup DELETE / CREATE UNIQUE INDEX over the hot messages table against a role- or
+    // database-level default aborting it mid-flight. SET LOCAL is transaction-scoped (auto-reverts at
+    // COMMIT).
+    await queryRunner.query('SET LOCAL statement_timeout = 0');
     if (!(await queryRunner.hasTable('messages'))) return;
 
     await queryRunner.query(

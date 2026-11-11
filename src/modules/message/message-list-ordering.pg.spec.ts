@@ -1,5 +1,3 @@
-/* istanbul ignore file -- PG-gated: only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
 import { randomUUID } from 'crypto';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
@@ -12,11 +10,12 @@ import type { LidMappingStoreService } from '../../engine/identity/lid-mapping-s
 import type { SendPacingService } from './send-pacing.service';
 import type { MessageSendService } from './message-send.service';
 import { AddMessageWindowIndexes1790812800000 } from '../../database/migrations/1790812800000-AddMessageWindowIndexes';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
- * `createdAt` is not a unique sort key. On SQLite it is whole seconds; on Postgres `NOW()` is
+ * `createdAt` is not a unique sort key. `NOW()` is
  * transaction-scoped, so one bulk write ties every row it inserts; and the history projector stamps
- * the column from WhatsApp's own second-resolution timestamp on both. A chat therefore routinely
+ * the column from WhatsApp's own second-resolution timestamp. A chat therefore routinely
  * holds many rows sharing one value.
  *
  * Postgres plans this list as a Sort over a bitmap heap scan, and that sort is not stable: two
@@ -25,15 +24,10 @@ import { AddMessageWindowIndexes1790812800000 } from '../../database/migrations/
  * write required. Measured on postgres:16 before the tiebreaker existed: a single walk of 5000 tied
  * rows returned 23 rows twice and 23 rows not at all, reproducibly.
  *
- * This suite runs only where the defect lives. SQLite reaches the same rows through an index scan
- * and happens to be self-consistent, so an in-memory harness cannot fail on it.
- *
  * It pins ordering only. Offset paging over a table taking concurrent writes still drifts, because
  * the window is anchored to a count rather than to a row; closing that needs a cursor.
  */
-const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
-
-(POSTGRES_ENABLED ? describe : describe.skip)('message list ordering over tied createdAt (postgres)', () => {
+describe('message list ordering over tied createdAt (postgres)', () => {
   const SESSION_ID = 'sess-ordering';
   const ROWS = 5000;
   const PAGE = 100;
@@ -44,17 +38,12 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 
   beforeAll(async () => {
     ds = new DataSource({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-      database: process.env.DATABASE_NAME || 'zaplink',
+      ...pgTestOptions(),
       entities: [Message],
     });
     await ds.initialize();
 
-    // Raw DDL rather than ORM synchronize, like the sibling PG specs: the production shape comes
+    // Raw DDL rather than ORM synchronize: the production shape comes
     // from the migration chain (varchar id, no uuid extension), and the index that decides this
     // test, (sessionId, createdAt), has to be the one the deployed schema carries.
     await ds.query(`DROP TABLE IF EXISTS "messages" CASCADE`);
@@ -217,7 +206,7 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
     const names = async (): Promise<string[]> =>
       (
         (await runner.query(
-          `SELECT indexname FROM pg_indexes WHERE tablename = 'messages' AND indexname LIKE 'IDX_messages_session_%timestamp_id'`,
+          `SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages' AND indexname LIKE 'IDX_messages_session_%timestamp_id'`,
         )) as Array<{ indexname: string }>
       ).map(row => row.indexname);
     expect(await names()).toHaveLength(3);
@@ -230,10 +219,10 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
   });
 
   /**
-   * A chat filter on a user id expands to several dialect candidates, which picks a SQLite-only sort
-   * key there. PostgreSQL must keep the plain one, so the chat-filtered walk runs on the real server.
+   * A chat filter on a user id expands to several JID candidates; the walk must keep the plain sort key
+   * and the same total order as the unfiltered list.
    */
-  it('walks one chat by its several dialect candidates in the same total order', async () => {
+  it('walks one chat by its several JID candidates in the same total order', async () => {
     const served: string[] = [];
     for (let offset = 0; offset < ROWS; offset += PAGE * 10) {
       const { messages } = await service.getMessages(SESSION_ID, { chatId: 'peer@c.us', limit: PAGE, offset });
@@ -251,8 +240,8 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 
   /**
    * The message-time order of a user chat keeps the plain sort key here, so the planner may read the
-   * (sessionId, timestamp, id) index in order. The SQLite key, an expression over the column, leaves it
-   * no ordered path: it must sort. The cost-based choice between the two depends on table statistics,
+   * (sessionId, timestamp, id) index in order; an expression over the column would leave it no ordered
+   * path. The cost-based choice between the two depends on table statistics,
    * so the plan is read with sorting disabled for the planner, which makes the answer exact: a plain
    * key plans with no Sort node, an expression over the column cannot.
    */
@@ -387,7 +376,7 @@ const POSTGRES_ENABLED = process.env.DATABASE_TYPE === 'postgres';
 
   /**
    * The page is picked by id, sized by a raw `OCTET_LENGTH(metadata)` select and read back in chunks, so
-   * the dialect SQL and the order restore after the IN read are only proven against the real server.
+   * the SQL and the order restore after the IN read are only proven against the real server.
    */
   it('reads a media page in order and omits the payloads past the budget', async () => {
     const MEDIA_SESSION = 'sess-media-budget';

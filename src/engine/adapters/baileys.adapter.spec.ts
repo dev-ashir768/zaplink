@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as qrcode from 'qrcode';
 import * as messagingModule from './baileys-messaging';
-import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 import { EngineRegistry } from '../engine-registry.service';
 import { LidMapping } from '../identity/lid-mapping.entity';
@@ -248,6 +247,7 @@ import { loadRemoteMediaBuffer } from '../../common/media/load-remote-media';
 import { describeAudio, describeVideo } from './baileys-audio-probe';
 import * as safeLinkPreview from './safe-link-preview';
 import sharp from 'sharp';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const fakeStore = {
   put: jest.fn().mockResolvedValue(undefined),
@@ -550,7 +550,7 @@ describe('BaileysAdapter lifecycle & status', () => {
       const onDisconnected = jest.fn();
       const adapter = newAdapter();
       await adapter.initialize(noopCallbacks({ onDisconnected }));
-      fakeStore.clearSession.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+      fakeStore.clearSession.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
       fakeSock.fire('connection.update', {
         connection: 'close',
         lastDisconnect: { error: { output: { statusCode: 401 } } },
@@ -3310,7 +3310,7 @@ describe('BaileysAdapter inbound fan-out', () => {
   });
 
   it('still dispatches a received message when the store cannot be read', async () => {
-    fakeStore.getMessage.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+    fakeStore.getMessage.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
     const onMessage = jest.fn();
     const adapter = newAdapter();
     await adapter.initialize({ onMessage });
@@ -3367,7 +3367,7 @@ describe('BaileysAdapter inbound fan-out', () => {
   // the handler's catch, which drops the message, and Baileys acks the node before emitting it, so
   // WhatsApp never sends it again. Fail open, and take the duplicate risk instead of the loss.
   it('still delivers a phone-sent message when the message store read fails', async () => {
-    fakeStore.getMessage.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+    fakeStore.getMessage.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
     const onMessageCreate = jest.fn();
     const adapter = newAdapter();
     await adapter.initialize({ onMessageCreate });
@@ -5883,7 +5883,7 @@ describe('BaileysAdapter store-backed ops', () => {
     };
     const linked = async (onDisconnected = jest.fn()): Promise<BaileysAdapter> => {
       // A failing clear must not change how either unlink ends.
-      chatStateStore.clearSession.mockRejectedValue(new Error('SQLITE_BUSY'));
+      chatStateStore.clearSession.mockRejectedValue(new Error('Connection terminated unexpectedly'));
       const adapter = new BaileysAdapter({
         sessionId: 'sess-1',
         dbSessionId: 'db-uuid-1',
@@ -5941,7 +5941,7 @@ describe('BaileysAdapter store-backed ops', () => {
     });
 
     it('still starts when the re-read fails', async () => {
-      chatStateStore.refreshSession.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+      chatStateStore.refreshSession.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
       const adapter = await linked();
       expect(adapter.getStatus()).toBe(EngineStatus.READY);
     });
@@ -5977,12 +5977,12 @@ describe('BaileysAdapter store-backed ops', () => {
         .mockImplementation(() => undefined);
     const clearFailure = (what: string) => [
       `Failed to clear the stored ${what} of an unlinked account`,
-      expect.objectContaining({ sessionId: 'sess-1', error: 'SQLITE_BUSY' }) as unknown,
+      expect.objectContaining({ sessionId: 'sess-1', error: 'Connection terminated unexpectedly' }) as unknown,
     ];
 
     it('logs a failed clear on logout while the unlink still completes', async () => {
       const adapter = await linked();
-      fakeStore.clearSession.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+      fakeStore.clearSession.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
       const warn = warnOf(adapter);
 
       await expect(adapter.logout()).resolves.toBeUndefined();
@@ -5996,7 +5996,7 @@ describe('BaileysAdapter store-backed ops', () => {
       try {
         const onDisconnected = jest.fn();
         const adapter = await linked(onDisconnected);
-        fakeStore.clearSession.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+        fakeStore.clearSession.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
         const warn = warnOf(adapter);
         fakeSock.fire('connection.update', {
           connection: 'close',
@@ -7639,24 +7639,11 @@ describe('BaileysAdapter contact + chat reads', () => {
     it.each(['history', 'contact', 'signal'])(
       'keeps a newer shared phone when a sender lookup reads an earlier %s mapping',
       async source => {
-        const pg = process.env.DATABASE_TYPE === 'postgres';
-        const server = {
-          type: 'postgres' as const,
-          host: process.env.DATABASE_HOST || '127.0.0.1',
-          port: Number(process.env.DATABASE_PORT || 5432),
-          username: process.env.DATABASE_USERNAME || 'zaplink',
-          password: process.env.DATABASE_PASSWORD || 'zaplink',
-          database: process.env.DATABASE_NAME || 'zaplink',
-        };
-        const schema = `lid_sender_${randomUUID().replace(/-/g, '')}`;
-        const admin = pg ? await new DataSource(server).initialize() : undefined;
-        if (admin) await admin.query(`CREATE SCHEMA "${schema}"`);
-        const entities = [LidMapping, Session, Message];
-        const ds = await new DataSource(
-          pg
-            ? { ...server, schema, extra: { options: `-c search_path=${schema},public` }, entities, synchronize: true }
-            : { type: 'better-sqlite3', database: ':memory:', entities, synchronize: true },
-        ).initialize();
+        const ds = await new DataSource({
+          ...pgTestOptions(),
+          entities: [LidMapping, Session, Message],
+          synchronize: true,
+        }).initialize();
         const [s1, s2] = ['00000001-0000-4000-8000-000000000000', '00000002-0000-4000-8000-000000000000'];
         await ds.getRepository(Session).insert([s1, s2].map(id => ({ id, name: id, phone: '6290000000' })));
         const repo = ds.getRepository(LidMapping);
@@ -8057,10 +8044,6 @@ describe('BaileysAdapter contact + chat reads', () => {
         } finally {
           await adapter.destroy();
           await ds.destroy();
-          if (admin) {
-            await admin.query(`DROP SCHEMA "${schema}" CASCADE`);
-            await admin.destroy();
-          }
         }
       },
     );
@@ -9010,13 +8993,13 @@ describe('BaileysAdapter chat writes keyed to a message (#1891)', () => {
     let db: DataSource;
     const newStore = () => new ChatStateStoreService(db.getRepository(ChatState));
     const now = () => Math.floor(Date.now() / 1000);
-    // The store writes behind the events that feed it.
+    // The store writes behind the events that feed it, a database round trip later.
     const settle = async () => {
-      for (let i = 0; i < 20; i++) await new Promise(r => setImmediate(r));
+      for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 5));
     };
 
     beforeEach(async () => {
-      db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [ChatState], synchronize: true });
+      db = new DataSource({ ...pgTestOptions(), entities: [ChatState], synchronize: true });
       await db.initialize();
       // Baileys applies its own app-state patch as a chat update (emitOwnEvents).
       fakeSock.chatModify.mockImplementation((change: Record<string, unknown>, jid: string) => {
@@ -11105,19 +11088,19 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
   it('still answers a delete for everyone when the store cannot record it', async () => {
     // The delete already reached WhatsApp; failing the request now would invite a retry of it.
     fakeStore.getMessage.mockResolvedValue(ownStored);
-    fakeStore.update.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+    fakeStore.update.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
     const adapter = await started();
     const warn = jest.spyOn(loggerOf(adapter), 'warn').mockImplementation(() => undefined);
     await expect(adapter.deleteMessage(PEER, 'TARGET', true)).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(
       'Failed to apply an edit or delete to the message store',
-      expect.objectContaining({ msgId: 'TARGET', error: 'SQLITE_BUSY: database is locked' }),
+      expect.objectContaining({ msgId: 'TARGET', error: 'Connection terminated unexpectedly' }),
     );
   });
 
   it('refuses a message the API deleted for everyone even when the store could not record the delete', async () => {
     fakeStore.getMessage.mockResolvedValue(ownStored);
-    fakeStore.update.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+    fakeStore.update.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
     const adapter = await started();
     jest.spyOn(loggerOf(adapter), 'warn').mockImplementation(() => undefined);
     await adapter.deleteMessage(PEER, 'TARGET', true);
@@ -11128,7 +11111,7 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
   });
 
   it('logs rather than drops an inbound delete the store cannot record', async () => {
-    fakeStore.update.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+    fakeStore.update.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
     const adapter = await started();
     const warn = jest.spyOn(loggerOf(adapter), 'warn').mockImplementation(() => undefined);
     fireProtocol({ remoteJid: PEER, fromMe: false }, { key: { id: 'GONE' }, type: 0 });
@@ -11136,7 +11119,7 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
     expect(fakeStore.update).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       'Failed to apply an edit or delete to the message store',
-      expect.objectContaining({ msgId: 'GONE', error: 'SQLITE_BUSY: database is locked' }),
+      expect.objectContaining({ msgId: 'GONE', error: 'Connection terminated unexpectedly' }),
     );
   });
 
@@ -12494,7 +12477,7 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
       const listen = (reason: unknown): number => unhandled.push(reason);
       process.on('unhandledRejection', listen);
       try {
-        fakeStore.remove.mockReset().mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+        fakeStore.remove.mockReset().mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
         const adapter = await startWith({
           onMessage: jest.fn(() => ({ settled: Promise.resolve({ conflict: true }) })),
         });
@@ -12505,7 +12488,7 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
         expect(unhandled).toEqual([]);
         expect(warn).toHaveBeenCalledWith(
           'Failed to remove the stored copy of a conflicting message',
-          expect.objectContaining({ msgId: 'REUSED', error: 'SQLITE_BUSY: database is locked' }),
+          expect.objectContaining({ msgId: 'REUSED', error: 'Connection terminated unexpectedly' }),
         );
       } finally {
         process.off('unhandledRejection', listen);

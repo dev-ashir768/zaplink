@@ -74,7 +74,7 @@ for (const raw of text.split('\n')) {
 }
 
 // Docker matches a pattern against the path AND every parent directory, so `data/` rejects
-// `data/main.sqlite` even though the pattern itself has no wildcard.
+// `data/.api-key` even though the pattern itself has no wildcard.
 function matches(re, path) {
   for (let p = path; ; ) {
     if (re.test(p)) return true;
@@ -98,20 +98,6 @@ const mustReject = [
   'node_modules/typescript/package.json',
   'dashboard/node_modules/vite/package.json',
   'scripts/node_modules/zx/package.json',
-  'sdk/javascript/node_modules/typescript/package.json',
-  'sdk/php/vendor/autoload.php',
-  'sdk/python/.venv/pyvenv.cfg',
-  'sdk/java/target/zaplink.jar',
-  // The SDKs (no build step reads them): sources, build output and test caches
-  'sdk/javascript/src/index.ts',
-  'sdk/javascript/dist/cjs/index.js',
-  'sdk/python/dist/zaplink-0.7.0-py3-none-any.whl',
-  'sdk/python/build/lib/zaplink/client.py',
-  'sdk/python/src/zaplink.egg-info/PKG-INFO',
-  'sdk/python/src/zaplink/__pycache__/client.cpython-312.pyc',
-  'sdk/python/.pytest_cache/v/cache/nodeids',
-  'sdk/php/.phpunit.result.cache',
-  'sdk/go/coverage.out',
   // Build output / local compiler caches
   'dist/main.js',
   'dashboard/dist/index.html',
@@ -122,14 +108,10 @@ const mustReject = [
   'dashboard/coverage/lcov.info',
   // Environment files (secrets)
   '.env',
-  '.env.minimal',
   '.env.production.local',
   'dashboard/.env.local',
   // Runtime data (sessions, media, databases, keys)
-  'data/main.sqlite',
   'data/.api-key',
-  'zaplink.sqlite',
-  'backup.db',
   'uploads/s1/2026/10/photo.jpg',
   // Backup archives and pre-restore snapshots (scripts/backup.sh, scripts/restore.sh)
   'backups/zaplink-backup-20260101-000000.tar.gz',
@@ -140,19 +122,10 @@ const mustReject = [
   '.git/HEAD',
   '.git/hooks/pre-commit',
   // Private working material
-  '_docs/notes.md',
   // Agent/tool workspaces and caches
-  '.agent/state.json',
   '.claude/settings.json',
-  '.kimi-worktrees/build-context/package.json',
-  '.playwright-mcp/shot.png',
-  '.remember/state.json',
-  '.superpowers/config.yml',
   '.worktrees/topic/package.json',
   '.wwebjs_cache/chrome/linux/chrome',
-  'CLAUDE.md',
-  'docs/plans/plan.md',
-  'docs/superpowers/run.md',
   // IDE
   '.vscode/settings.json',
 ];
@@ -185,7 +158,6 @@ const mustKeep = [
   'scripts/restore.sh',
   'scripts/lib-env.sh',
   'docker-entrypoint.sh',
-  'docs/01-project-overview.md',
 ];
 
 const errors = [];

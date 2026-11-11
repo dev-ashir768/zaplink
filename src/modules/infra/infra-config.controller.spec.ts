@@ -433,11 +433,6 @@ describe('InfraConfigController PostgreSQL schema (POSTGRES_SCHEMA)', () => {
     expect(env).toContain('POSTGRES_SCHEMA=public');
   });
 
-  it('does not write POSTGRES_SCHEMA for sqlite', () => {
-    const env = written({ database: { type: 'sqlite' } });
-    expect(env).not.toContain('POSTGRES_SCHEMA=');
-  });
-
   it('getConfig surfaces the saved POSTGRES_SCHEMA, defaulting to public', () => {
     (fs.existsSync as jest.Mock).mockReturnValue(true);
     (fs.readFileSync as jest.Mock).mockReturnValue('DATABASE_TYPE=postgres\nPOSTGRES_SCHEMA=zaplink\n');
@@ -527,17 +522,6 @@ describe('InfraConfigController.saveConfig env-name correctness and merge (#226)
     );
     expect(env).toContain('DATABASE_PASSWORD=keepme');
     expect(env).toContain('DATABASE_HOST=db');
-  });
-
-  it('drops stale postgres keys (including POSTGRES_SCHEMA) when switching to sqlite', () => {
-    const existing =
-      'DATABASE_TYPE=postgres\nDATABASE_HOST=oldhost\nDATABASE_PASSWORD=secret\nDATABASE_PORT=5432\nPOSTGRES_SCHEMA=zaplink\n';
-    const env = written({ database: { type: 'sqlite' } }, existing);
-    expect(env).toContain('DATABASE_TYPE=sqlite');
-    expect(env).not.toContain('DATABASE_HOST=');
-    expect(env).not.toContain('DATABASE_PASSWORD=');
-    expect(env).not.toContain('DATABASE_PORT=');
-    expect(env).not.toContain('POSTGRES_SCHEMA=');
   });
 
   it('drops stale S3 keys when switching storage to local', () => {
@@ -1055,7 +1039,7 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
       'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=db.example.com\nDATABASE_USERNAME=app\n' +
       'DATABASE_PASSWORD=Str0ng!Passw0rd\nDATABASE_NAME=appdb\nSTORAGE_TYPE=s3\nMINIO_BUILTIN=false\n' +
       'S3_ENDPOINT=https://s3.example.com\nS3_BUCKET=media\nS3_ACCESS_KEY_ID=ak-strong\nS3_SECRET_ACCESS_KEY=sk-strong\n';
-    const STORED_LOCAL = 'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=false\nSTORAGE_TYPE=local\nMINIO_BUILTIN=false\n';
+    const STORED_LOCAL = 'STORAGE_TYPE=local\nMINIO_BUILTIN=false\n';
     let pinnedKeys: string[] = [];
     const pin = (values: Record<string, string>) => {
       Object.assign(process.env, values);
@@ -1070,31 +1054,26 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
     });
 
     // The page sends every field of a card, seeded with defaults for keys nothing stores. Applied to the stored
-    // PostgreSQL while SQLite is pinned, that writes DATABASE_NAME=zaplink, a bare name the pinned SQLite boot refuses.
+    // S3 while local storage is pinned, that would write S3 settings the pinned local boot never reads.
     it('writes nothing of a section whose pinned selection differs from the stored one', () => {
-      pin({ DATABASE_TYPE: 'sqlite', STORAGE_TYPE: 'local' });
-      const stored = STORED_EXTERNAL.replace('DATABASE_NAME=appdb\n', '');
+      pin({ STORAGE_TYPE: 'local' });
 
       const env = written(
-        {
-          database: { builtIn: false, host: 'db.example.com', port: '5432', database: 'zaplink', poolSize: 10 },
-          storage: { builtIn: false, localPath: './data/media', s3Region: 'ap-southeast-1' },
-        },
-        stored,
+        { storage: { builtIn: false, localPath: './data/media', s3Region: 'ap-southeast-1' } },
+        STORED_EXTERNAL,
       );
 
-      expect(env).not.toMatch(/^(DATABASE_NAME|DATABASE_PORT|DATABASE_POOL_SIZE|S3_REGION|STORAGE_LOCAL_PATH)=/m);
-      for (const line of stored.trim().split('\n')) expect(env).toContain(line);
+      expect(env).not.toMatch(/^(S3_REGION|STORAGE_LOCAL_PATH)=/m);
+      for (const line of STORED_EXTERNAL.trim().split('\n')) expect(env).toContain(line);
       const parsed = jest.requireActual<typeof import('dotenv')>('dotenv').parse(env);
-      expect(() => validateEnv({ ...parsed, DATABASE_TYPE: 'sqlite', STORAGE_TYPE: 'local' })).not.toThrow();
+      expect(() => validateEnv({ ...parsed, STORAGE_TYPE: 'local' })).not.toThrow();
     });
 
-    it('keeps a stored PostgreSQL and S3 choice and their settings under the opposite pins', () => {
-      pin({ DATABASE_TYPE: 'sqlite', DATABASE_NAME: './data/pinned.sqlite', STORAGE_TYPE: 'local' });
+    it('keeps a stored S3 choice and its settings under the opposite pin', () => {
+      pin({ STORAGE_TYPE: 'local' });
 
       const env = written(
         {
-          database: { builtIn: false, host: 'db.example.com', username: 'app', database: 'appdb' },
           storage: {
             builtIn: false,
             localPath: './data/media',
@@ -1109,9 +1088,8 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
       expect(env).not.toMatch(/^STORAGE_LOCAL_PATH=/m);
     });
 
-    it('keeps a stored SQLite and local choice under the opposite pins, with no bundled container', () => {
+    it('keeps a stored local choice under the opposite pin, with no bundled container', () => {
       pin({
-        DATABASE_TYPE: 'postgres',
         DATABASE_HOST: 'db.pinned.example',
         DATABASE_USERNAME: 'app',
         DATABASE_PASSWORD: 'Str0ng!Passw0rd',
@@ -1123,13 +1101,12 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
       (fs.readFileSync as jest.Mock).mockReturnValue(STORED_LOCAL);
 
       const { profiles } = newController().saveConfig({
-        database: { builtIn: true, host: 'postgres' },
         storage: { builtIn: true, s3Endpoint: 'http://minio:9000' },
       });
       const env = ((fs.writeFileSync as jest.Mock).mock.calls as Array<[string, string]>).at(-1)![1];
 
       for (const line of STORED_LOCAL.trim().split('\n')) expect(env).toContain(line);
-      expect(env).not.toMatch(/^(DATABASE_HOST|S3_ENDPOINT)=/m);
+      expect(env).not.toMatch(/^S3_ENDPOINT=/m);
       expect(profiles).toEqual([]);
     });
 
@@ -1179,11 +1156,13 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
     it('applies a section to the stored selection when nothing pins one', () => {
       const env = written(
         { database: { host: 'db.example.com' }, storage: { localPath: './data/media-2' } },
-        'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=false\nSTORAGE_TYPE=local\nSTORAGE_LOCAL_PATH=./data/media\n',
+        'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=false\nDATABASE_HOST=db.old.example\nDATABASE_USERNAME=app\n' +
+          'DATABASE_PASSWORD=Str0ng!Passw0rd\nSTORAGE_TYPE=local\nSTORAGE_LOCAL_PATH=./data/media\n',
       );
 
       expect(env).toContain('STORAGE_LOCAL_PATH=./data/media-2');
-      expect(env).not.toMatch(/^DATABASE_HOST=/m);
+      expect(env).toContain('DATABASE_HOST=db.example.com');
+      expect(env).not.toMatch(/^DATABASE_TYPE=(?!postgres$)/m);
     });
 
     // The page also leaves the flag out of an untouched Redis or storage card beside a host pinned elsewhere, and sends
@@ -1231,26 +1210,17 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
       });
     });
 
-    it('an inherited bundled mode does not reuse details from stored SQLite or local storage', () => {
-      pin({ DATABASE_HOST: 'postgres', S3_ENDPOINT: 'http://minio:9000' });
+    it('an inherited bundled mode does not reuse details from stored local storage', () => {
+      pin({ S3_ENDPOINT: 'http://minio:9000' });
       const env = written(
-        { database: { type: 'postgres' }, storage: { type: 's3' } },
-        'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=stale\n' +
-          'DATABASE_NAME=./data/zaplink.sqlite\nPOSTGRES_SCHEMA=stale\nSTORAGE_TYPE=local\nMINIO_BUILTIN=true\n' +
-          'S3_ENDPOINT=http://minio:9000\nS3_BUCKET=stale\nS3_REGION=stale\n',
+        { storage: { type: 's3' } },
+        'STORAGE_TYPE=local\nMINIO_BUILTIN=true\nS3_ENDPOINT=http://minio:9000\nS3_BUCKET=stale\nS3_REGION=stale\n',
       );
 
-      for (const line of [
-        'DATABASE_USERNAME=zaplink',
-        'DATABASE_NAME=zaplink',
-        'POSTGRES_SCHEMA=public',
-        'S3_BUCKET=zaplink',
-        'S3_REGION=us-east-1',
-      ]) {
+      for (const line of ['S3_BUCKET=zaplink', 'S3_REGION=us-east-1']) {
         expect(env).toContain(line);
       }
       expect(env).not.toContain('stale');
-      expect(env).not.toContain('zaplink.sqlite');
     });
 
     it.each(['true', 'false'])(
@@ -1394,13 +1364,12 @@ describe('InfraConfigController.saveConfig per-key merge (partial payloads)', ()
     });
 
     it('still writes a type that is sent', () => {
-      pin({ DATABASE_TYPE: 'sqlite', STORAGE_TYPE: 'local' });
+      pin({ STORAGE_TYPE: 'local' });
 
-      const env = written({ database: { type: 'sqlite' }, storage: { type: 'local' } }, STORED_EXTERNAL);
+      const env = written({ storage: { type: 'local' } }, STORED_EXTERNAL);
 
-      expect(env).toContain('DATABASE_TYPE=sqlite');
       expect(env).toContain('STORAGE_TYPE=local');
-      expect(env).not.toMatch(/^DATABASE_HOST=/m);
+      expect(env).not.toMatch(/^S3_ENDPOINT=/m);
     });
   });
 });
@@ -1954,18 +1923,6 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
       expect(env).toContain('S3_REGION=us-east-1');
     });
 
-    // A SQLite boot dials no PostgreSQL, and its DATABASE_NAME is a file path.
-    it('writes the bundled ones when the next boot runs SQLite beside a bundled host pin', () => {
-      process.env.DATABASE_HOST = 'postgres';
-      recordPinnedEnvKeys({ DATABASE_HOST: 'postgres' });
-      const env = written(
-        { database: { type: 'postgres', builtIn: true } },
-        'DATABASE_TYPE=sqlite\nPOSTGRES_BUILTIN=false\nDATABASE_NAME=./data/zaplink.sqlite\n',
-      );
-      expect(env).toContain('DATABASE_NAME=zaplink');
-      expect(env).not.toContain('zaplink.sqlite');
-    });
-
     // Likewise local storage dials no MinIO, whatever bucket an older file left behind.
     it('writes the bundled bucket when the next boot keeps local storage beside a bundled endpoint pin', () => {
       process.env.S3_ENDPOINT = 'http://minio:9000';
@@ -2085,21 +2042,6 @@ describe('InfraConfigController.saveConfig built-in/external mode flips and the 
           S3_ACCESS_KEY_ID: 'minioadmin',
           S3_SECRET_ACCESS_KEY: 'minioadmin',
         });
-      });
-
-      it('writes the bundled ones while the running process uses SQLite and local storage', () => {
-        const env = switchBack({
-          ...RUNNING,
-          DATABASE_TYPE: 'sqlite',
-          DATABASE_NAME: './data/running.sqlite',
-          STORAGE_TYPE: 'local',
-        });
-        expect([env.DATABASE_NAME, env.DATABASE_PASSWORD, env.S3_BUCKET, env.S3_ACCESS_KEY_ID]).toEqual([
-          'zaplink',
-          'zaplink',
-          'zaplink',
-          'minioadmin',
-        ]);
       });
 
       // A file that already names the bundled containers is the choice the next boot makes: its values stay.
@@ -2407,9 +2349,9 @@ describe('InfraConfigController.getConfig reflects environment-pinned values (#1
 
   it('reports host-provided engine/database/redis values over the first-run file defaults', () => {
     // The exact #1313 deployment: everything set via compose environment:, no .env, and the
-    // first-run data/.env.generated holding sqlite/false with no ENGINE_TYPE line at all.
+    // first-run data/.env.generated holding REDIS_ENABLED=false with no ENGINE_TYPE line at all.
     (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.readFileSync as jest.Mock).mockReturnValue('DATABASE_TYPE=sqlite\nREDIS_ENABLED=false\n');
+    (fs.readFileSync as jest.Mock).mockReturnValue('REDIS_ENABLED=false\n');
 
     process.env.ENGINE_TYPE = 'baileys';
     process.env.DATABASE_TYPE = 'postgres';
@@ -2922,7 +2864,18 @@ describe('InfraConfigController.requestRestart constrains teardown to managed pr
     // file the save wrote is what the restart reads, and nothing in it may keep the container for a service that is
     // no longer in use.
     describe.each([
-      ['database', { database: { type: 'sqlite', builtIn: true, host: 'postgres' } }],
+      [
+        'database',
+        {
+          database: {
+            type: 'postgres',
+            builtIn: false,
+            host: 'db.example.com',
+            username: 'app',
+            password: 'Str0ng!Passw0rd',
+          },
+        },
+      ],
       ['redis', { redis: { enabled: false, builtIn: true, host: 'redis', port: '6379' }, queue: { enabled: false } }],
       ['storage', { storage: { type: 'local', builtIn: true, s3Endpoint: 'http://minio:9000' } }],
     ] as const)('%s switched off from the page', (service, payload) => {
@@ -3066,7 +3019,8 @@ describe('InfraConfigController.requestRestart constrains teardown to managed pr
 // The next boot dials the database the saved file names. Restarting into a built-in PostgreSQL that did not start
 // fails that boot and every one after it, with the dashboard that could undo the save down.
 describe('InfraConfigController.requestRestart when the built-in database does not start', () => {
-  const RUNNING = 'DATABASE_TYPE=sqlite\nENGINE_TYPE=baileys\n';
+  const RUNNING =
+    'DATABASE_TYPE=postgres\nDATABASE_HOST=db.example.com\nDATABASE_USERNAME=app\nDATABASE_PASSWORD=Str0ng!Passw0rd\nENGINE_TYPE=baileys\n';
   const SAVED_BUILT_IN =
     'DATABASE_TYPE=postgres\nPOSTGRES_BUILTIN=true\nDATABASE_HOST=postgres\nDATABASE_USERNAME=zaplink\n' +
     'DATABASE_PASSWORD=zaplink\nDATABASE_NAME=zaplink\n';
@@ -3362,7 +3316,7 @@ describe('InfraConfigController audit trail (light-dependency handlers)', () => 
 
 describe('InfraConfigController built-in Redis transport', () => {
   const external =
-    'DATABASE_TYPE=sqlite\nSTORAGE_TYPE=local\nREDIS_ENABLED=true\nREDIS_BUILTIN=false\n' +
+    'DATABASE_TYPE=postgres\nDATABASE_HOST=db.example.com\nDATABASE_USERNAME=app\nDATABASE_PASSWORD=Str0ng!Passw0rd\nSTORAGE_TYPE=local\nREDIS_ENABLED=true\nREDIS_BUILTIN=false\n' +
     'REDIS_HOST=cache.external.invalid\nREDIS_PORT=6379\nREDIS_TLS=true\n';
   const keys = ['REDIS_TLS', 'REDIS_HOST', 'REDIS_ENABLED', 'REDIS_BUILTIN', 'QUEUE_ENABLED', 'CACHE_ENABLED'];
   let saved: Record<string, string | undefined>;
@@ -3433,7 +3387,10 @@ describe('InfraConfigController built-in Redis username', () => {
   let previous: Record<string, string | undefined>;
   const stored = (values: Record<string, string> = {}) =>
     Object.entries({
-      DATABASE_TYPE: 'sqlite',
+      DATABASE_TYPE: 'postgres',
+      DATABASE_HOST: 'db.example.com',
+      DATABASE_USERNAME: 'app',
+      DATABASE_PASSWORD: 'Str0ng!Passw0rd',
       STORAGE_TYPE: 'local',
       REDIS_ENABLED: 'true',
       REDIS_BUILTIN: 'false',

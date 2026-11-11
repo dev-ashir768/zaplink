@@ -14,6 +14,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { Session, SessionStatus } from './entities/session.entity';
 import { AuditService } from '../audit/audit.service';
 import { ChatScopeService } from '../auth/chat-scope.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const ID = '77777777-7777-4777-8777-777777777777';
 
@@ -567,7 +568,7 @@ describe('a delete refused at its second credential fence', () => {
   let source: DataSource;
 
   beforeAll(async () => {
-    source = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+    source = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
     await source.initialize();
     await source.getRepository(Session).save({ id: ID, name: 'fence-refusal' });
   });

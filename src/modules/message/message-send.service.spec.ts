@@ -25,6 +25,7 @@ import { SendIdempotencyService } from './idempotency/send-idempotency.service';
 import { SendIdempotencyInterceptor } from './idempotency/send-idempotency.interceptor';
 import * as sessionWriteScope from '../../common/utils/session-write-scope';
 import type { SendTextMessageDto } from './dto';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 // The real function, held before any test spies on the module export.
 const realCaptureSessionWrites = sessionWriteScope.captureSessionWrites;
@@ -130,8 +131,7 @@ describe('MessageSendService', () => {
 
   it.each(['engine', 'failure bookkeeping'])('prevents a same-key retry after a dispatched %s error', async stage => {
     const ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [SendIdempotencyKey],
       synchronize: true,
     });
@@ -581,7 +581,7 @@ describe('MessageSendService', () => {
         status: MessageStatus.SENT,
       } as Message;
       (repository.update as jest.Mock).mockRejectedValueOnce(
-        Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
       (repository.findOne as jest.Mock).mockResolvedValueOnce(echoRow);
 
@@ -1603,7 +1603,7 @@ describe('MessageSendService', () => {
         .mockRejectedValueOnce(new Error('db busy')) // the metadata merge onto the echo row
         .mockResolvedValueOnce({ id: 'msg-uuid-1' }); // the retained row, read back
       (repository.update as jest.Mock).mockRejectedValueOnce(
-        Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
 
       await service.clickButton('sess-1', {
@@ -1972,7 +1972,9 @@ describe('MessageSendService', () => {
   // The bulk path persists AFTER the send with the engine id already known, so it races the own-send
   // echo on UNIQUE(sessionId, waMessageId). Losing that race used to drop the batch's media payload.
   describe('saveOutgoingMessage vs the own-send echo (dedup race)', () => {
-    const uniqueViolation = new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId');
+    const uniqueViolation = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+    });
     const bulkRow = {
       waMessageId: 'wa-bulk-1',
       chatId: '621@c.us',
@@ -2028,9 +2030,9 @@ describe('MessageSendService', () => {
     });
 
     it('rethrows a transient (non-unique) persist error', async () => {
-      (repository.save as jest.Mock).mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+      (repository.save as jest.Mock).mockRejectedValueOnce(new Error('canceling statement due to lock timeout'));
 
-      await expect(service.saveOutgoingMessage('sess-1', bulkRow)).rejects.toThrow('SQLITE_BUSY');
+      await expect(service.saveOutgoingMessage('sess-1', bulkRow)).rejects.toThrow('lock timeout');
       expect(repository.update).not.toHaveBeenCalled();
     });
 
@@ -2047,10 +2049,10 @@ describe('MessageSendService', () => {
   describe('persistSentState vs the own-send echo (dedup race)', () => {
     it('retains the sent media row when merging onto the echo fails', async () => {
       (repository.update as jest.Mock).mockRejectedValueOnce(
-        new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId'),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
       (repository.findOne as jest.Mock).mockResolvedValue({ id: 'echo-row', metadata: {} });
-      (repository.update as jest.Mock).mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+      (repository.update as jest.Mock).mockRejectedValueOnce(new Error('canceling statement due to lock timeout'));
 
       const result = await service.sendImage('sess-1', { chatId: '621@c.us', base64: 'QUJD', mimetype: 'image/png' });
 
@@ -2068,8 +2070,10 @@ describe('MessageSendService', () => {
     it('retains a row the pending reaper failed first, payload included, when merging onto the echo fails', async () => {
       (repository.update as jest.Mock)
         .mockResolvedValueOnce({ affected: 0 }) // the SENT write guarded on PENDING: the row is FAILED now
-        .mockRejectedValueOnce(new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId')) // the rewrite meets the echo's id
-        .mockRejectedValueOnce(new Error('SQLITE_BUSY')); // the metadata merge onto the echo row
+        .mockRejectedValueOnce(
+          Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
+        ) // the rewrite meets the echo's id
+        .mockRejectedValueOnce(new Error('canceling statement due to lock timeout')); // the metadata merge onto the echo row
       (repository.findOne as jest.Mock).mockResolvedValue({ id: 'echo-row', metadata: {} });
 
       const result = await service.sendImage('sess-1', { chatId: '621@c.us', base64: 'QUJD', mimetype: 'image/png' });
@@ -2089,8 +2093,10 @@ describe('MessageSendService', () => {
     // the same way.
     it('retains a row the pending reaper failed while the merge onto the echo was tried, payload included', async () => {
       (repository.update as jest.Mock)
-        .mockRejectedValueOnce(new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId'))
-        .mockRejectedValueOnce(new Error('SQLITE_BUSY')) // the metadata merge onto the echo row
+        .mockRejectedValueOnce(
+          Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
+        )
+        .mockRejectedValueOnce(new Error('canceling statement due to lock timeout')) // the metadata merge onto the echo row
         .mockResolvedValueOnce({ affected: 0 }); // the write guarded on PENDING: the row is FAILED by now
       (repository.findOne as jest.Mock).mockResolvedValue({ id: 'echo-row', metadata: {} });
 
@@ -2115,7 +2121,7 @@ describe('MessageSendService', () => {
       // — for a Baileys API send, a media-less marker — so the merge must land status/timestamp/metadata
       // on it BEFORE the placeholder is deleted, or the payload is lost. The send still succeeds.
       (repository.update as jest.Mock).mockRejectedValueOnce(
-        new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId'),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
 
       const result = await service.sendText('sess-1', { chatId: '621@c.us', text: 'hi' });
@@ -2140,7 +2146,7 @@ describe('MessageSendService', () => {
 
     it('merges the media payload onto the echo row for a media send (no data loss after reload)', async () => {
       (repository.update as jest.Mock).mockRejectedValueOnce(
-        new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId'),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
       (repository.findOne as jest.Mock).mockResolvedValue({ id: 'echo-row', metadata: {} });
 
@@ -2154,7 +2160,7 @@ describe('MessageSendService', () => {
 
     it('keeps the echo row’s downloaded bytes rather than merging a URL pointer over them', async () => {
       (repository.update as jest.Mock).mockRejectedValueOnce(
-        new Error('UNIQUE constraint failed: messages.sessionId, messages.waMessageId'),
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
       );
 
       await service.sendImage('sess-1', { chatId: '621@c.us', url: 'https://example.com/cat.png' });
@@ -2165,7 +2171,7 @@ describe('MessageSendService', () => {
     });
 
     it('does NOT delete anything on a transient (non-unique) persist error', async () => {
-      (repository.update as jest.Mock).mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+      (repository.update as jest.Mock).mockRejectedValueOnce(new Error('canceling statement due to lock timeout'));
 
       const result = await service.sendText('sess-1', { chatId: '621@c.us', text: 'hi' });
 
@@ -2186,7 +2192,7 @@ describe('MessageSendService', () => {
     const media = { mimetype: 'image/png', data: 'QUJD' };
 
     beforeEach(async () => {
-      ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+      ds = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
       await ds.initialize();
       rows = ds.getRepository(Message);
       real = new MessageSendService(
@@ -2253,7 +2259,7 @@ describe('MessageSendService', () => {
     const sweep = () => reaper.sweep({ intervalMs: 0, graceMs: 0, batchSize: 50 }, new Date(Date.now() + 60_000));
 
     beforeEach(async () => {
-      ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Message], synchronize: true });
+      ds = new DataSource({ ...pgTestOptions(), entities: [Message], synchronize: true });
       await ds.initialize();
       rows = ds.getRepository(Message);
       reaper = new PendingMessageReaperService(rows, hookManager as HookManager);

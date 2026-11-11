@@ -1,9 +1,9 @@
-import { randomUUID } from 'crypto';
 import { DataSource, FindOperator, In, Repository } from 'typeorm';
 import { LidMappingStoreService } from './lid-mapping-store.service';
 import { LidMapping } from './lid-mapping.entity';
 import { Session } from '../../modules/session/entities/session.entity';
 import { ChatScopeService } from '../../modules/auth/chat-scope.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /** A where-clause value: a literal, or a TypeORM `In([...])` FindOperator. */
 type Cond = string | FindOperator<unknown>;
@@ -672,7 +672,7 @@ describe('LidMappingStoreService — deterministic preload + repository fallback
 
     // A restore brings the row back, then the post-commit reload fails.
     repo.rows.push({ lid: 'lid-restored', phone: '620005', sessionId: null, isReported: true, updatedAt: new Date() });
-    repo.find.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+    repo.find.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
     await expect(store.reload()).resolves.toBeUndefined();
 
     expect(store.getCached('lid-restored')).toBeUndefined();
@@ -1085,34 +1085,8 @@ describe('LidMappingStoreService: a negative result on the shared table', () => 
     return { release, reached };
   }
 
-  // SQLite in memory; on PostgreSQL (DATABASE_TYPE=postgres, the test-postgres job) a schema of its own, on
-  // the search_path as the app sets it, since the statements differ by dialect.
-  const pg = process.env.DATABASE_TYPE === 'postgres';
-  const server = {
-    type: 'postgres' as const,
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
-  let schema = '';
-  const onServer = async (sql: string): Promise<void> => {
-    const admin = await new DataSource(server).initialize();
-    await admin.query(sql).finally(() => admin.destroy());
-  };
-
   beforeEach(async () => {
-    const entities = [LidMapping, Session];
-    if (pg) {
-      schema = `lid_store_${randomUUID().replace(/-/g, '')}`;
-      await onServer(`CREATE SCHEMA "${schema}"`);
-    }
-    ds = await new DataSource(
-      pg
-        ? { ...server, schema, extra: { options: `-c search_path=${schema},public` }, entities, synchronize: true }
-        : { type: 'better-sqlite3', database: ':memory:', entities, synchronize: true },
-    ).initialize();
+    ds = await new DataSource({ ...pgTestOptions(), entities: [LidMapping, Session], synchronize: true }).initialize();
     await ds.getRepository(Session).insert([s1, s2, s3, s9].map(id => ({ id, name: id, phone: `6290000000${id[7]}` })));
     repo = ds.getRepository(LidMapping);
     store = new LidMappingStoreService(repo);
@@ -1125,7 +1099,6 @@ describe('LidMappingStoreService: a negative result on the shared table', () => 
 
   afterEach(async () => {
     await ds.destroy();
-    if (pg) await onServer(`DROP SCHEMA "${schema}" CASCADE`);
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -1430,18 +1403,12 @@ describe('LidMappingStoreService: a negative result on the shared table', () => 
     const original = await row('111');
     await ds.query('CREATE TABLE mapping_updates (n integer NOT NULL)');
     await ds.query('INSERT INTO mapping_updates VALUES (0)');
-    if (pg) {
-      await ds.query(
-        `CREATE FUNCTION count_mapping_update() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN UPDATE mapping_updates SET n = n + 1; RETURN NEW; END $$`,
-      );
-      await ds.query(
-        'CREATE TRIGGER mapping_update AFTER UPDATE ON lid_mappings FOR EACH ROW EXECUTE FUNCTION count_mapping_update()',
-      );
-    } else {
-      await ds.query(
-        'CREATE TRIGGER mapping_update AFTER UPDATE ON lid_mappings BEGIN UPDATE mapping_updates SET n = n + 1; END',
-      );
-    }
+    await ds.query(
+      `CREATE FUNCTION count_mapping_update() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN UPDATE mapping_updates SET n = n + 1; RETURN NEW; END $$`,
+    );
+    await ds.query(
+      'CREATE TRIGGER mapping_update AFTER UPDATE ON lid_mappings FOR EACH ROW EXECUTE FUNCTION count_mapping_update()',
+    );
     const query = jest.spyOn(repo, 'query');
     const upsert = jest.spyOn(repo, 'upsert');
     for (let i = 0; i < 1000; i++) await expect(store.remember('111', '628111', i % 2 ? s1 : s2)).resolves.toBe(true);
@@ -1455,7 +1422,7 @@ describe('LidMappingStoreService: a negative result on the shared table', () => 
     await store.remember('111', '628111', s1);
     expect(await row('111')).toEqual(original);
     expect(await ds.query('SELECT n FROM mapping_updates')).toEqual([{ n: 2 }]);
-  });
+  }, 60_000);
 
   it('stores the latest actual phone report even when this node counted the same phone before a peer changed it', async () => {
     await store.remember('111', '628111', s1);
@@ -2771,7 +2738,7 @@ describe('LidMappingStoreService: a phone reported under a second lid', () => {
 
     const first = store.remember('222', '628999', 's2'); // held open, then fails
     await expect(store.remember('222', '628999', 's2')).resolves.toBe(true);
-    fail(new Error('SQLITE_BUSY: database is locked'));
+    fail(new Error('Connection terminated unexpectedly'));
     await expect(first).resolves.toBe(false);
     await checksRun(store, repo);
     await expect(store.remember('222', '628999', 's2')).resolves.toBe(true);
@@ -2919,13 +2886,13 @@ describe('LidMappingStoreService: a phone reported under a second lid', () => {
       store.remember('222', '628999', 's2'),
       ...Array.from({ length: 10_001 }, (_, i) => store.remember(`5${i}`, `62700${i}`, 's1')),
     ]);
-    await until(() => reports.length > 0);
+    await until(() => reports.length > 0, 60_000);
 
     expect(reports).toEqual([expect.objectContaining({ phone: '628999', previousLid: '111', newLid: '222' })]);
     expect(capLines(warn)).toEqual([]);
-  });
+  }, 120_000);
 
-  // The same sync reports every lid twice, and the second statement fails (SQLITE_BUSY) before the first lands.
+  // The same sync reports every lid twice, and the second statement fails (a dropped connection) before the first lands.
   it('owes no check and logs no drop while the first write of each lid of such a sync is in flight', async () => {
     const saved = process.env.LID_MAPPING_CACHE_MAX;
     process.env.LID_MAPPING_CACHE_MAX = '0'; // every lid stays cached, so the second report is not new
@@ -2939,12 +2906,12 @@ describe('LidMappingStoreService: a phone reported under a second lid', () => {
       const lids = ['222', ...Array.from({ length: 10_001 }, (_, i) => `5${i}`)];
       const phoneOf = (lid: string) => (lid === '222' ? '628999' : `62700${lid}`);
       const firsts = lids.map(lid => store.remember(lid, phoneOf(lid), 's2'));
-      repo.upsert.mockRejectedValue(new Error('SQLITE_BUSY'));
+      repo.upsert.mockRejectedValue(new Error('Connection terminated unexpectedly'));
       await Promise.all(lids.map(lid => store.remember(lid, phoneOf(lid), 's2')));
       const owedInFlight = owedChecks(store).size;
       land.forEach(write => write());
       await Promise.all(firsts);
-      await until(() => reports.length > 0);
+      await until(() => reports.length > 0, 60_000);
 
       expect(owedInFlight).toBe(0);
       expect(reports).toEqual([expect.objectContaining({ phone: '628999', previousLid: '111', newLid: '222' })]);
@@ -2954,13 +2921,13 @@ describe('LidMappingStoreService: a phone reported under a second lid', () => {
       if (saved === undefined) delete process.env.LID_MAPPING_CACHE_MAX;
       else process.env.LID_MAPPING_CACHE_MAX = saved;
     }
-  });
+  }, 120_000);
 
   it('keeps at most its cap of owed checks and logs a drop at most once a minute, with a count', async () => {
     const { repo, store, warn } = await watched();
     let clock = 0;
     (store as unknown as { now: () => number }).now = () => clock;
-    repo.upsert.mockRejectedValue(new Error('SQLITE_BUSY'));
+    repo.upsert.mockRejectedValue(new Error('Connection terminated unexpectedly'));
 
     await Promise.all(Array.from({ length: 10_002 }, (_, i) => store.remember(`5${i}`, `62700${i}`, 's1')));
     expect((store as unknown as { secondLidOwed: Map<string, unknown> }).secondLidOwed.size).toBe(10_000);
@@ -3191,40 +3158,15 @@ describe('LidMappingStoreService: a phone reported under a second lid', () => {
 });
 
 describe('LidMappingStoreService: second-lid checks on a real table', () => {
-  // SQLite in memory; on PostgreSQL (DATABASE_TYPE=postgres) a schema of its own, where writes land over time.
-  const pg = process.env.DATABASE_TYPE === 'postgres';
-  const server = {
-    type: 'postgres' as const,
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    username: process.env.DATABASE_USERNAME || 'zaplink',
-    password: process.env.DATABASE_PASSWORD || 'zaplink',
-    database: process.env.DATABASE_NAME || 'zaplink',
-  };
   const saved = process.env.LID_MAPPING_CACHE_MAX;
   let ds: DataSource;
-  let schema = '';
-  const onServer = async (sql: string): Promise<void> => {
-    const admin = await new DataSource(server).initialize();
-    await admin.query(sql).finally(() => admin.destroy());
-  };
 
   beforeEach(async () => {
-    const entities = [LidMapping, Session];
-    if (pg) {
-      schema = `lid_second_${randomUUID().replace(/-/g, '')}`;
-      await onServer(`CREATE SCHEMA "${schema}"`);
-    }
-    ds = await new DataSource(
-      pg
-        ? { ...server, schema, extra: { options: `-c search_path=${schema},public` }, entities, synchronize: true }
-        : { type: 'better-sqlite3', database: ':memory:', entities, synchronize: true },
-    ).initialize();
+    ds = await new DataSource({ ...pgTestOptions(), entities: [LidMapping, Session], synchronize: true }).initialize();
   });
 
   afterEach(async () => {
     await ds.destroy();
-    if (pg) await onServer(`DROP SCHEMA "${schema}" CASCADE`);
     if (saved === undefined) delete process.env.LID_MAPPING_CACHE_MAX;
     else process.env.LID_MAPPING_CACHE_MAX = saved;
   });

@@ -9,9 +9,8 @@ import { resolveNonNegativeIntEnv } from '../../config/configuration';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Rows deleted per statement. Small enough to stay far below the bind-parameter limit of either
- * dialect and to keep each write short: SQLite has one writer, so a long delete (each row also fires
- * the full-text index trigger) would stall message ingest behind it.
+ * Rows deleted per statement. Small enough to stay far below Postgres' bind-parameter limit and to
+ * keep each write short.
  */
 const PRUNE_BATCH_SIZE = 500;
 
@@ -28,8 +27,7 @@ const CAPPED_RUN_FOLLOW_UP_MS = 60_000;
 const TERMINAL_BATCH_STATUSES = [BatchStatus.COMPLETED, BatchStatus.CANCELLED, BatchStatus.FAILED];
 
 /**
- * The longest window, about a century. A cutoff far enough back is bound on SQLite as a truncated
- * 4-digit year that sorts after today and matches every row, so a larger value must not reach a query.
+ * The longest window, about a century; a larger value must not reach a query.
  * env.validation.ts rejects it at boot.
  */
 export const MAX_MESSAGE_RETENTION_DAYS = 36500;
@@ -57,8 +55,7 @@ export function resolveMessageRetentionCutoff(
  * Opt-in age limit for the `messages` table and finished `message_batches` rows. Runs once at startup
  * and then daily on an unref'd timer, like the audit-log prune.
  *
- * Deleting a row needs no other cleanup: the SQLite full-text index follows through its delete
- * trigger, the PostgreSQL one is part of the row, and the chat-media orphan sweep removes archived
+ * Deleting a row needs no other cleanup: the full-text index is part of the row, and the chat-media orphan sweep removes archived
  * files whose row is gone. Search plugins are NOT told: no `message:deleted` fires per pruned row,
  * the same as on session delete, so an external index keeps its copies.
  */

@@ -1,33 +1,34 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { ScopeBatchIdUniqueToSession1781800000000 } from '../1781800000000-ScopeBatchIdUniqueToSession';
 
 /**
  * The baseline (1770108659848) created `message_batches` with a GLOBAL `UNIQUE(batch_id)`, so a
  * batch id used by one session denied it to every other session — and, after the app-level check was
  * scoped to the session, that denial surfaced as an unhandled 500 instead of a clean 4xx. This
- * migration scopes the constraint to `(session_id, batch_id)`. The spec drives a real in-memory
- * SQLite schema (the baseline DDL) so it exercises the actual constraint, not a mocked repository.
+ * migration scopes the constraint to `(session_id, batch_id)`. The spec drives a real Postgres
+ * schema (the baseline DDL) so it exercises the actual constraint, not a mocked repository.
  */
 describe('ScopeBatchIdUniqueToSession migration', () => {
   let ds: DataSource;
 
-  // Exact baseline SQLite DDL for message_batches (1770108659848), including the global UNIQUE.
+  // Baseline DDL for message_batches (1770108659848), including the global UNIQUE.
   const BASELINE_DDL =
     `CREATE TABLE "message_batches" ("id" varchar PRIMARY KEY NOT NULL, "batch_id" varchar NOT NULL, ` +
     `"session_id" varchar NOT NULL, "status" varchar NOT NULL DEFAULT ('pending'), "messages" text NOT NULL, ` +
     `"options" text, "progress" text, "results" text, "current_index" integer NOT NULL DEFAULT (0), ` +
-    `"created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), ` +
-    `"started_at" datetime, "completed_at" datetime, CONSTRAINT "UQ_ff274470c0dbaff6c7d1f9795f5" UNIQUE ("batch_id"))`;
+    `"created_at" timestamp NOT NULL DEFAULT now(), "updated_at" timestamp NOT NULL DEFAULT now(), ` +
+    `"started_at" timestamp, "completed_at" timestamp, CONSTRAINT "UQ_ff274470c0dbaff6c7d1f9795f5" UNIQUE ("batch_id"))`;
 
   const insertBatch = (id: string, batchId: string, sessionId: string): Promise<unknown> =>
-    ds.query(`INSERT INTO "message_batches" ("id","batch_id","session_id","messages") VALUES (?,?,?,'[]')`, [
+    ds.query(`INSERT INTO "message_batches" ("id","batch_id","session_id","messages") VALUES ($1,$2,$3,'[]')`, [
       id,
       batchId,
       sessionId,
     ]);
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     await ds.query(BASELINE_DDL);
   });

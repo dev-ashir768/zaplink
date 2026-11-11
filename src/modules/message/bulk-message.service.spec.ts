@@ -33,6 +33,7 @@ import { EngineThrottledError } from '../../common/errors/engine-throttled.error
 import { EngineTransportError } from '../../common/errors/engine-transport.error';
 import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
 import { markNothingSent, markOutcomeUnknown } from '../../common/errors/engine-not-sent.error';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /** Regression lock for the terminal-status decision (cancel-clobber + stopOnError overwrite bugs). */
 describe('resolveFinalBatchStatus', () => {
@@ -345,8 +346,7 @@ describe('reaping unfinished batches', () => {
 
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [MessageBatch],
       synchronize: true,
     }).initialize();
@@ -2281,8 +2281,8 @@ describe('BulkMessageService.createBatch base64 media cap', () => {
   // index rejects the second, which must read as the same 400 as the sequential duplicate.
   it('answers a duplicate batchId that loses the insert race with the same 400', async () => {
     repo.save.mockRejectedValueOnce(
-      Object.assign(new Error('UNIQUE constraint failed: message_batches.sessionId, message_batches.batchId'), {
-        code: 'SQLITE_CONSTRAINT_UNIQUE',
+      Object.assign(new Error('duplicate key value violates unique constraint "UQ_message_batches_session_batch"'), {
+        code: '23505',
       }),
     );
     const dto = {

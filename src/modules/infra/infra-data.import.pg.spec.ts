@@ -1,5 +1,3 @@
-/* istanbul ignore file: PG-gated, only runs under DATABASE_TYPE=postgres (test-postgres CI job);
-   skipped in the default test job, so its lines would be unread and skew the global coverage gate. */
 import 'reflect-metadata';
 import { randomBytes, randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
@@ -24,16 +22,23 @@ import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.ent
 import { AutomationRule } from '../../database/retained-entities/automation-rule.entity';
 import { postgresUtcExtra } from '../../database/postgres-utc';
 import { captureSessionWrites } from '../../common/utils/session-write-scope';
+import { testDatabaseEnv } from '../../test-utils/pg-test-db';
+
+const testEnv = testDatabaseEnv();
+const testServer = {
+  host: testEnv.DATABASE_HOST,
+  port: Number(testEnv.DATABASE_PORT),
+  username: testEnv.DATABASE_USERNAME,
+  password: testEnv.DATABASE_PASSWORD,
+};
 
 /**
  * The replace-all import trims send_idempotency_keys with a statement that compares the claim's
- * varchar sessionId with sessions.id, a uuid on PostgreSQL. The comparison only holds because the
- * statement casts, and the cast is invisible on SQLite, where both are text: without it every import
- * on PostgreSQL answers imported:false with a warning about idempotency claims.
+ * varchar sessionId with sessions.id, which a database may hold as uuid. The comparison only holds
+ * because the statement casts: without it every import on such a database answers imported:false with
+ * a warning about idempotency claims. Runs in a schema of its own on the test server.
  */
-const describePostgres = process.env.DATABASE_TYPE === 'postgres' ? describe : describe.skip;
-
-describePostgres('InfraDataController.importData (postgres)', () => {
+describe('InfraDataController.importData (postgres)', () => {
   const schema = `infra_import_${process.pid}_${randomBytes(4).toString('hex')}`;
   let admin: DataSource;
   let ds: DataSource;
@@ -42,11 +47,8 @@ describePostgres('InfraDataController.importData (postgres)', () => {
   beforeAll(async () => {
     const options = {
       type: 'postgres' as const,
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-      database: process.env.DATABASE_NAME || 'zaplink',
+      ...testServer,
+      database: testEnv.DATABASE_NAME,
     };
     admin = await new DataSource(options).initialize();
     await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -167,11 +169,8 @@ describePostgres('InfraDataController.importData (postgres)', () => {
     const dump = await controller.exportData();
     const strict = await new DataSource({
       type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USERNAME || 'zaplink',
-      password: process.env.DATABASE_PASSWORD || 'zaplink',
-      database: process.env.DATABASE_NAME || 'zaplink',
+      ...testServer,
+      database: testEnv.DATABASE_NAME,
       schema,
       extra: { ...postgresUtcExtra(), options: `-c search_path=${schema},public`, statement_timeout: 250 },
       entities: ds.options.entities,
@@ -225,11 +224,8 @@ describePostgres('InfraDataController.importData (postgres)', () => {
       const applicationName = `${schema}_pool_of_one`;
       const single = await new DataSource({
         type: 'postgres',
-        host: process.env.DATABASE_HOST || 'localhost',
-        port: Number(process.env.DATABASE_PORT || 5432),
-        username: process.env.DATABASE_USERNAME || 'zaplink',
-        password: process.env.DATABASE_PASSWORD || 'zaplink',
-        database: process.env.DATABASE_NAME || 'zaplink',
+        ...testServer,
+        database: testEnv.DATABASE_NAME,
         schema,
         extra: {
           ...postgresUtcExtra(),

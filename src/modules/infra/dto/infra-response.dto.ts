@@ -286,7 +286,7 @@ const BUILT_IN_SET_DESCRIPTION =
   'when nothing is saved. When false, read what runs from /infra/status.';
 
 export class InfraConfigDatabaseDto {
-  @ApiProperty({ enum: ['sqlite', 'postgres'], example: 'postgres' })
+  @ApiProperty({ enum: ['postgres'], example: 'postgres' })
   type!: string;
 
   @ApiProperty({ example: true })
@@ -304,7 +304,7 @@ export class InfraConfigDatabaseDto {
   @ApiProperty({ example: 'zaplink' })
   username!: string;
 
-  @ApiProperty({ description: 'Database name under PostgreSQL; empty under SQLite.', example: 'zaplink' })
+  @ApiProperty({ description: 'PostgreSQL database name.', example: 'zaplink' })
   database!: string;
 
   @ApiProperty({ example: 'public' })

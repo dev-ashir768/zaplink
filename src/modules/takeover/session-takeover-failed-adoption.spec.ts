@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { DataSource, DataSourceOptions, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Session, SessionStatus } from '../session/entities/session.entity';
 import { SessionOwnershipService } from '../session/session-ownership.service';
 import { SessionEngineLifecycle } from '../session/session-engine-lifecycle.service';
@@ -9,8 +9,8 @@ import { SessionErrorStore } from '../session/session-error-store.service';
 import { SessionRestrictionStore } from '../session/session-restriction-store.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
-import { postgresUtcExtra } from '../../database/postgres-utc';
 import { SessionTakeoverService } from './session-takeover.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const TTL_MS = 60_000;
 
@@ -97,42 +97,19 @@ function node(nodeId: string, db: DataSource, failLaunch: boolean) {
 }
 
 describe('a start that fails before an engine exists on a session a vanished node left running', () => {
-  const pg = process.env.DATABASE_TYPE === 'postgres';
   let db: DataSource;
-  let schema: string | undefined;
   let sessions: Repository<Session>;
 
   beforeAll(async () => {
-    if (pg) {
-      schema = `session_takeover_failed_${randomUUID().replace(/-/g, '')}`;
-      const options: DataSourceOptions = {
-        type: 'postgres',
-        host: process.env.DATABASE_HOST || 'localhost',
-        port: Number(process.env.DATABASE_PORT || 5432),
-        username: process.env.DATABASE_USERNAME || 'zaplink',
-        password: process.env.DATABASE_PASSWORD || 'zaplink',
-        database: process.env.DATABASE_NAME || 'zaplink',
-        schema,
-        entities: [Session],
-        extra: postgresUtcExtra(),
-      };
-      const setup = await new DataSource(options).initialize();
-      await setup.query(`CREATE SCHEMA "${schema}"`);
-      await setup.destroy();
-      db = await new DataSource({ ...options, synchronize: true }).initialize();
-    } else {
-      db = await new DataSource({
-        type: 'better-sqlite3',
-        database: ':memory:',
-        entities: [Session],
-        synchronize: true,
-      }).initialize();
-    }
+    db = await new DataSource({
+      ...pgTestOptions(),
+      entities: [Session],
+      synchronize: true,
+    }).initialize();
     sessions = db.getRepository(Session);
   });
 
   afterAll(async () => {
-    if (schema) await db.query(`DROP SCHEMA "${schema}" CASCADE`);
     await db.destroy();
   });
 

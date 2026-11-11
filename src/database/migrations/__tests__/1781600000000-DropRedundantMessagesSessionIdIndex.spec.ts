@@ -1,15 +1,16 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { DropRedundantMessagesSessionIdIndex1781600000000 } from '../1781600000000-DropRedundantMessagesSessionIdIndex';
 
 describe('DropRedundantMessagesSessionIdIndex migration', () => {
   let ds: DataSource;
 
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     await ds.query(
       `CREATE TABLE "messages" ("id" varchar PRIMARY KEY NOT NULL, "sessionId" varchar NOT NULL, ` +
-        `"createdAt" datetime NOT NULL DEFAULT (datetime('now')))`,
+        `"createdAt" timestamp NOT NULL DEFAULT now())`,
     );
     // The redundant single-column index plus the composite that subsumes it.
     await ds.query(`CREATE INDEX "IDX_066163c46cda7e8187f96bc87a" ON "messages" ("sessionId")`);
@@ -21,7 +22,9 @@ describe('DropRedundantMessagesSessionIdIndex migration', () => {
   });
 
   const indexNames = async (): Promise<string[]> => {
-    const rows = await ds.query<{ name: string }[]>(`PRAGMA index_list("messages")`);
+    const rows = await ds.query<{ name: string }[]>(
+      `SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'messages'`,
+    );
     return rows.map(r => r.name).sort();
   };
 

@@ -6,6 +6,7 @@ import {
   resolvePendingMessageReaperOptions,
 } from './pending-message-reaper.service';
 import { HookManager } from '../../core/hooks';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const OPTS: PendingMessageReaperOptions = { intervalMs: 600_000, graceMs: 3_600_000, batchSize: 50 };
 
@@ -22,8 +23,7 @@ describe('PendingMessageReaperService.sweep', () => {
   beforeEach(async () => {
     seq = 0;
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message],
       synchronize: true,
     });

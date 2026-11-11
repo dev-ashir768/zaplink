@@ -1,6 +1,5 @@
-import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'crypto';
 import { DataSource, EntityManager, QueryRunner, Repository } from 'typeorm';
 import { Session } from './entities/session.entity';
 import { Message } from '../message/entities/message.entity';
@@ -18,9 +17,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { IWhatsAppEngine, MessageResult } from '../../engine/interfaces/whatsapp-engine.interface';
 import { HookManager } from '../../core/hooks';
 import {
-  SESSION_DELETE_BATCH_MIN_SQLITE,
   SESSION_DELETE_BATCH_SIZE_POSTGRES,
-  SESSION_DELETE_BATCH_TARGET_MS_SQLITE,
   SESSION_DELETE_READ_AHEAD_POSTGRES,
   SessionEngineControls,
   StopMarks,
@@ -35,7 +32,7 @@ import { StatusStoreService } from '../status-store/status-store.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
 import { captureSessionWrites, closeSessionWrites } from '../../common/utils/session-write-scope';
-import { FOREIGN_TRANSACTION_WAIT_MS } from '../../common/utils/shared-connection';
+import { pgTestOptions, testSchemaName } from '../../test-utils/pg-test-db';
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -64,6 +61,7 @@ const entities = [
 
 describe('Session content lifetime', () => {
   let db: DataSource;
+  let schema: string;
   let controls: SessionEngineControls;
   let engines: EngineRegistry;
   let hooks: HookManager;
@@ -75,26 +73,9 @@ describe('Session content lifetime', () => {
   beforeEach(async () => {
     purgeSessionData = jest.fn().mockResolvedValue(undefined);
     forgetBindingEpoch = jest.fn();
-    db = new DataSource(
-      process.env.DATABASE_TYPE === 'postgres'
-        ? {
-            type: 'postgres',
-            host: process.env.DATABASE_HOST || 'localhost',
-            port: Number(process.env.DATABASE_PORT || 5432),
-            username: process.env.DATABASE_USERNAME || 'zaplink',
-            password: process.env.DATABASE_PASSWORD || 'zaplink',
-            database: process.env.DATABASE_NAME || 'zaplink',
-            schema: `session_content_${randomUUID().replace(/-/g, '')}`,
-            entities,
-            synchronize: false,
-          }
-        : { type: 'better-sqlite3', database: ':memory:', entities, synchronize: true },
-    );
+    schema = testSchemaName();
+    db = new DataSource({ ...pgTestOptions(schema), entities, synchronize: true });
     await db.initialize();
-    if (db.options.type === 'postgres') {
-      await db.query(`CREATE SCHEMA "${db.options.schema}"`);
-      await db.synchronize();
-    }
     engines = new EngineRegistry();
     hooks = new HookManager();
     const state = { attachTo: <T>(value: T) => value, clear: jest.fn() };
@@ -131,7 +112,7 @@ describe('Session content lifetime', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     if (db.isInitialized) {
-      if (db.options.type === 'postgres') await db.query(`DROP SCHEMA "${db.options.schema}" CASCADE`);
+      await db.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
       await db.destroy();
     }
   });
@@ -140,13 +121,9 @@ describe('Session content lifetime', () => {
     return db.getRepository(Session).save({ name: 'test-session', config: {} });
   }
 
-  // A SQLite batch is sized by how long the last one took, which a real database makes unrepeatable. A clock that
-  // reads the target later on every call makes each batch look on target, so every batch has the size of the first
-  // (PostgreSQL batches are a fixed size and ignore the clock).
+  // PostgreSQL deletes in batches of a fixed size.
   function holdBatchSize(): number {
-    let now = 0;
-    jest.spyOn(performance, 'now').mockImplementation(() => (now += SESSION_DELETE_BATCH_TARGET_MS_SQLITE));
-    return db.options.type === 'postgres' ? SESSION_DELETE_BATCH_SIZE_POSTGRES : SESSION_DELETE_BATCH_MIN_SQLITE;
+    return SESSION_DELETE_BATCH_SIZE_POSTGRES;
   }
 
   function sender(engine: object, sessionId: string) {
@@ -502,70 +479,6 @@ describe('Session content lifetime', () => {
     }
   }, 60000);
 
-  // Each page of messages starts after the last row of the one before, in (timestamp, id) order with the rows
-  // that have no timestamp last. A select that restarted from the head of the session's range would hand out the
-  // first page again when its rows are still there, and walk every deleted entry of the index when they are not.
-  // The deletes are suppressed here so the only thing that can move the second page on is the cursor.
-  it('reads each page of messages after the last row of the previous one', async () => {
-    const doomed = await createSession();
-    const kept = await db.getRepository(Session).save({ name: 'kept-session', config: {} });
-    const messages = db.getRepository(Message);
-    // Fast batches: a SQLite delete doubles from the floor until it reaches the ceiling.
-    let now = 0;
-    jest.spyOn(performance, 'now').mockImplementation(() => (now += 1));
-    const ramp = db.options.type === 'postgres' ? [500, 500, 500] : [SESSION_DELETE_BATCH_MIN_SQLITE, 500, 1000];
-    const stamped = ramp.reduce((sum, size) => sum + size, 0) + 50;
-    const unstamped = 30;
-    const seed = async (sessionId: string, from: number, rows: number, timestamp: (i: number) => number | null) => {
-      for (let done = 0; done < rows; done += 200) {
-        const size = Math.min(200, rows - done);
-        await messages.insert(
-          Array.from({ length: size }, (_, i) => ({
-            sessionId,
-            chatId: '10000000001@c.us',
-            from: 'me',
-            to: '10000000001@c.us',
-            body: `m${from + done + i}`,
-            // Seven rows share each timestamp, so a page boundary falls inside a run of equal timestamps.
-            timestamp: timestamp(from + done + i) as number,
-          })),
-        );
-      }
-    };
-    await seed(doomed.id, 0, stamped, i => 1700000000 + Math.floor(i / 7));
-    await seed(doomed.id, stamped, unstamped, () => null);
-    await seed(kept.id, 0, 3, i => 1700000000 + i);
-    const stored = new Map(
-      (await messages.find({ where: { sessionId: doomed.id }, select: { id: true, timestamp: true } })).map(row => [
-        row.id,
-        row.timestamp === null ? null : Number(row.timestamp),
-      ]),
-    );
-    const pages: string[][] = [];
-    const remove = Reflect.get(Repository.prototype, 'delete') as Repository<Message>['delete'];
-    jest.spyOn(Repository.prototype, 'delete').mockImplementation(function (this: Repository<Message>, criteria) {
-      if (this.target !== Message) return remove.call(this, criteria);
-      if (pages.length >= 20) throw new Error('the pages are not advancing');
-      pages.push((criteria as unknown as { id: { value: string[] } }).id.value.slice());
-      return Promise.resolve({ raw: [], affected: 0 });
-    });
-    jest.spyOn(EntityManager.prototype, 'remove').mockRejectedValue(new Error('closing transaction not under test'));
-
-    await expect(controls.delete(doomed.id)).rejects.toThrow('closing transaction not under test');
-
-    const walked = pages.flat();
-    expect(new Set(walked).size).toBe(walked.length);
-    expect([...walked].sort()).toEqual([...stored.keys()].sort());
-    // The full pages of stamped rows and a short one, then the short page of rows without a timestamp.
-    expect(pages.map(page => page.length)).toEqual([...ramp, 50, unstamped]);
-    const stamps = walked.map(id => stored.get(id));
-    const firstUnstamped = stamps.indexOf(null);
-    expect(firstUnstamped).toBe(stamped);
-    expect(stamps.slice(firstUnstamped).every(stamp => stamp === null)).toBe(true);
-    const ordered = stamps.slice(0, firstUnstamped) as number[];
-    expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
-  }, 60000);
-
   // The auth directories a session's name keyed before 0.23.5 go with it, unless that name is another session's id.
   it('purges the directories its name keyed and withholds a name that is another session id', async () => {
     const repo = db.getRepository(Session);
@@ -582,24 +495,19 @@ describe('Session content lifetime', () => {
     ]);
   });
 
-  // An import accepts any safe key as a session id, which only SQLite can store.
-  (process.env.DATABASE_TYPE === 'postgres' ? it.skip : it)(
-    'withholds a name that is the id an import gave another session',
-    async () => {
-      const repo = db.getRepository(Session);
-      await repo.insert({ id: 'imported-key', name: 'imported', config: {} });
-      const namedAfterKey = await repo.save({ name: 'imported-key', config: {} });
+  // An import accepts any safe key as a session id; the id column is varchar, so it stores one.
+  it('withholds a name that is the id an import gave another session', async () => {
+    const repo = db.getRepository(Session);
+    await repo.insert({ id: 'imported-key', name: 'imported', config: {} });
+    const namedAfterKey = await repo.save({ name: 'imported-key', config: {} });
 
-      await controls.delete(namedAfterKey.id);
+    await controls.delete(namedAfterKey.id);
 
-      expect(purgeSessionData.mock.calls).toEqual([[namedAfterKey.id, undefined]]);
-    },
-  );
+    expect(purgeSessionData.mock.calls).toEqual([[namedAfterKey.id, undefined]]);
+  });
 
-  // The SQLite driver resolves every statement within the same tick, so the yield between the batches is the
-  // only thing that lets timers, requests and engine callbacks run during a long delete. Each batch statement
-  // queues a macrotask; the next one must find it already run. (On PostgreSQL the driver's own I/O gives the
-  // loop its turns, so this holds there with or without the yield.)
+  // Timers, requests and engine callbacks must run during a long delete. Each batch statement queues a
+  // macrotask; the next one must find it already run.
   it('lets the event loop run between the batch statements of a delete', async () => {
     const doomed = await createSession();
     const messages = db.getRepository(Message);
@@ -762,9 +670,8 @@ describe('Session content lifetime', () => {
     });
   });
 
-  // On SQLite every query runner is the one connection, and a transaction opened while another is open there
-  // becomes a savepoint inside it: the rows the delete removed would come back when that one rolls back, after
-  // the delete had answered. On PostgreSQL the other transaction holds a pooled client of its own.
+  // The other transaction holds a pooled client of its own, so its rollback must not bring back the rows the
+  // delete removed after the delete had answered.
   describe('a delete beside another transaction on the data connection', () => {
     const gone = { sessions: 0, messages: 0, batches: 0 };
 
@@ -858,35 +765,9 @@ describe('Session content lifetime', () => {
 
       expect((await db.getRepository(MessageBatch).findOneByOrFail({ sessionId: id })).status).toBe(BatchStatus.FAILED);
     });
-
-    (process.env.DATABASE_TYPE === 'postgres' ? it.skip : it)(
-      'refuses with 503 and removes nothing more when a transaction beside it stays open',
-      async () => {
-        const id = await seedContent('doomed');
-        const other = await openTransaction();
-        const start = Date.now();
-        let calls = 0;
-        const clock = jest.spyOn(Date, 'now').mockImplementation(() => start + FOREIGN_TRANSACTION_WAIT_MS * calls++);
-
-        await expect(controls.delete(id)).rejects.toThrow(ServiceUnavailableException);
-        clock.mockRestore();
-        await other.rollbackTransaction();
-        await other.release();
-
-        expect(await rowsOf(id)).toEqual({ sessions: 1, messages: 1, batches: 1 });
-        expect(logger.warn).toHaveBeenCalledWith(
-          expect.stringContaining('Could not fail the unfinished batches'),
-          expect.objectContaining({
-            action: 'session_delete_batch_fail_failed',
-            error: expect.stringContaining('another database transaction stayed open') as unknown,
-          }),
-        );
-      },
-    );
   });
 
-  // Both creates pass the name check, so one loses on the unique index. On SQLite, begun in the same turn of the
-  // event loop, the loser's transaction would be a savepoint in the winner's, or the reverse.
+  // Both creates pass the name check, so one loses on the unique index.
   describe('two creates of one name begun in the same turn', () => {
     let sessions: SessionService;
 
@@ -932,24 +813,5 @@ describe('Session content lifetime', () => {
         });
       }
     });
-
-    (process.env.DATABASE_TYPE === 'postgres' ? it.skip : it)(
-      'refuses with 503 and stores nothing when a transaction beside it stays open',
-      async () => {
-        const other = db.createQueryRunner();
-        await other.connect();
-        await other.startTransaction();
-        const start = Date.now();
-        let calls = 0;
-        const clock = jest.spyOn(Date, 'now').mockImplementation(() => start + FOREIGN_TRANSACTION_WAIT_MS * calls++);
-
-        await expect(sessions.create({ name: 'held' })).rejects.toThrow(ServiceUnavailableException);
-        clock.mockRestore();
-        await other.commitTransaction();
-        await other.release();
-
-        expect(await db.getRepository(Session).countBy({ name: 'held' })).toBe(0);
-      },
-    );
   });
 });

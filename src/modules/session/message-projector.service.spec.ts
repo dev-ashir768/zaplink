@@ -1150,7 +1150,7 @@ describe('MessageProjector (inbound projection)', () => {
         const engine = makeEngine();
         engines.set(SESSION_ID, engine);
         // A non-transient, non-unique failure: the row has no id, so there is nothing to point at a file.
-        messageRepository.insert.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+        messageRepository.insert.mockRejectedValueOnce(new Error('value too long for type character varying(255)'));
 
         projector.handleInboundMessage(SESSION_ID, engine, makeIncoming());
         await new Promise(resolve => setImmediate(resolve));
@@ -1656,8 +1656,10 @@ describe('MessageProjector (inbound projection)', () => {
   // One transient insert failure (lock contention, a dropped connection, a pool timeout) used to lose
   // the row for good: the engine delivers each message once, and nothing retried the insert.
   describe('a transient insert failure', () => {
-    const busy = (): Error => Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
-    const dup = (): Error => Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+    const busy = (): Error =>
+      Object.assign(new Error('terminating connection due to administrator command'), { code: '57P01' });
+    const dup = (): Error =>
+      Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
     const flush = async (): Promise<void> => {
       for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve));
     };
@@ -1928,7 +1930,8 @@ describe('MessageProjector (inbound projection)', () => {
   // repeat. A re-fire of the same message is a repeat too, and the engine keeps its copy of that one; an id
   // reused from another chat, side or author is not the message the row holds, and the engine is told so.
   describe('a repeat of an id the table already holds', () => {
-    const dup = (): Error => Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+    const dup = (): Error =>
+      Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
     const flush = async (): Promise<void> => {
       for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve));
     };
@@ -2021,7 +2024,7 @@ describe('MessageProjector (inbound projection)', () => {
 
     it.each([
       ['has no row to read', null],
-      ['cannot be read', new Error('SQLITE_BUSY: database is locked')],
+      ['cannot be read', Object.assign(new Error('canceling statement due to lock timeout'), { code: '55P03' })],
     ])('reports nothing when the id %s, so the engine keeps its copy', async (_name, row) => {
       const outcome = await repeat({}, row);
 
@@ -2285,7 +2288,8 @@ describe('MessageProjector (inbound projection)', () => {
   // what was forwarded.
   describe('an own-send echo that loses its id to a forward placeholder', () => {
     const own = '15550001111@c.us';
-    const dup = (): Error => Object.assign(new Error('UNIQUE constraint failed'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+    const dup = (): Error =>
+      Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
     const flush = async (): Promise<void> => {
       for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve));
     };

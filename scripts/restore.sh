@@ -2,35 +2,22 @@
 #
 # ZapLink restore.
 #
-# Restores the always-SQLite auth/audit database, a SQLite data store, engine authentication, local
-# media, installed plugins, and bootstrap configuration from an archive produced by scripts/backup.sh.
-# PostgreSQL dumps are staged for the explicit psql import printed at the end of the restore.
+# Restores engine authentication, local media and bootstrap configuration from an archive produced by
+# scripts/backup.sh. The PostgreSQL dump is staged for the explicit psql import printed at the end.
 #
 # Usage:
-#   ./scripts/restore.sh <backup-archive.tar.gz> [--strict] [--force]
-# Options:
-#   --strict          refuse to restore an archive whose CONSISTENCY-WARNING marker reports
-#                     plain-copied (possibly torn) database snapshots; without it the restore
-#                     continues after a loud warning. An ENGINE-STATE-NOTE (engine auth state that
-#                     may have been copied while the app ran) is printed either way and never refused.
-#   --force           overwrite databases that already hold a working install's data; without it
-#                     the restore refuses to touch a live target before changing anything
+#   ./scripts/restore.sh <backup-archive.tar.gz>
 # Environment:
-#   MAIN_DATABASE_NAME  restore target for the auth/audit DB (default: <data dir>/main.sqlite)
-#   DATABASE_NAME       restore target for the SQLite data store (default: <data dir>/zaplink.sqlite)
-#                       Both resolve EXACTLY like the app: the environment first, then ./.env, then
-#                       .env.generated (the archive's copy when it carries one, else the data dir's),
-#                       otherwise the app's ./data default (see lib-env.sh).
+#   Each key resolves EXACTLY like the app: the environment first, then ./.env, then .env.generated
+#   (the archive's copy when it carries one, else the data dir's), otherwise the app's ./data default
+#   (see lib-env.sh).
 #   ZAPLINK_DATA_DIR   the app's ./data directory to restore into, such as a volume's mountpoint on
 #                     the host (default: ./data); the ./data defaults, and a ./data/... path read
 #                     from ./.env or .env.generated, are taken under it
-#   SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH, PLUGINS_DIR
+#   SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH
 #                     override the corresponding state directories
-#   PLUGIN_STATE_DIR  root whose plugins/ holds the plugin registry and ctx.storage (default: the
-#                     data dir)
 #   BOOTSTRAP_KEY_FILE  where the plaintext admin key goes (default: <data dir>/.api-key)
-#                     These paths resolve through the same layers as the databases. One that
-#                     comes from the archive's .env.generated has to stay in the data dir, unless it
+#                     A path that comes from the archive's .env.generated has to stay in the data dir, unless it
 #                     is the default: the restore stops at one that leads elsewhere, naming the key,
 #                     before it copies anything. Set the key in the environment or ./.env to restore
 #                     outside the data dir.
@@ -43,33 +30,25 @@
 # outside it, is taken before anything is written so a bad restore can be undone.
 #
 set -euo pipefail
-# Restored databases, credentials, and snapshots must not inherit a permissive operator umask.
+# Restored credentials and snapshots must not inherit a permissive operator umask.
 umask 077
 
-STRICT=0
-FORCE=0
 ARCHIVE=""
 for arg in "$@"; do
   case "$arg" in
-    --strict)
-      STRICT=1
-      ;;
-    --force)
-      FORCE=1
-      ;;
     -h | --help)
-      echo "Usage: $0 <backup-archive.tar.gz> [--strict] [--force]"
+      echo "Usage: $0 <backup-archive.tar.gz>"
       exit 0
       ;;
     -*)
       echo "Unknown option: $arg" >&2
-      echo "Usage: $0 <backup-archive.tar.gz> [--strict] [--force]" >&2
+      echo "Usage: $0 <backup-archive.tar.gz>" >&2
       exit 1
       ;;
     *)
       if [ -n "$ARCHIVE" ]; then
         echo "Unexpected extra argument: $arg" >&2
-        echo "Usage: $0 <backup-archive.tar.gz> [--strict] [--force]" >&2
+        echo "Usage: $0 <backup-archive.tar.gz>" >&2
         exit 1
       fi
       ARCHIVE="$arg"
@@ -243,7 +222,7 @@ replace_tree() {
 
 # The data-dir safety snapshot below cannot cover a target that lives OUTSIDE it (a custom
 # MAIN_DATABASE_NAME / DATABASE_NAME, SESSION_DATA_PATH, BAILEYS_AUTH_DIR, STORAGE_LOCAL_PATH,
-# PLUGINS_DIR or BOOTSTRAP_KEY_FILE). Preserve such a target separately, so a restore pointed at the
+# SESSION_DATA_PATH or BOOTSTRAP_KEY_FILE). Preserve such a target separately, so a restore pointed at the
 # wrong archive remains recoverable. ZAPLINK_RESTORE_SNAPSHOT_DIR takes these snapshots too when it is
 # set: a target on its own mount under a read-only root has no writable place next to it.
 snapshot_external() {
@@ -255,8 +234,7 @@ snapshot_external() {
   [ -e "$target" ] || return 0
   snapshot_dir="${ZAPLINK_RESTORE_SNAPSHOT_DIR:-$(dirname "$target")}"
   external_snapshot="${snapshot_dir%/}/$(basename "$target").pre-restore-$RESTORE_TIMESTAMP"
-  # Targets from different parents can share a name in one snapshot dir (a PLUGINS_DIR and a
-  # PLUGIN_STATE_DIR both end in plugins); never copy one into the other's snapshot.
+  # Targets from different parents can share a name in one snapshot dir; never copy one into another's.
   n=1
   while [ -e "$external_snapshot" ]; do
     n=$((n + 1))
@@ -269,74 +247,8 @@ snapshot_external() {
   cp -pRH "$target" "$external_snapshot"
 }
 
-# restore_db <staged file> <target> <label>
-# SQLite keeps un-checkpointed transactions in <db>-wal (and a crashed transaction in <db>-journal),
-# named after the symlink-resolved file, and replays them over whatever main file it finds next to
-# them. Those sidecars belong to the database being replaced: they go into its snapshot and are
-# removed before the copy, or the restored file reads back the old install's rows.
-restore_db() {
-  resolved_db="$(resolve_path "$2")"
-  if [ "$PHASE" = snapshot ]; then
-    refuse_root_target "$2" "$3"
-    refuse_directory_target "$2" "$3"
-    zaplink_writable "$2" || refuse_unwritable "$2" "$3"
-    for db in "$2" "$resolved_db"; do
-      for sfx in -wal -shm -journal; do
-        if [ -e "$db$sfx" ] && [ ! -w "$(dirname "$db")" ]; then
-          refuse_unwritable "$(dirname "$db")" "$3"
-        fi
-      done
-    done
-    snapshot_external "$2"
-    # Empty when the target lives in the data dir, whose own snapshot already holds the sidecars.
-    if [ -n "$external_snapshot" ]; then
-      for sfx in -wal -shm -journal; do
-        for db in "$2" "$resolved_db"; do
-          if [ -f "$db$sfx" ]; then
-            cp -p "$db$sfx" "$external_snapshot$sfx"
-          fi
-        done
-      done
-    fi
-    return
-  fi
-  log "Restoring $3 -> $2"
-  mkdir -p "$(dirname "$2")"
-  rm -f -- "$2-wal" "$2-shm" "$2-journal" "$resolved_db-wal" "$resolved_db-shm" "$resolved_db-journal"
-  cp "$1" "$2"
-  # Owner-only, matching what the app re-tightens on every boot (sqlite-file-permissions.ts);
-  # cp preserves the staged mode, and a foreign-umask extraction may leave it broader.
-  chmod 0600 "$2" 2>/dev/null || true
-}
-
-# A restore target that already holds a working install's tables is LIVE: overwriting it destroys
-# real data, and the pre-restore snapshot is a convenience, not a recovery guarantee. Probe with
-# the same sqlite3 CLI backup.sh snapshots with, opened read-only so the guard itself cannot touch
-# the target it is guarding; a missing file — or one with no tables yet, as a
-# fresh install leaves behind — is safe to restore over. Without the CLI there is no way to prove
-# the file empty, so any non-empty target counts as live rather than guessed safe.
-# sqlite3 applies the operator's rc file even to a one-shot query, and .headers on or another output
-# mode turns the count into text, so the probe loads no rc file. Anything but a bare count still
-# means the probe did not answer, which counts as live like a probe that failed outright.
-db_appears_live() {
-  target="$1"
-  [ -f "$target" ] || return 1
-  if command -v sqlite3 >/dev/null 2>&1; then
-    tables="$(sqlite3 -batch -noheader -list -init /dev/null -readonly "$target" \
-      "SELECT count(*) FROM sqlite_master;" 2>/dev/null)" || return 0
-    case "$tables" in
-      '' | *[!0-9]*)
-        return 0
-        ;;
-    esac
-    [ "$tables" -gt 0 ]
-  else
-    [ -s "$target" ]
-  fi
-}
-
 if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
-  echo "Usage: $0 <backup-archive.tar.gz> [--strict] [--force]" >&2
+  echo "Usage: $0 <backup-archive.tar.gz>" >&2
   exit 1
 fi
 
@@ -345,7 +257,7 @@ trap 'rm -rf "$STAGE"' EXIT
 
 log "Extracting $ARCHIVE"
 # Refuse archive path names that could escape STAGE. This restore command accepts archives produced by
-# backup.sh and installs their keys, plugins and configuration as they are; it is not a general
+# backup.sh and installs their keys and configuration as they are; it is not a general
 # untrusted-tar verifier. Where it writes does not rest on the archive, though: a member name that could
 # escape STAGE is refused here, and a path from its .env.generated that leads out of the data dir below.
 while IFS= read -r entry; do
@@ -400,9 +312,7 @@ if [ -f "$STAGE/database.sql" ] && grep -q '^\\restrict ' "$STAGE/database.sql";
       log "ERROR: the archive's PostgreSQL dump opens with \\restrict, which this psql cannot read: $PSQL_VERSION"
       log "       the load needs $PSQL_RESTRICT; nothing has been restored yet. Install a newer"
       log "       PostgreSQL client or put one first on PATH (the image ships 17), then re-run"
-      log "       The runbook's load into the built-in zaplink-postgres container runs that container's psql,"
-      log "       not this one: for it, run this restore in the image instead, whose psql reads the dump, as"
-      log "       docs/11-operational-runbooks.md (Restore from Backup) shows for the zaplink-data volume"
+      log "       (or run this restore inside the ZapLink image, whose psql reads the dump)"
       exit 1
     fi
   fi
@@ -418,34 +328,16 @@ if [ -f "$STAGE/.env.generated" ]; then
   ZAPLINK_GENERATED_ENV="$STAGE/.env.generated"
   log "Paths not set in the environment or ./.env come from the archive's .env.generated."
 fi
-MAIN_DB="$(zaplink_resolve MAIN_DATABASE_NAME "${DATA_DIR%/}/main.sqlite" path)"
-# DATABASE_NAME is only a target for an archive carrying the SQLite data store; a PostgreSQL dump is
-# loaded by hand, so a line for it the scripts cannot parse does not stop that restore.
-if [ -f "$STAGE/zaplink.sqlite" ]; then
-  DATA_DB="$(zaplink_resolve DATABASE_NAME "${DATA_DIR%/}/zaplink.sqlite" path)"
-fi
 SESSIONS_DIR="$(zaplink_resolve SESSION_DATA_PATH "$DATA_DIR/sessions" path)"
 BAILEYS_DIR="$(zaplink_resolve BAILEYS_AUTH_DIR "$DATA_DIR/baileys" path)"
 MEDIA_DIR="$(zaplink_media_dir)"
-# Installed plugin code. The app defaults this to <dataDir>/plugins — the same tree as the
-# registry and each plugin's ctx.storage below — so an unset PLUGINS_DIR must resolve there
-# too, or the archive silently omits the plugin packages.
-PLUGIN_PACKAGES_DIR="$(zaplink_resolve PLUGINS_DIR "$DATA_DIR/plugins" path)"
-# Plugin registry + every plugin's persisted ctx.storage. The app puts them at <dataDir>/plugins,
-# where dataDir is PLUGIN_STATE_DIR when that is set and ./data otherwise, so the knob has to be
-# resolved here exactly like PLUGINS_DIR above. Hardcoding $DATA_DIR/plugins meant an operator who
-# moved plugin state got an archive with neither the registry nor any plugin's storage in it, and
-# a restore that put nothing back. Resolved under its own name because the knob names the ROOT,
-# not the plugins directory inside it.
-PLUGIN_STATE_ROOT="$(zaplink_resolve PLUGIN_STATE_DIR "$DATA_DIR" path)"
-PLUGIN_STATE_DIR="$PLUGIN_STATE_ROOT/plugins"
 # The app reads the plaintext admin key from BOOTSTRAP_KEY_FILE when that is set.
 ADMIN_KEY_FILE="$(zaplink_resolve BOOTSTRAP_KEY_FILE "$DATA_DIR/.api-key" path)"
 
 # backup.sh archives state directories by content. An archive from before it followed symlinks
 # carries a link instead, which on this host may point at the very directory the restore empties
 # before refilling it from that link. Refuse it before any existing state is touched.
-for member in sessions baileys media plugin-packages plugin-state; do
+for member in sessions baileys media; do
   if [ -L "$STAGE/$member" ]; then
     log "ERROR: archive member $member/ is a symlink, not a directory: the backup holds no data for it"
     log "       re-take the backup with this version of backup.sh, or extract the archive and restore by hand"
@@ -503,12 +395,6 @@ archive_target() {
   TARGET_KINDS+=("$kind")
   TARGET_CHOSEN+=("$chosen")
 }
-if [ -f "$STAGE/main.sqlite" ]; then
-  archive_target MAIN_DATABASE_NAME "$MAIN_DB" file "${DATA_DIR%/}/main.sqlite"
-fi
-if [ -f "$STAGE/zaplink.sqlite" ]; then
-  archive_target DATABASE_NAME "$DATA_DB" file "${DATA_DIR%/}/zaplink.sqlite"
-fi
 if [ -d "$STAGE/sessions" ]; then
   archive_target SESSION_DATA_PATH "$SESSIONS_DIR" dir "$DATA_DIR/sessions"
 fi
@@ -518,12 +404,6 @@ fi
 # A leftover ./uploads stays where the app itself keeps media (zaplink_media_dir), so it counts as a default.
 if [ -d "$STAGE/media" ]; then
   archive_target STORAGE_LOCAL_PATH "$MEDIA_DIR" dir "$DATA_DIR/media" ./uploads
-fi
-if [ -d "$STAGE/plugin-packages" ]; then
-  archive_target PLUGINS_DIR "$PLUGIN_PACKAGES_DIR" dir "$DATA_DIR/plugins"
-fi
-if [ -d "$STAGE/plugin-state" ]; then
-  archive_target PLUGIN_STATE_DIR "$PLUGIN_STATE_DIR" dir "$DATA_DIR/plugins"
 fi
 if [ -f "$STAGE/.api-key" ]; then
   archive_target BOOTSTRAP_KEY_FILE "$ADMIN_KEY_FILE" file "$DATA_DIR/.api-key"
@@ -560,42 +440,11 @@ while [ "$i" -lt "${#TARGET_KEYS[@]}" ]; do
   i=$((i + 1))
 done
 
-# A backup taken without sqlite3 .backup carries this marker: the database snapshots were
-# plain-copied from a possibly-live app and may be torn. Warn loudly and continue — unless
-# --strict makes it fatal. Refuse BEFORE touching any existing state.
-if [ -f "$STAGE/CONSISTENCY-WARNING" ]; then
-  log "WARN: archive carries CONSISTENCY-WARNING — database snapshot(s) may be torn:"
-  sed 's/^/[restore]   /' "$STAGE/CONSISTENCY-WARNING"
-  if [ "$STRICT" -eq 1 ]; then
-    log "ERROR: --strict given — refusing to restore a possibly-torn database snapshot"
-    exit 1
-  fi
-  log "WARN: continuing anyway; verify data integrity after the restore (re-run with --strict to make this fatal)"
-fi
-
 # Engine auth state copied while an engine may have been writing it. Informational only: every
 # online backup of a running install carries it, and the worst case is a re-pair, not lost data.
 if [ -f "$STAGE/ENGINE-STATE-NOTE" ]; then
   log "WARN: archive carries ENGINE-STATE-NOTE; engine auth state may have been copied while the app was running:"
   sed 's/^/[restore]   /' "$STAGE/ENGINE-STATE-NOTE"
-fi
-
-# Refuse to overwrite a live database without --force, BEFORE any existing state is touched (the
-# same rule the --strict refusal above follows). Only the databases this archive actually carries
-# are checked — a target the archive omits is left alone either way.
-if [ "$FORCE" -ne 1 ]; then
-  LIVE_TARGETS=""
-  if [ -f "$STAGE/main.sqlite" ] && db_appears_live "$MAIN_DB"; then
-    LIVE_TARGETS="$LIVE_TARGETS $MAIN_DB"
-  fi
-  if [ -f "$STAGE/zaplink.sqlite" ] && db_appears_live "$DATA_DB"; then
-    LIVE_TARGETS="$LIVE_TARGETS $DATA_DB"
-  fi
-  if [ -n "$LIVE_TARGETS" ]; then
-    echo "[restore] ERROR: database target(s) appear live:$LIVE_TARGETS" >&2
-    echo "[restore]        they already hold a working install's data — stop the app, then re-run with --force to overwrite them" >&2
-    exit 1
-  fi
 fi
 
 # Safety snapshot of whatever is there now, next to the data dir unless ZAPLINK_RESTORE_SNAPSHOT_DIR
@@ -612,32 +461,11 @@ fi
 
 mkdir -p "$DATA_DIR"
 
-if [ ! -f "$STAGE/main.sqlite" ]; then
-  log "WARN: main.sqlite not in archive — API keys / audit log will NOT be restored"
-fi
-
-MERGED_PLUGINS_DIR=""
-if [ -d "$STAGE/plugin-packages" ] && [ -d "$STAGE/plugin-state" ] &&
-  [ "$(resolve_path "$PLUGIN_PACKAGES_DIR")" = "$(resolve_path "$PLUGIN_STATE_DIR")" ]; then
-  # Docker deployments deliberately colocate package and state files. Build the complete target in
-  # staging and replace it once, so neither half can erase the other during restore.
-  MERGED_PLUGINS_DIR="$STAGE/plugin-merged"
-  mkdir -p "$MERGED_PLUGINS_DIR"
-  cp -pR "$STAGE/plugin-packages/." "$MERGED_PLUGINS_DIR"
-  cp -pR "$STAGE/plugin-state/." "$MERGED_PLUGINS_DIR"
-fi
-
 # Runs twice: PHASE=snapshot checks every target and snapshots the ones outside the data dir, then
 # PHASE=apply writes them. A target that is refused, or cannot be snapshotted or written, stops the
-# restore before the first database is written, instead of halfway through with a mixed install left
+# restore before the first target is written, instead of halfway through with a mixed install left
 # behind.
 restore_targets() {
-  if [ -f "$STAGE/main.sqlite" ]; then
-    restore_db "$STAGE/main.sqlite" "$MAIN_DB" "auth/audit DB"
-  fi
-  if [ -f "$STAGE/zaplink.sqlite" ]; then
-    restore_db "$STAGE/zaplink.sqlite" "$DATA_DB" "data store"
-  fi
   if [ -d "$STAGE/sessions" ]; then
     replace_tree "$STAGE/sessions" "$SESSIONS_DIR" "whatsapp-web.js sessions"
   fi
@@ -647,23 +475,13 @@ restore_targets() {
   if [ -d "$STAGE/media" ]; then
     replace_tree "$STAGE/media" "$MEDIA_DIR" "local media"
   fi
-  if [ -n "$MERGED_PLUGINS_DIR" ]; then
-    replace_tree "$MERGED_PLUGINS_DIR" "$PLUGIN_PACKAGES_DIR" "installed plugins and plugin state"
-  else
-    if [ -d "$STAGE/plugin-packages" ]; then
-      replace_tree "$STAGE/plugin-packages" "$PLUGIN_PACKAGES_DIR" "installed plugin packages"
-    fi
-    if [ -d "$STAGE/plugin-state" ]; then
-      replace_tree "$STAGE/plugin-state" "$PLUGIN_STATE_DIR" "plugin registry and persisted state"
-    fi
-  fi
   if [ -f "$STAGE/.api-key" ]; then
     restore_admin_key
   fi
 }
 
 # The plaintext admin key goes where the app reads it. Checked and, outside the data dir, snapshotted
-# with the other targets: it may be the only plaintext copy of a key the replaced main.sqlite accepts.
+# with the other targets: it may be the only plaintext copy of a key the restored database accepts.
 restore_admin_key() {
   if [ "$PHASE" = snapshot ]; then
     refuse_root_target "$ADMIN_KEY_FILE" "admin key (BOOTSTRAP_KEY_FILE)"
@@ -718,9 +536,7 @@ if [ -f "$STAGE/database.sql" ]; then
     log "answers 501 while it builds. Drop anything else named first and recreate it after the load. One"
     log "transaction: a load that fails changes nothing. With DATABASE_URL set to your own URL for that database:"
   else
-    log "Postgres dump present: load it into an EMPTY database, as docs/11-operational-runbooks.md"
-    log "(Restore from Backup, step 3) shows for the built-in zaplink-postgres container. For an external"
-    log "server, with DATABASE_URL set to your own URL for that database:"
+    log "Postgres dump present: load it into an EMPTY database, with DATABASE_URL set to its URL:"
   fi
   # psql defaults to sslmode=prefer, which falls back to plaintext and takes any certificate, so the
   # printed command asks for the TLS mode the app uses. The restore is already done: a TLS line the

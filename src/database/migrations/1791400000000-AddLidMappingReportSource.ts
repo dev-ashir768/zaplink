@@ -9,7 +9,7 @@ export class AddLidMappingReportSource1791400000000 implements MigrationInterfac
 
   async up(runner: QueryRunner): Promise<void> {
     if (!(await runner.hasTable('lid_mappings')) || (await runner.hasColumn('lid_mappings', 'isReported'))) return;
-    const initial = runner.dataSource.options.type === 'postgres' ? 'false' : '0';
+    const initial = 'false';
     await runner.query(`ALTER TABLE "lid_mappings" ADD COLUMN "isReported" boolean NOT NULL DEFAULT ${initial}`);
   }
 

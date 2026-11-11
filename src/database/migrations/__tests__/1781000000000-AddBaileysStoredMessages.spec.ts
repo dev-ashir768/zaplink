@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { pgTestOptions } from '../../../test-utils/pg-test-db';
 import { AddBaileysStoredMessages1781000000000 } from '../1781000000000-AddBaileysStoredMessages';
 
 describe('AddBaileysStoredMessages migration', () => {
@@ -6,7 +7,7 @@ describe('AddBaileysStoredMessages migration', () => {
 
   beforeEach(async () => {
     // A `sessions` table must exist for the FK; create a minimal stand-in.
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:' });
+    ds = new DataSource({ ...pgTestOptions() });
     await ds.initialize();
     await ds.query(`CREATE TABLE "sessions" ("id" varchar PRIMARY KEY NOT NULL)`);
   });

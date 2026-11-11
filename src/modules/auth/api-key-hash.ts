@@ -8,7 +8,7 @@ import { createHash, createHmac } from 'crypto';
  * is a deploy-time choice: set it before the first boot. On an install that already has keys every
  * key, admin included, stops authenticating, so none is left to re-issue the others through the API.
  * To recover, either restore the previous pepper, or stop the instance, delete the rows in `api_keys`
- * in the main database (`data/main.sqlite`, or `MAIN_DATABASE_NAME`) and restart: the next boot seeds
+ * and restart: the next boot seeds
  * a new admin key (from `API_MASTER_KEY` when set), and the other keys are then re-created.
  */
 export function hashApiKey(rawKey: string, pepper?: string): string {

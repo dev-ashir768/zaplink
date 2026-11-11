@@ -5,6 +5,7 @@ import { Session } from './entities/session.entity';
 import { SessionEngineControls, StopMarks } from './session-engine-controls';
 import { SessionService } from './session.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const HINT = 'session routes take the session id, not its name';
 
@@ -18,7 +19,7 @@ describe('a request for a session id no row has', () => {
   let controls: SessionEngineControls;
 
   beforeAll(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session], synchronize: true });
+    ds = new DataSource({ ...pgTestOptions(), entities: [Session], synchronize: true });
     await ds.initialize();
     const attach = { attachTo: (s: Session) => s } as never;
     const unused = {} as never;

@@ -9,6 +9,7 @@ import { Message } from './entities/message.entity';
 import type { MessageService } from './message.service';
 import { renderTemplate, templateVariableNames } from '../../common/utils/template-render';
 import type { SendPacingService } from './send-pacing.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('bulk media variable cleanup', () => {
   let db: DataSource;
@@ -27,8 +28,7 @@ describe('bulk media variable cleanup', () => {
 
   beforeEach(async () => {
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, MessageBatch, Session],
       synchronize: true,
     }).initialize();

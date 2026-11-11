@@ -9,6 +9,7 @@ import { MessageNotFoundError } from '../../common/errors/message-not-found.erro
 import { createLogger } from '../../common/services/logger.service';
 import { Session, SessionStatus } from '../../modules/session/entities/session.entity';
 import type { IncomingMessage } from '../interfaces/whatsapp-engine.interface';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const CHAT = '628111@s.whatsapp.net';
 const inbound = (id: string): WAMessage => ({
@@ -24,7 +25,7 @@ const photo = (id: string): WAMessage => ({
 });
 
 /**
- * Real events, real messaging, real store on in-memory SQLite. A consumer that quotes a message the
+ * Real events, real messaging, real store on PostgreSQL. A consumer that quotes a message the
  * moment it is announced (a quick-reply plugin on message:received) used to lose the race against the
  * store write and fail with `Message <id> not found`.
  */
@@ -39,13 +40,12 @@ describe('quoting a Baileys message the moment it is announced', () => {
   /** Every chat preview write, in order: `record:<id>` for a message, `edit:<id>:<text>` for an edit. */
   let preview: string[];
   const ticks = async (): Promise<void> => {
-    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    for (let i = 0; i < 20; i++) await new Promise<void>(resolve => setTimeout(resolve, 5));
   };
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [BaileysStoredMessage, Session],
       synchronize: true,
     });

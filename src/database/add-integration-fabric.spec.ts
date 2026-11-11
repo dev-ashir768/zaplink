@@ -1,10 +1,11 @@
 import { DataSource } from 'typeorm';
 import { AddIntegrationFabric1781900000000 } from './migrations/1781900000000-AddIntegrationFabric';
+import { pgTestOptions } from '../test-utils/pg-test-db';
 
-describe('AddIntegrationFabric migration (sqlite)', () => {
+describe('AddIntegrationFabric migration', () => {
   let ds: DataSource;
   beforeEach(async () => {
-    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [], migrations: [] });
+    ds = new DataSource({ ...pgTestOptions(), entities: [], migrations: [] });
     await ds.initialize();
   });
   afterEach(async () => {
@@ -30,11 +31,11 @@ describe('AddIntegrationFabric migration (sqlite)', () => {
     const runner = ds.createQueryRunner();
     await new AddIntegrationFabric1781900000000().up(runner);
     await runner.query(
-      `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","createdAt") VALUES ('a','inst','plug','d1','chatwoot','{}',datetime('now'))`,
+      `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","createdAt") VALUES ('a','inst','plug','d1','chatwoot','{}',now())`,
     );
     await expect(
       runner.query(
-        `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","createdAt") VALUES ('b','inst','plug','d1','chatwoot','{}',datetime('now'))`,
+        `INSERT INTO "ingress_events" ("id","instanceId","pluginId","providerDeliveryId","route","payload","createdAt") VALUES ('b','inst','plug','d1','chatwoot','{}',now())`,
       ),
     ).rejects.toThrow();
     await runner.release();

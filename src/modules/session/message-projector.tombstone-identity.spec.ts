@@ -12,12 +12,14 @@ import { MessageProjector } from './message-projector.service';
 import type { SessionLidResolver } from './session-lid-resolver.service';
 import type { Session } from './entities/session.entity';
 import { deferred } from './inbound-room';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const LID = '484848@lid';
 const PHONE = '628111@c.us';
 const SELF = '620000@c.us';
 const flush = async (): Promise<void> => {
-  for (let n = 0; n < 10; n++) await new Promise(resolve => setImmediate(resolve));
+  // Real Postgres round trips: wall-clock time, not just event-loop turns.
+  for (let n = 0; n < 10; n++) await new Promise(resolve => setTimeout(resolve, 10));
 };
 const incoming = (id: string, chatId: string, fromMe = false): IncomingMessage => ({
   id,
@@ -52,8 +54,7 @@ describe('reported identities before a tombstone delivery reaches its hooks', ()
   beforeEach(async () => {
     mediaConcurrency = process.env.INBOUND_MEDIA_CONCURRENCY;
     db = await new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Message, LidMapping],
       synchronize: true,
     }).initialize();

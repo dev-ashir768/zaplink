@@ -4,12 +4,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Creates the `status_updates` TTL store: WhatsApp Status/Story posts captured by the engine, kept
  * around only until `expiresAt` (WhatsApp's own 24h TTL) for the Status API to serve.
  *
- * Hand-authored (not `migration:generate`) because the dev SQLite DB in this worktree already carries
+ * Hand-authored (not `migration:generate`) because the dev DB in this worktree already carried
  * pre-existing schema drift on unrelated tables (webhooks/sessions/message_batches/
  * baileys_stored_messages/templates/lid_mappings) — confirmed by running a dry-run generate WITHOUT
  * this entity registered, which reproduced the identical multi-table rebuild cascade. Hand-authoring
  * keeps this migration scoped to `status_updates` only, matching the repo's convention for recent
- * additions (e.g. `AddIntegrationFabric`, `AddWebhooksSessionIdIndex`). Idempotent + cross-dialect.
+ * additions (e.g. `AddIntegrationFabric`, `AddWebhooksSessionIdIndex`). Idempotent.
  */
 export class CreateStatusUpdates1784822470680 implements MigrationInterface {
   name = 'CreateStatusUpdates1784822470680';
@@ -17,11 +17,8 @@ export class CreateStatusUpdates1784822470680 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (await queryRunner.hasTable('status_updates')) return;
 
-    const isPostgres = queryRunner.dataSource.options.type === 'postgres';
-    const boolFalse = isPostgres ? 'false' : '0';
-    const idColumn = isPostgres
-      ? `"id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid()::varchar`
-      : `"id" varchar PRIMARY KEY NOT NULL`;
+    const boolFalse = 'false';
+    const idColumn = `"id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid()::varchar`;
 
     await queryRunner.query(
       `CREATE TABLE "status_updates" (` +

@@ -222,7 +222,7 @@ describe('blank-shadowed env keys (compose ${VAR:-} forwards the dashboard manag
 // .env / data/.env.generated supply a value — the operator's setting is ignored with no error. Derive
 // the expectation from the compose file rather than restating a list, so a forward added without its
 // clear entry fails here instead of shipping inert (#981).
-describe.each(['docker-compose.yml', 'docker-compose.dev.yml'])('every blank forward in %s is cleared', file => {
+describe.each(['docker-compose.yml'])('every blank forward in %s is cleared', file => {
   const blankForwards = (): string[] => {
     const compose = fs.readFileSync(path.join(__dirname, '../..', file), 'utf8');
     const found = new Set<string>();
@@ -302,32 +302,10 @@ describe('every key the dashboard writes is commented out in .env.example', () =
   it('ships none of them uncommented in .env.example', () => {
     const uncommented = uncommentedKeys('.env.example');
     expect(uncommented).toContain('NODE_ENV'); // the file really does ship some keys uncommented
-    expect(uncommented.filter(key => dashboardOwned().includes(key))).toEqual([]);
-  });
-
-  /**
-   * `.env.minimal` is also copied to `.env` by the docs (docs/README.md), but its rule is NARROWER on
-   * purpose: it describes itself as a development/personal config and deliberately pins the choices an
-   * operator makes by hand there — DATABASE_TYPE, ENGINE_TYPE, the puppeteer flags. Those pins are the
-   * file's reason to exist.
-   *
-   * The built-in datastore toggles are different: they are pure Dashboard > Infrastructure switches, so
-   * pinning them makes the UI control move, save, report success and change nothing — the same trap the
-   * .env.example rule exists for.
-   */
-  it('ships the built-in datastore toggles commented out in .env.minimal', () => {
-    const toggles = ['POSTGRES_BUILTIN', 'REDIS_BUILTIN', 'MINIO_BUILTIN'];
-    expect(toggles.every(t => dashboardOwned().includes(t))).toBe(true); // control: they ARE dashboard-owned
-
-    // Non-vacuity control on the OTHER side. The assertion below is a `.filter(...).toEqual([])`,
-    // which an empty parse satisfies just as well as a correct file — a renamed template, a parser
-    // that stops matching, or a file that became all comments would all read as "no pins found" and
-    // pass while binding nothing. Anchor on a key this template exists to pin.
-    const uncommented = uncommentedKeys('.env.minimal');
-    expect(uncommented.length).toBeGreaterThan(0);
-    expect(uncommented).toContain('REDIS_ENABLED');
-
-    expect(uncommented.filter(key => toggles.includes(key))).toEqual([]);
+    // DATABASE_PASSWORD is the deliberate exception: docker-compose.yml interpolates it with `:?`, so
+    // compose refuses to start until .env sets it, and the template ships the key for the operator to fill.
+    const requiredInEnv = ['DATABASE_PASSWORD'];
+    expect(uncommented.filter(key => dashboardOwned().includes(key) && !requiredInEnv.includes(key))).toEqual([]);
   });
 });
 
@@ -342,7 +320,7 @@ describe('every key the dashboard writes is commented out in .env.example', () =
  * `data/.env.generated` inside the mounted volume, which `.env.example` does not mention for these
  * keys. The sibling MEDIA_CONVERSION_* family was forwarded all along.
  */
-describe.each(['docker-compose.yml', 'docker-compose.dev.yml'])('%s forwards the inbound-media knobs', file => {
+describe.each(['docker-compose.yml'])('%s forwards the inbound-media knobs', file => {
   const compose = (): string => fs.readFileSync(path.join(__dirname, '../..', file), 'utf8');
 
   const forwards = (key: string): boolean => new RegExp(`^\\s*-\\s*${key}=`, 'm').test(compose());

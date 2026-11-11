@@ -6,8 +6,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * createdAt) and the unique (sessionId, waMessageId) — so the standalone index adds only
  * write-time maintenance on a hot, high-volume table.
  *
- * Runs on the `data` connection. `IF EXISTS` keeps it idempotent and portable across SQLite and
- * Postgres (and safe on a synchronize-built schema). The name is the one TypeORM generated for the
+ * Runs on the `data` connection. `IF EXISTS` keeps it idempotent (and safe on a synchronize-built
+ * schema). The name is the one TypeORM generated for the
  * `@Index()` on the sessionId column — hardcoded in the baseline migration (1770108659848).
  */
 export class DropRedundantMessagesSessionIdIndex1781600000000 implements MigrationInterface {

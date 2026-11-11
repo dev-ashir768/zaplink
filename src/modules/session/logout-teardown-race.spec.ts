@@ -20,6 +20,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { WebhookService } from '../webhook/webhook.service';
 import { HookManager } from '../../core/hooks';
 import { StatusStoreService } from '../status-store/status-store.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 const SESSION_NAME = 'test-session';
 const SESSION_UUID = 'sess-uuid-1';
@@ -96,7 +97,7 @@ describe('SessionService logout() name-scoped teardown fence', () => {
     };
     const manager = { delete: jest.fn().mockResolvedValue({ affected: 1 }), remove: jest.fn() };
     const dataSource: Partial<DataSource> = {
-      options: { type: 'better-sqlite3' } as DataSource['options'],
+      options: { ...pgTestOptions() },
       getRepository: jest.fn(() => messageRepository) as unknown as DataSource['getRepository'],
       transaction: jest.fn(async (cb: (m: unknown) => Promise<void>) =>
         cb(manager),
@@ -283,7 +284,7 @@ describe('SessionService logout() name-scoped teardown fence', () => {
   it('old-name teardown still pending past 10s: delete rejects 409, transaction parent removal and purgeSessionData not called (unique name still reserved)', async () => {
     const manager = { delete: jest.fn().mockResolvedValue({ affected: 1 }), remove: jest.fn() };
     const dataSource: Partial<DataSource> = {
-      options: { type: 'better-sqlite3' } as DataSource['options'],
+      options: { ...pgTestOptions() },
       getRepository: jest.fn(() => ({
         find: jest.fn().mockResolvedValue([]),
         createQueryBuilder: jest.fn(emptyMessageQuery),

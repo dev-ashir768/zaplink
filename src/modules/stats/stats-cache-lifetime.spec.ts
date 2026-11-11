@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { StatsService } from './stats.service';
 import { Session } from '../session/entities/session.entity';
 import { Message } from '../message/entities/message.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('StatsService memo lifetime', () => {
   let ds: DataSource;
@@ -10,8 +11,7 @@ describe('StatsService memo lifetime', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Message],
       synchronize: true,
     });

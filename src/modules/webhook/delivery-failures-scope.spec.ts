@@ -7,6 +7,7 @@ import { WebhookService } from './webhook.service';
 import { WebhookDeliveryFailure } from './entities/webhook-delivery-failure.entity';
 import { Webhook } from './entities/webhook.entity';
 import { Session, SessionStatus } from '../session/entities/session.entity';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 describe('WebhookService.listDeliveryFailures session scoping', () => {
   let ds: DataSource;
@@ -14,8 +15,7 @@ describe('WebhookService.listDeliveryFailures session scoping', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [WebhookDeliveryFailure],
       synchronize: true,
     });
@@ -73,8 +73,7 @@ describe('WebhookService.listDeliveryFailures retained event body', () => {
 
   beforeEach(async () => {
     ds = new DataSource({
-      type: 'better-sqlite3',
-      database: ':memory:',
+      ...pgTestOptions(),
       entities: [Session, Webhook, WebhookDeliveryFailure],
       synchronize: true,
     });

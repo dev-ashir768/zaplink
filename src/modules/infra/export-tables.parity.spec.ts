@@ -4,6 +4,7 @@ import { DataSource, getMetadataArgsStorage } from 'typeorm';
 import { EXPORT_TABLES, EXPORT_TABLE_EXCLUSIONS } from './export-tables';
 import { TABLE_IMPORTERS } from './table-importers';
 import { InfraDataService } from './infra-data.service';
+import { pgTestOptions } from '../../test-utils/pg-test-db';
 
 /**
  * The backup parity guard. The export registry is the one place the table set may be decided, and
@@ -86,8 +87,7 @@ async function loadEntityFiles(): Promise<EntityFile[]> {
   // ONE DataSource over every discovered class, mirroring the app's single connection: entity
   // relations cross files, so building metadata per file would not resolve the inverse sides.
   const ds = new DataSource({
-    type: 'better-sqlite3',
-    database: ':memory:',
+    ...pgTestOptions(),
     entities: discovered.flatMap(entry => entry.classes) as Array<new () => unknown>,
     synchronize: false,
   });
