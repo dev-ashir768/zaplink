@@ -55,23 +55,23 @@ describe('bootstrap key file', () => {
     });
 
     it('returns the trimmed key', () => {
-      writeFileSync(join(dir, '.api-key'), '  owa_k1_abc \n');
+      writeFileSync(join(dir, '.api-key'), '  zpl_k1_abc \n');
 
-      expect(readBootstrapKey(logger)).toBe('owa_k1_abc');
+      expect(readBootstrapKey(logger)).toBe('zpl_k1_abc');
     });
   });
 
   describe('writeBootstrapKey', () => {
     it('writes to the resolved path', () => {
-      writeBootstrapKey('owa_k1_written');
+      writeBootstrapKey('zpl_k1_written');
 
-      expect(readFileSync(join(dir, '.api-key'), 'utf-8')).toContain('owa_k1_written');
+      expect(readFileSync(join(dir, '.api-key'), 'utf-8')).toContain('zpl_k1_written');
     });
   });
 
   describe('removeBootstrapKey', () => {
     it('removes the file and says why', () => {
-      writeFileSync(join(dir, '.api-key'), 'owa_k1_abc');
+      writeFileSync(join(dir, '.api-key'), 'zpl_k1_abc');
 
       removeBootstrapKey('its key was revoked or deleted', logger);
 

@@ -70,11 +70,11 @@ describe('resolveSeedApiKey (first-boot default admin key)', () => {
 
   it('treats a whitespace-only API_MASTER_KEY as unset and generates a key', () => {
     process.env.API_MASTER_KEY = '   ';
-    expect(resolveSeedApiKey()).toMatch(/^owa_k1_[a-f0-9]{64}$/);
+    expect(resolveSeedApiKey()).toMatch(/^zpl_k1_[a-f0-9]{64}$/);
   });
 
-  it('generates a random owa_k1_ key by default (no opt-in)', () => {
-    expect(resolveSeedApiKey()).toMatch(/^owa_k1_[a-f0-9]{64}$/);
+  it('generates a random zpl_k1_ key by default (no opt-in)', () => {
+    expect(resolveSeedApiKey()).toMatch(/^zpl_k1_[a-f0-9]{64}$/);
   });
 
   it('returns the fixed dev-admin-key only when ALLOW_DEV_API_KEY=true', () => {
@@ -90,7 +90,7 @@ describe('resolveSeedApiKey (first-boot default admin key)', () => {
 });
 
 describe('bannerKeyLine (startup banner key masking)', () => {
-  const FULL = 'owa_k1_0123456789abcdef0123456789abcdef';
+  const FULL = 'zpl_k1_0123456789abcdef0123456789abcdef';
 
   it('prints the full key only when it was just created', () => {
     expect(bannerKeyLine(FULL, true)).toBe(FULL);
@@ -99,7 +99,7 @@ describe('bannerKeyLine (startup banner key masking)', () => {
   it('masks the key on subsequent boots — the full secret is never re-logged', () => {
     const line = bannerKeyLine(FULL, false, FULL.slice(0, 12));
     expect(line).not.toContain('0123456789abcdef'); // the secret tail must not appear
-    expect(line.startsWith('owa_k1_0')).toBe(true); // a short fingerprint is fine
+    expect(line.startsWith('zpl_k1_0')).toBe(true); // a short fingerprint is fine
     expect(line).toMatch(/data[\\/]\.api-key/); // points the operator to the real source
     expect(line).not.toContain('dashboard'); // the dashboard only ever shows a key's prefix
   });
@@ -287,14 +287,14 @@ describe('AuthService', () => {
   // ── createApiKey ──────────────────────────────────────────────────
 
   describe('createApiKey', () => {
-    it('should generate a key with owa_k1_ prefix and save to DB', async () => {
+    it('should generate a key with zpl_k1_ prefix and save to DB', async () => {
       const mockSaved = createMockApiKey({ name: 'My Key' });
       (repository.create as jest.Mock).mockReturnValue(mockSaved);
       (repository.save as jest.Mock).mockResolvedValue(mockSaved);
 
       const result = await service.createApiKey({ name: 'My Key' });
 
-      expect(result.rawKey).toMatch(/^owa_k1_[a-f0-9]{64}$/);
+      expect(result.rawKey).toMatch(/^zpl_k1_[a-f0-9]{64}$/);
       expect(result.apiKey).toBe(mockSaved);
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1140,14 +1140,14 @@ describe('AuthService', () => {
     it('boot removes a stale bootstrap file and the banner no longer advertises the dead key', async () => {
       (repository.count as jest.Mock).mockResolvedValue(1); // not first boot → the file path is consulted
       existsSpy.mockReturnValue(true);
-      readSpy.mockReturnValue('owa_k1_deaddeaddead');
+      readSpy.mockReturnValue('zpl_k1_deaddeaddead');
       (repository.findOne as jest.Mock).mockResolvedValue(null); // hash no longer resolves to any key
 
       await service.onModuleInit();
 
       expect(unlinkSpy).toHaveBeenCalledWith(expect.stringContaining('.api-key'));
       expect(bannerText()).toContain('(check dashboard for keys)');
-      expect(bannerText()).not.toContain('owa_k1_d'); // no fingerprint of the dead key
+      expect(bannerText()).not.toContain('zpl_k1_d'); // no fingerprint of the dead key
     });
 
     it('boot keeps the bootstrap file when only the pepper changed (prefix matches, hash does not)', async () => {
@@ -1156,16 +1156,16 @@ describe('AuthService', () => {
         .mockImplementation(() => undefined);
       (repository.count as jest.Mock).mockResolvedValue(1);
       existsSpy.mockReturnValue(true);
-      readSpy.mockReturnValue('owa_k1_pepperchanged');
+      readSpy.mockReturnValue('zpl_k1_pepperchanged');
       // The hash lookup misses (the current pepper hashes the same key differently), but the
       // unhashed prefix still resolves to the live row → wrong pepper, not a stale file.
       (repository.findOne as jest.Mock)
         .mockResolvedValueOnce(null)
-        .mockResolvedValue(createMockApiKey({ keyPrefix: 'owa_k1_peppe', keyHash: 'hash-under-old-pepper' }));
+        .mockResolvedValue(createMockApiKey({ keyPrefix: 'zpl_k1_peppe', keyHash: 'hash-under-old-pepper' }));
 
       await service.onModuleInit();
 
-      expect(repository.findOne).toHaveBeenCalledWith({ where: { keyPrefix: 'owa_k1_peppe' } });
+      expect(repository.findOne).toHaveBeenCalledWith({ where: { keyPrefix: 'zpl_k1_peppe' } });
       expect(unlinkSpy).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('API_KEY_PEPPER'), expect.anything());
       expect(bannerText()).toContain('(check dashboard for keys)'); // still not advertised as live
@@ -1174,12 +1174,12 @@ describe('AuthService', () => {
     it('boot still deletes the file when no row carries the file key prefix (genuine staleness)', async () => {
       (repository.count as jest.Mock).mockResolvedValue(1);
       existsSpy.mockReturnValue(true);
-      readSpy.mockReturnValue('owa_k1_deaddeaddead');
+      readSpy.mockReturnValue('zpl_k1_deaddeaddead');
       (repository.findOne as jest.Mock).mockResolvedValue(null); // neither the hash nor the prefix resolves
 
       await service.onModuleInit();
 
-      expect(repository.findOne).toHaveBeenCalledWith({ where: { keyPrefix: 'owa_k1_deadd' } });
+      expect(repository.findOne).toHaveBeenCalledWith({ where: { keyPrefix: 'zpl_k1_deadd' } });
       expect(unlinkSpy).toHaveBeenCalledWith(expect.stringContaining('.api-key'));
     });
 
@@ -1275,10 +1275,10 @@ describe('AuthService', () => {
         expect(keyIndex.refreshSoon).toHaveBeenCalled();
         expect(writeSpy).toHaveBeenCalledWith(
           '/isolated/virtual/path/.api-key',
-          expect.stringMatching(/^owa_k1_[a-f0-9]{64}$/),
+          expect.stringMatching(/^zpl_k1_[a-f0-9]{64}$/),
           expect.objectContaining({ mode: 0o600 }),
         );
-        expect(capturedWrittenKey).toMatch(/^owa_k1_[a-f0-9]{64}$/);
+        expect(capturedWrittenKey).toMatch(/^zpl_k1_[a-f0-9]{64}$/);
         expect(bannerText()).toContain('API Key (newly created)');
 
         (repository.findOne as jest.Mock).mockImplementation((options?: { where?: { keyHash?: string } }) => {
@@ -1401,16 +1401,16 @@ describe('AuthService', () => {
 
     it('hashes with HMAC-SHA256 when the pepper is set', async () => {
       process.env = { ...ORIGINAL_ENV, API_KEY_PEPPER: 'server-pepper' };
-      const queried = await queriedHash('owa_raw_key');
-      expect(queried).toBe(createHmac('sha256', 'server-pepper').update('owa_raw_key').digest('hex'));
-      expect(queried).not.toBe(createHash('sha256').update('owa_raw_key').digest('hex'));
+      const queried = await queriedHash('zpl_raw_key');
+      expect(queried).toBe(createHmac('sha256', 'server-pepper').update('zpl_raw_key').digest('hex'));
+      expect(queried).not.toBe(createHash('sha256').update('zpl_raw_key').digest('hex'));
     });
 
     it('hashes with plain SHA-256 when the pepper is unset (existing keys keep validating)', async () => {
       process.env = { ...ORIGINAL_ENV };
       delete process.env.API_KEY_PEPPER;
-      const queried = await queriedHash('owa_raw_key');
-      expect(queried).toBe(createHash('sha256').update('owa_raw_key').digest('hex'));
+      const queried = await queriedHash('zpl_raw_key');
+      expect(queried).toBe(createHash('sha256').update('zpl_raw_key').digest('hex'));
     });
   });
 });

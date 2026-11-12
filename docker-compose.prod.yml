@@ -1,0 +1,110 @@
+# Production overlay for a Linux VPS running many WhatsApp numbers (100+).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# (deploy/zaplink.sh runs exactly this, so you rarely type it.)
+#
+# What it changes on top of docker-compose.yml:
+#   - Caddy in front: HTTPS with an automatic Let's Encrypt certificate for ZAPLINK_DOMAIN.
+#     The API port is no longer published on the host; only 80/443 are open.
+#   - Redis always on (cache, rate limits, webhook queue), password protected.
+#   - Baileys engine by default: no Chromium per number, so 100+ numbers fit on one server.
+#   - PostgreSQL tuned for more connections and memory.
+#   - Log rotation on every container so the disk never fills with logs.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+services:
+  docker-proxy:
+    logging: *logging
+
+  zaplink-api:
+    logging: *logging
+    # Published by Caddy instead; nothing outside the server reaches the API port directly.
+    ports: !reset []
+    mem_limit: ${ZAPLINK_MEM_LIMIT:-8g}
+    pids_limit: ${ZAPLINK_PIDS_LIMIT:-4096}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - ENGINE_TYPE=${ENGINE_TYPE:-baileys}
+      - BASE_URL=https://${ZAPLINK_DOMAIN:?set ZAPLINK_DOMAIN in .env}
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.16.0.0/12}
+      - AUTO_START_SESSIONS=${AUTO_START_SESSIONS:-true}
+      - MAX_CONCURRENT_SESSIONS=${MAX_CONCURRENT_SESSIONS:-150}
+      - DATABASE_POOL_SIZE=${DATABASE_POOL_SIZE:-40}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
+      - REDIS_ENABLED=true
+      - QUEUE_ENABLED=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+
+  postgres:
+    logging: *logging
+    shm_size: 256m
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-1GB}
+      - -c
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-3GB}
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - wal_compression=on
+      - -c
+      - log_min_duration_statement=1000
+
+  redis:
+    logging: *logging
+    profiles: !reset []
+    command: >
+      redis-server --appendonly yes --maxmemory-policy noeviction
+      --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: zaplink-caddy
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      - zaplink-api
+    networks:
+      - zaplink-network
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      - ZAPLINK_DOMAIN=${ZAPLINK_DOMAIN:?set ZAPLINK_DOMAIN in .env}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+    name: zaplink_caddy-data
+  caddy-config:
+    name: zaplink_caddy-config

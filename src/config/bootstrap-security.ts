@@ -129,7 +129,7 @@ export function resolveBodyLimit(bodySizeEnv?: string): string {
 /**
  * Minimum length for an explicit API_MASTER_KEY in production. A static master key is the seed of an
  * ADMIN credential, so below this it is brute-forceable however unique it looks. The first-boot
- * generator emits 71 chars (`owa_k1_` + 32 bytes hex), so a generated key always passes.
+ * generator emits 71 chars (`zpl_k1_` + 32 bytes hex), so a generated key always passes.
  */
 const MIN_PROD_MASTER_KEY_LENGTH = 32;
 

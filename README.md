@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="dashboard/public/zaplink_logo.webp" alt="ZapLink" width="160"/>
+  <img src="dashboard/public/zaplink_logo.svg" alt="ZapLink" width="160"/>
 </p>
 
 <h1 align="center">ZapLink</h1>
@@ -62,6 +62,10 @@ ZapLink talks to WhatsApp through reverse-engineered clients
 ZapLink is not affiliated with or endorsed by WhatsApp or Meta.
 
 ## Quick start (Docker)
+
+**Going to production on a server?** Follow [DEPLOY.md](./DEPLOY.md): one command sets up HTTPS, Redis,
+backups and a firewall, sized for 100+ WhatsApp numbers. The steps below are for trying it on your
+own machine.
 
 Requirements: Docker with Compose v2.
 

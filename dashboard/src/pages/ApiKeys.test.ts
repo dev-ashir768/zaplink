@@ -19,7 +19,7 @@ let listStatus = 200;
 const billingBot = {
   id: 'key-1',
   name: 'billing-bot',
-  keyPrefix: 'owa_k1ab',
+  keyPrefix: 'zpl_k1ab',
   role: 'operator',
   isActive: true,
   usageCount: 0,
@@ -41,7 +41,7 @@ function installFetchStub(): void {
     if (path === '/api/sessions') return Promise.resolve(jsonResponse([]));
     if (init?.method === 'POST' && path === '/api/auth/api-keys') {
       createBody = JSON.parse(String(init.body));
-      const created = jsonResponse({ ...billingBot, id: 'key-new', apiKey: 'owa_k1_new' }, 201);
+      const created = jsonResponse({ ...billingBot, id: 'key-new', apiKey: 'zpl_k1_new' }, 201);
       return createGate ? createGate.then(() => created) : Promise.resolve(created);
     }
     if (init?.method === 'PUT' && path.startsWith('/api/auth/api-keys/')) {
@@ -114,7 +114,7 @@ test('a key row shows its prefix masked and offers no show/hide toggle', async (
       createElement(ToastProvider, null, createElement(ApiKeys)),
     ),
   );
-  await rtl.screen.findByText('owa_k1ab****');
+  await rtl.screen.findByText('zpl_k1ab****');
   assert.ok(
     !rtl.screen.queryByRole('button', { name: 'Show API key' }),
     'the row offers to show a key it does not have',
@@ -127,7 +127,7 @@ test('at 768px the table drops the columns the card layout has no place for', as
   window.innerWidth = 768;
   try {
     renderApiKeys();
-    await rtl.screen.findByText('owa_k1ab****');
+    await rtl.screen.findByText('zpl_k1ab****');
     assert.equal(rtl.screen.queryByText('Last Used') === null, true, 'the Last Used column is still shown');
   } finally {
     window.innerWidth = width;
@@ -152,7 +152,7 @@ test('a failed read shows the error instead of the empty state', async () => {
 
 async function openCreate(): Promise<HTMLButtonElement> {
   renderApiKeys();
-  await rtl.screen.findByText('owa_k1ab****');
+  await rtl.screen.findByText('zpl_k1ab****');
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Create API Key' }));
   return rtl.screen.getByRole<HTMLButtonElement>('button', { name: 'Create' });
 }
@@ -268,7 +268,7 @@ test('the create modal stays open until the request settles and then shows the s
   fireEvent.mouseDown(document.querySelector('.modal-overlay') as HTMLElement);
   screen.getByRole('dialog');
   release();
-  await screen.findByText('owa_k1_new');
+  await screen.findByText('zpl_k1_new');
 });
 
 // The secret is shown once: closing the dialog that shows it drops it, and the next Create opens the form.
@@ -277,12 +277,12 @@ test('closing the dialog that shows a new key drops the secret, and Create opens
   const create = await openCreate();
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
   fireEvent.click(create);
-  await screen.findByText('owa_k1_new');
+  await screen.findByText('zpl_k1_new');
 
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   assert.equal(screen.queryByRole('dialog') === null, true, 'the dialog stayed open');
   fireEvent.click(screen.getByRole('button', { name: 'Create API Key' }));
-  assert.equal(screen.queryByText('owa_k1_new') === null, true, 'the previous secret is shown again');
+  assert.equal(screen.queryByText('zpl_k1_new') === null, true, 'the previous secret is shown again');
   assert.equal(screen.getByLabelText<HTMLInputElement>('Name').value, '');
   assert.ok(screen.getByRole('button', { name: 'Create' }));
 });
@@ -294,12 +294,12 @@ test('a new key stays on screen through Escape and a click beside the dialog, un
   const create = await openCreate();
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
   fireEvent.click(create);
-  await screen.findByText('owa_k1_new');
+  await screen.findByText('zpl_k1_new');
 
   fireEvent.keyDown(document, { key: 'Escape' });
-  assert.equal(screen.queryByText('owa_k1_new') === null, false, 'Escape dismissed the one-time key');
+  assert.equal(screen.queryByText('zpl_k1_new') === null, false, 'Escape dismissed the one-time key');
   fireEvent.mouseDown(document.querySelector('.modal-overlay') as HTMLElement);
-  assert.equal(screen.queryByText('owa_k1_new') === null, false, 'a click beside the dialog dismissed the key');
+  assert.equal(screen.queryByText('zpl_k1_new') === null, false, 'a click beside the dialog dismissed the key');
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   assert.equal(screen.queryByRole('dialog') === null, true, 'Close left the dialog open');
 });
@@ -372,7 +372,7 @@ test('a key row shows its IP, chat and expiry limits, and an expired key is not 
       allowedChats: ['120363000@g.us'],
       expiresAt: '2020-01-01T00:00:00.000Z',
     },
-    { ...billingBot, id: 'key-2', name: 'open-key', keyPrefix: 'owa_k1cd' },
+    { ...billingBot, id: 'key-2', name: 'open-key', keyPrefix: 'zpl_k1cd' },
   ];
   renderApiKeys();
   await rtl.screen.findByText('IPs: 2');
@@ -387,10 +387,10 @@ test('a key row shows its IP, chat and expiry limits, and an expired key is not 
 test('an active admin key can be edited; a revoked key cannot', async () => {
   keyList = [
     { ...billingBot, role: 'admin' },
-    { ...billingBot, id: 'key-2', name: 'old-key', keyPrefix: 'owa_k1cd', isActive: false },
+    { ...billingBot, id: 'key-2', name: 'old-key', keyPrefix: 'zpl_k1cd', isActive: false },
   ];
   renderApiKeys();
-  await rtl.screen.findByText('owa_k1ab****');
+  await rtl.screen.findByText('zpl_k1ab****');
   assert.equal(rtl.screen.getAllByTitle('Edit access').length, 1);
   rtl.fireEvent.click(rtl.screen.getByTitle('Edit access'));
   // Admin keys stay unscoped in the dashboard: no session or chat fields.
@@ -532,11 +532,11 @@ test('a refused update keeps the editor open and shows the reason', async () => 
 });
 
 test('editing the key the dashboard is signed in with warns before saving', async () => {
-  window.sessionStorage.setItem('zaplink_api_key', 'owa_k1abXXXXYYYYZZZZ');
+  window.sessionStorage.setItem('zaplink_api_key', 'zpl_k1abXXXXYYYYZZZZ');
   await openEdit(billingBot);
   rtl.screen.getByText(/This dashboard is signed in with this key/);
   rtl.cleanup();
-  window.sessionStorage.setItem('zaplink_api_key', 'owa_k1zzXXXXYYYYZZZZ');
+  window.sessionStorage.setItem('zaplink_api_key', 'zpl_k1zzXXXXYYYYZZZZ');
   await openEdit(billingBot);
   assert.equal(rtl.screen.queryByText(/This dashboard is signed in with this key/) === null, true);
 });
@@ -572,13 +572,13 @@ test('editing the key seeded from API_MASTER_KEY warns when the dashboard is sig
 });
 
 test('the warning also finds a seeded key that looks like a generated one', async () => {
-  window.sessionStorage.setItem('zaplink_api_key', `owa_k1_${'ab12'.repeat(16)}`);
+  window.sessionStorage.setItem('zaplink_api_key', `zpl_k1_${'ab12'.repeat(16)}`);
   await openEditOf([masterKey, billingBot], 'Default Admin Key');
   assert.notEqual(signedInNote(), null);
 });
 
 test('editing the key seeded from API_MASTER_KEY does not warn when the dashboard is signed in with another key', async () => {
-  window.sessionStorage.setItem('zaplink_api_key', 'owa_k1abXXXXYYYYZZZZ');
+  window.sessionStorage.setItem('zaplink_api_key', 'zpl_k1abXXXXYYYYZZZZ');
   await openEditOf([masterKey, billingBot], 'Default Admin Key');
   assert.equal(signedInNote(), null);
   rtl.cleanup();
@@ -758,7 +758,7 @@ test('deleting a key whose name carries markup shows the name as text', async ()
   const name = '<strong style="font-size:50px">boom</strong>';
   keyList = [{ ...billingBot, name }];
   renderApiKeys();
-  await screen.findByText('owa_k1ab****');
+  await screen.findByText('zpl_k1ab****');
 
   fireEvent.click(screen.getByTitle('Delete'));
 
@@ -787,11 +787,11 @@ test('a chat list past the gateway limit blocks Create and says how many it hold
 for (const dismissal of ['Cancel', 'Close'] as const) {
   test(`a completed key update keeps the editor opened after ${dismissal}`, async () => {
     const { screen, fireEvent, within, waitFor, act } = rtl;
-    keyList = [billingBot, { ...billingBot, id: 'key-2', name: 'support-bot', keyPrefix: 'owa_k1cd' }];
+    keyList = [billingBot, { ...billingBot, id: 'key-2', name: 'support-bot', keyPrefix: 'zpl_k1cd' }];
     let release!: () => void;
     updateGate = new Promise<void>(resolve => (release = resolve));
     renderApiKeys();
-    await screen.findByText('owa_k1ab****');
+    await screen.findByText('zpl_k1ab****');
     const firstRow = screen.getByText('billing-bot').closest('tr') as HTMLElement;
     fireEvent.click(within(firstRow).getByTitle('Edit access'));
     const firstDialog = await screen.findByRole('dialog');

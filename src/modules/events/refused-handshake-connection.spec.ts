@@ -88,7 +88,7 @@ describe('a refused /events handshake', () => {
   const wait = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
   it('closes the connection of a peer refused for its key, as it does one refused at the root namespace', async () => {
-    const refused = open('40/events,{"apiKey":"owa_k1_not_a_key"}');
+    const refused = open('40/events,{"apiKey":"zpl_k1_not_a_key"}');
     const rootPeer = open('40');
 
     await wait(250);
@@ -106,7 +106,7 @@ describe('a refused /events handshake', () => {
 
   it('leaves no connection behind for handshakes refused by the per-address handshake limit either', async () => {
     // 10 handshakes a minute per address are validated; the rest are refused as RATE_LIMITED.
-    const opened = Array.from({ length: 12 }, () => open('40/events,{"apiKey":"owa_k1_not_a_key"}'));
+    const opened = Array.from({ length: 12 }, () => open('40/events,{"apiKey":"zpl_k1_not_a_key"}'));
 
     await wait(900);
     expect(opened.some(peer => peer.frames.some(frame => frame.includes('RATE_LIMITED')))).toBe(true);
@@ -188,8 +188,8 @@ describe('every /events refusal closes the transport', () => {
   it('closes a handshake refused by the per-address window', async () => {
     process.env.WS_RATE_LIMIT_HANDSHAKE_MAX = '1';
     gateway = build();
-    await connect('owa_k1_not_a_key');
-    const second = await connect('owa_k1_not_a_key');
+    await connect('zpl_k1_not_a_key');
+    const second = await connect('zpl_k1_not_a_key');
     expect(second.emit).toHaveBeenCalledWith('message', expect.objectContaining({ code: 'RATE_LIMITED' }));
     expect(second.disconnect).toHaveBeenCalledWith(true);
   });
@@ -212,7 +212,7 @@ describe('every /events refusal closes the transport', () => {
   });
 
   it('closes a handshake whose key is refused', async () => {
-    const sock = await connect('owa_k1_not_a_key');
+    const sock = await connect('zpl_k1_not_a_key');
     expect(sock.emit).toHaveBeenCalledWith('message', expect.objectContaining({ code: 'UNAUTHORIZED' }));
     expect(sock.disconnect).toHaveBeenCalledWith(true);
   });

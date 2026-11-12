@@ -1,7 +1,7 @@
 # ZapLink Dashboard
 
 <p align="center">
-  <img src="../docs/logo/zaplink_logo.webp" alt="ZapLink Logo" width="120"/>
+  <img src="public/zaplink_logo.svg" alt="ZapLink Logo" width="120"/>
 </p>
 
 Modern web dashboard for managing ZapLink WhatsApp API Gateway sessions, webhooks, and infrastructure.

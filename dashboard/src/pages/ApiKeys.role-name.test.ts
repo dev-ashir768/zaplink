@@ -13,7 +13,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 const operatorKey = {
   id: 'key-1',
   name: 'billing-bot',
-  keyPrefix: 'owa_k1ab',
+  keyPrefix: 'zpl_k1ab',
   role: 'operator',
   isActive: true,
   usageCount: 0,
@@ -28,7 +28,7 @@ function installFetchStub(): void {
     const path = url.replace(/^https?:\/\/[^/]+/, '');
     if (path === '/api/sessions') return Promise.resolve(jsonResponse([]));
     if (init?.method === 'POST' && path === '/api/auth/api-keys') {
-      return Promise.resolve(jsonResponse({ ...operatorKey, id: 'key-new', apiKey: 'owa_k1_new_plaintext' }, 201));
+      return Promise.resolve(jsonResponse({ ...operatorKey, id: 'key-new', apiKey: 'zpl_k1_new_plaintext' }, 201));
     }
     if (path === '/api/auth/api-keys') return Promise.resolve(jsonResponse(keyList));
     return Promise.resolve(jsonResponse({ message: `unstubbed ${path}` }, 404));

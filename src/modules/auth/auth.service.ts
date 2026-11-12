@@ -59,7 +59,7 @@ export const MASTER_KEY_PREFIX = '(master key)';
 /**
  * Resolves the API key to seed on first boot (when no keys exist yet).
  * Precedence: an explicit `API_MASTER_KEY` always wins; otherwise a
- * cryptographically random `owa_k1_` key is generated — the secure default,
+ * cryptographically random `zpl_k1_` key is generated — the secure default,
  * including in non-production. The legacy fixed `dev-admin-key` is used only when
  * a developer explicitly opts in with `ALLOW_DEV_API_KEY=true`, never by default.
  */
@@ -71,7 +71,7 @@ export function resolveSeedApiKey(): string {
   if (process.env.ALLOW_DEV_API_KEY === 'true') {
     return 'dev-admin-key';
   }
-  return `owa_k1_${randomBytes(32).toString('hex')}`;
+  return `zpl_k1_${randomBytes(32).toString('hex')}`;
 }
 
 /**
@@ -81,7 +81,7 @@ export function resolveSeedApiKey(): string {
  * On every subsequent boot the banner names only where the key is, so the live admin key is not re-written
  * to the log pipeline (Docker/Loki/CloudWatch) on each restart — it stays in `data/.api-key` (0600), or wherever
  * `BOOTSTRAP_KEY_FILE` points; the dashboard only ever shows a key's prefix. A key stored as a generated one
- * keeps a short fingerprint, its fixed `owa_k1_` tag and one hex digit. Any other key may have every character
+ * keeps a short fingerprint, its fixed `zpl_k1_` tag and one hex digit. Any other key may have every character
  * secret (an API_MASTER_KEY is taken verbatim), so none is printed.
  *
  * `storedPrefix` is the prefix the live row is stored under, and only one that starts with the tag identifies a
@@ -97,7 +97,7 @@ export function resolveSeedApiKey(): string {
 export function bannerKeyLine(displayKey: string | null, isNewKey: boolean, storedPrefix?: string | null): string {
   if (displayKey === null) return '(check dashboard for keys)';
   if (isNewKey) return displayKey;
-  const generated = displayKey.startsWith('owa_k1_') && !!storedPrefix?.startsWith('owa_k1_');
+  const generated = displayKey.startsWith('zpl_k1_') && !!storedPrefix?.startsWith('zpl_k1_');
   const fingerprint = generated ? `${displayKey.slice(0, 8)}… ` : '';
   return `${fingerprint}(full key in ${bootstrapKeyFilePath()})`;
 }
@@ -265,8 +265,8 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   async createApiKey(dto: CreateApiKeyDto): Promise<{ apiKey: ApiKey; rawKey: string }> {
-    // Generate secure random key: owa_k1_<32 bytes hex>
-    const rawKey = `owa_k1_${randomBytes(32).toString('hex')}`;
+    // Generate secure random key: zpl_k1_<32 bytes hex>
+    const rawKey = `zpl_k1_${randomBytes(32).toString('hex')}`;
     const keyHash = this.hashKey(rawKey);
     const keyPrefix = rawKey.substring(0, 12);
 

@@ -15,7 +15,7 @@ describe('ApiKeyGuard chat fence cost', () => {
     id: 'k1',
     name: 'restricted',
     keyHash: 'h',
-    keyPrefix: 'owa_k1_xxxxx',
+    keyPrefix: 'zpl_k1_xxxxx',
     role: ApiKeyRole.OPERATOR,
     allowedIps: null,
     allowedSessions: null,

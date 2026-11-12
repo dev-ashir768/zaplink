@@ -15,7 +15,7 @@ function createMockApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     id: 'uuid-1',
     name: 'Test Key',
     keyHash: 'hash',
-    keyPrefix: 'owa_k1_xxxx',
+    keyPrefix: 'zpl_k1_xxxx',
     role: ApiKeyRole.OPERATOR,
     allowedIps: null,
     allowedSessions: null,

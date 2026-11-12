@@ -370,7 +370,7 @@
     "connectionError": "Unable to connect to server. Please try again.",
     "help": "Need help?",
     "viewDocs": "View Documentation",
-    "footer": "Made with ❤️ by Yudhi Armyndharis and the ZapLink Community",
+    "footer": "ZapLink · WhatsApp API gateway",
     "version": "v{{version}} · {{date}}"
   },
   "dashboard": {

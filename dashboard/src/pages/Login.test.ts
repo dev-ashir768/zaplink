@@ -51,18 +51,18 @@ test('a key pasted with surrounding whitespace is sent and stored trimmed', asyn
   const logins: string[] = [];
   rtl.render(createElement(Login, { onLogin: (key: string) => logins.push(key) }));
 
-  fireEvent.change(screen.getByLabelText('API Key'), { target: { value: '  owa_k1_secret ' } });
+  fireEvent.change(screen.getByLabelText('API Key'), { target: { value: '  zpl_k1_secret ' } });
   fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
 
   await waitFor(() => assert.equal(logins.length, 1));
-  assert.deepEqual(logins, ['owa_k1_secret']);
-  assert.equal(sentKey, 'owa_k1_secret');
+  assert.deepEqual(logins, ['zpl_k1_secret']);
+  assert.equal(sentKey, 'zpl_k1_secret');
 });
 
 async function submitAndReadError(): Promise<string> {
   const { screen, fireEvent } = rtl;
   rtl.render(createElement(Login, { onLogin: () => assert.fail('a refused key signed in') }));
-  fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'owa_k1_secret' } });
+  fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'zpl_k1_secret' } });
   fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
   const message = await rtl.waitFor(() => {
     const el = document.querySelector('.error-message');
@@ -116,7 +116,7 @@ for (const [label, body] of [
     // Recorded, not thrown: the form's own catch would turn a throw here into the very error this test expects.
     const logins: string[] = [];
     rtl.render(createElement(Login, { onLogin: (key: string) => logins.push(key) }));
-    fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'owa_k1_secret' } });
+    fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'zpl_k1_secret' } });
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
     await rtl.waitFor(() => assert.ok(logins.length > 0 || document.querySelector('.error-message')));
     assert.deepEqual(logins, [], 'the answer signed the key in');

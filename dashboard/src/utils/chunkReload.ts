@@ -5,7 +5,7 @@
 // a failure within RELOAD_WINDOW_MS of the last reload is surfaced instead of reloading again.
 // React-free on purpose so it is unit-testable without a DOM. See lazyWithRetry.ts for the wiring.
 
-const RELOAD_KEY = 'owa_chunk_reloaded';
+const RELOAD_KEY = 'zpl_chunk_reloaded';
 
 // Long enough to cover a slow reload reaching the same failing chunk again, short enough that a later
 // redeploy in the same tab still gets its reload. The guard is not cleared on success: a nested lazy

@@ -107,7 +107,7 @@ describe('HealthController', () => {
     it('audits a presented-but-invalid key like every other key-validation surface', async () => {
       validateApiKey.mockRejectedValue(new UnauthorizedException('Invalid API key'));
 
-      const result = await controller.check(reqWith({ 'x-api-key': 'owa_k1_probe' }));
+      const result = await controller.check(reqWith({ 'x-api-key': 'zpl_k1_probe' }));
 
       expect(result.status).toBe('ok'); // the probe itself never fails
       expect(result).not.toHaveProperty('version');
@@ -128,7 +128,7 @@ describe('HealthController', () => {
     it('does not audit a valid key', async () => {
       validateApiKey.mockResolvedValue({ id: 'k1' });
 
-      await controller.check(reqWith({ 'x-api-key': 'owa_k1_valid' }));
+      await controller.check(reqWith({ 'x-api-key': 'zpl_k1_valid' }));
 
       expect(logWarn).not.toHaveBeenCalled();
     });
@@ -137,7 +137,7 @@ describe('HealthController', () => {
       validateApiKey.mockRejectedValue(new UnauthorizedException('Invalid API key'));
 
       for (let i = 0; i < 15; i++) {
-        await controller.check(reqWith({ 'x-api-key': `owa_k1_probe_${i}` }));
+        await controller.check(reqWith({ 'x-api-key': `zpl_k1_probe_${i}` }));
       }
 
       expect(logWarn).toHaveBeenCalledTimes(10);
@@ -149,7 +149,7 @@ describe('HealthController', () => {
       validateApiKey.mockRejectedValue(new UnauthorizedException('Invalid API key'));
 
       for (let i = 0; i < 15; i++) {
-        await controller.check(reqWith({ 'x-api-key': 'owa_k1_probe' }, `2001:db8:1:2::${(i + 1).toString(16)}`));
+        await controller.check(reqWith({ 'x-api-key': 'zpl_k1_probe' }, `2001:db8:1:2::${(i + 1).toString(16)}`));
       }
       expect(logWarn).toHaveBeenCalledTimes(10);
       expect(logWarn).toHaveBeenLastCalledWith(
@@ -157,13 +157,13 @@ describe('HealthController', () => {
         expect.objectContaining({ ipAddress: '2001:db8:1:2::a' }),
       );
 
-      await controller.check(reqWith({ 'x-api-key': 'owa_k1_probe' }, '2001:db8:1:3::1'));
+      await controller.check(reqWith({ 'x-api-key': 'zpl_k1_probe' }, '2001:db8:1:3::1'));
       expect(logWarn).toHaveBeenCalledTimes(11);
     });
   });
 
   describe('key-validation budget', () => {
-    const presented = (ip?: string) => reqWith({ 'x-api-key': 'owa_k1_probe' }, ip);
+    const presented = (ip?: string) => reqWith({ 'x-api-key': 'zpl_k1_probe' }, ip);
 
     it('stops looking up keys for a client after 30 failed presentations a minute', async () => {
       validateApiKey.mockRejectedValue(new UnauthorizedException('Invalid API key'));

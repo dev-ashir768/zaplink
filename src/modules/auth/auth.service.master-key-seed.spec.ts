@@ -90,7 +90,7 @@ describe('the first admin key seeded into an empty key table', () => {
     });
 
     it('prints no part of an API_MASTER_KEY that looks like a generated key', async () => {
-      const lookalike = `owa_k1_${'ab12'.repeat(16)}`;
+      const lookalike = `zpl_k1_${'ab12'.repeat(16)}`;
       await boot({ master: lookalike });
 
       expect(banner()).not.toContain(lookalike.slice(0, 8));
@@ -100,7 +100,7 @@ describe('the first admin key seeded into an empty key table', () => {
     it('prints a generated key in full, and it is the key written to the file', async () => {
       await boot({});
 
-      expect(written).toMatch(/^owa_k1_[a-f0-9]{64}$/);
+      expect(written).toMatch(/^zpl_k1_[a-f0-9]{64}$/);
       expect(banner()).toContain('API Key (newly created)');
       expect(banner()).toContain(written!);
     });
@@ -124,7 +124,7 @@ describe('the first admin key seeded into an empty key table', () => {
     });
 
     it('is the fixed marker for an API_MASTER_KEY that looks like a generated key', async () => {
-      await boot({ master: `owa_k1_${'ab12'.repeat(16)}` });
+      await boot({ master: `zpl_k1_${'ab12'.repeat(16)}` });
 
       expect(created[0].keyPrefix).toBe(MARKER);
     });
@@ -133,7 +133,7 @@ describe('the first admin key seeded into an empty key table', () => {
       await boot({});
 
       expect(created[0].keyPrefix).toBe(written!.substring(0, 12));
-      expect(created[0].keyPrefix).toMatch(/^owa_k1_[a-f0-9]{5}$/);
+      expect(created[0].keyPrefix).toMatch(/^zpl_k1_[a-f0-9]{5}$/);
     });
 
     it('stays the first 12 characters of the development key', async () => {
@@ -211,13 +211,13 @@ describe('a bootstrap key file that no stored hash matches (API_KEY_PEPPER chang
 
   it('keeps the file of a master key that looks like a generated key, seeded under the marker', async () => {
     rows = [row({ keyPrefix: MARKER })];
-    await bootWithFile(`owa_k1_${'ab12'.repeat(16)}`);
+    await bootWithFile(`zpl_k1_${'ab12'.repeat(16)}`);
 
     expect(unlink).not.toHaveBeenCalled();
   });
 
   it('removes the file when no stored key carries its prefix or the marker', async () => {
-    rows = [row({ keyPrefix: 'owa_k1_other' })];
+    rows = [row({ keyPrefix: 'zpl_k1_other' })];
     await bootWithFile(MASTER);
 
     expect(unlink).toHaveBeenCalledWith(KEY_FILE);
@@ -241,7 +241,7 @@ describe('a bootstrap key file that no stored hash matches (API_KEY_PEPPER chang
 
 describe('the startup banner of a later boot', () => {
   const saved = { API_MASTER_KEY: process.env.API_MASTER_KEY, BOOTSTRAP_KEY_FILE: process.env.BOOTSTRAP_KEY_FILE };
-  const GENERATED = `owa_k1_${'ab12'.repeat(16)}`;
+  const GENERATED = `zpl_k1_${'ab12'.repeat(16)}`;
   const PAREN = `(${MASTER}`;
 
   /**

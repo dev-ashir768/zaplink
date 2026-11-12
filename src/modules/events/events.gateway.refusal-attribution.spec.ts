@@ -113,7 +113,7 @@ describe('EventsGateway audit rows for a refused stored key', () => {
 
   it('names no key when the handshake presents one that matches no row', async () => {
     await service.createApiKey({ name: 'bystander', role: ApiKeyRole.ADMIN });
-    const sock = makeSocket('owa_k1_matches_no_row');
+    const sock = makeSocket('zpl_k1_matches_no_row');
     await gateway.handleConnection(sock as unknown as Socket);
     expect(sock.disconnect).toHaveBeenCalled();
 

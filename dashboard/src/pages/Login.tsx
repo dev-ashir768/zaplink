@@ -79,7 +79,7 @@ export function Login({ onLogin }: LoginProps) {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">
-          <img src="/zaplink_logo.webp" alt="ZapLink" className="logo-icon" />
+          <img src="/zaplink_logo.svg" alt="ZapLink" className="logo-icon" />
           <span className="version-info">
             {t('login.version', {
               version: __APP_VERSION__,

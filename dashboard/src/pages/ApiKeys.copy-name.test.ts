@@ -13,7 +13,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 const operatorKey = {
   id: 'key-1',
   name: 'billing-bot',
-  keyPrefix: 'owa_k1ab',
+  keyPrefix: 'zpl_k1ab',
   role: 'operator',
   isActive: true,
   usageCount: 0,
@@ -26,7 +26,7 @@ function installFetchStub(): void {
     const path = url.replace(/^https?:\/\/[^/]+/, '');
     if (path === '/api/sessions') return Promise.resolve(jsonResponse([]));
     if (init?.method === 'POST' && path === '/api/auth/api-keys') {
-      return Promise.resolve(jsonResponse({ ...operatorKey, id: 'key-new', apiKey: 'owa_k1_new_plaintext' }, 201));
+      return Promise.resolve(jsonResponse({ ...operatorKey, id: 'key-new', apiKey: 'zpl_k1_new_plaintext' }, 201));
     }
     if (path === '/api/auth/api-keys') return Promise.resolve(jsonResponse([operatorKey]));
     return Promise.resolve(jsonResponse({ message: `unstubbed ${path}` }, 404));
@@ -74,7 +74,7 @@ test('the button that copies a newly created key has an accessible name', async 
   rtl.fireEvent.click(await rtl.screen.findByRole('button', { name: /Create API Key/i }));
   rtl.fireEvent.change(rtl.screen.getByLabelText('Name'), { target: { value: 'reporting' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Create' }));
-  const shown = await rtl.screen.findByText('owa_k1_new_plaintext');
+  const shown = await rtl.screen.findByText('zpl_k1_new_plaintext');
   const dialog = shown.closest('[role="dialog"]') as HTMLElement;
   const unnamed = rtl.within(dialog).queryAllByRole('button', { name: (name: string) => name.trim() === '' });
   assert.equal(unnamed.length, 0, `nameless buttons in the created-key dialog: ${unnamed.length}`);

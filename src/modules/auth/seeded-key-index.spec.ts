@@ -55,7 +55,7 @@ describe('first-boot seeding and the active key index', () => {
     try {
       // Production order: every onModuleInit (seeding) before every onApplicationBootstrap (index load).
       await module.init();
-      expect(written).toMatch(/^owa_k1_[a-f0-9]{64}$/);
+      expect(written).toMatch(/^zpl_k1_[a-f0-9]{64}$/);
       expect(module.get(ActiveKeyIndex).recognise({ 'x-api-key': written }, '192.0.2.1')).toBe(rows[0].keyHash);
     } finally {
       await module.close();

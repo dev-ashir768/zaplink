@@ -428,9 +428,9 @@ describe('assertNoDefaultSecretsInProduction', () => {
   });
 
   it('allows prod with a strong generated-shape API_MASTER_KEY', () => {
-    // The shape the first-boot generator emits: `owa_k1_` + 32 bytes hex (71 chars).
+    // The shape the first-boot generator emits: `zpl_k1_` + 32 bytes hex (71 chars).
     expect(() =>
-      assertNoDefaultSecretsInProduction({ nodeEnv: 'production', apiMasterKey: `owa_k1_${'ab'.repeat(32)}` }),
+      assertNoDefaultSecretsInProduction({ nodeEnv: 'production', apiMasterKey: `zpl_k1_${'ab'.repeat(32)}` }),
     ).not.toThrow();
   });
 
