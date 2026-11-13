@@ -1541,6 +1541,16 @@
     "webhooksTitle": "Webhooks",
     "webhooksHelp": "To receive incoming messages and status changes over HTTP, register a callback URL and pick events on",
     "wsTitle": "Real-time events (WebSocket)",
-    "wsHelp": "Connect with Socket.IO to the /events namespace, pass the key in auth, then subscribe to a session (or * on an unrestricted key) and the events you want:"
+    "wsHelp": "Connect with Socket.IO to the /events namespace, pass the key in auth, then subscribe to a session (or * on an unrestricted key) and the events you want:",
+    "tagline": "Every endpoint of the ZapLink API, with schemas, live examples and copy-ready code.",
+    "statEndpoints": "endpoints",
+    "statTags": "tags",
+    "request": "Request",
+    "response": "Response",
+    "noBody": "No response body.",
+    "showIntro": "Show",
+    "hideIntro": "Hide",
+    "close": "Close",
+    "searchHint": "focuses the search from anywhere (or Cmd/Ctrl+K)."
   }
 }

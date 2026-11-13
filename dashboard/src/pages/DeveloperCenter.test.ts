@@ -72,7 +72,7 @@ test('the sidebar lists Developer Center right after API Keys, and /developer re
   assert.equal(hrefs[hrefs.indexOf('/api-keys') + 1], '/developer');
   await rtl.waitFor(() => assert.ok(document.querySelector('.dev-op')), { timeout: 10_000 });
   assert.equal(window.location.pathname, '/developer');
-  const tags = [...document.querySelectorAll('.dev-group-title')].map(h => h.firstChild?.textContent?.trim());
+  const tags = [...document.querySelectorAll('.dev-group-name')].map(h => h.textContent?.trim());
   for (const tag of ['auth', 'sessions', 'messages', 'groups', 'webhooks', 'health'])
     assert.ok(tags.includes(tag), tag);
   assert.ok(document.body.textContent?.includes('923001234567@c.us'), 'the intro shows the chatId format');
@@ -94,4 +94,56 @@ test('a viewer sees the entry too; ?op= opens the operation and Try it blocks a 
     return b as HTMLButtonElement;
   });
   assert.equal(send.disabled, true, 'a viewer cannot send a POST');
+});
+
+test('search shortcut, arrow-key navigation, collapsible tags and a remembered Getting started toggle', async () => {
+  window.localStorage.removeItem('zaplink_dev_intro_collapsed');
+  renderAt('/developer', 'admin');
+  await rtl.waitFor(() => assert.ok(document.querySelector('.dev-op')), { timeout: 10_000 });
+  const search = document.querySelector<HTMLInputElement>('.dev-search input')!;
+  rtl.fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  assert.equal(document.activeElement, search, 'Ctrl+K focuses the search');
+  search.blur();
+  rtl.fireEvent.keyDown(document.body, { key: '/' });
+  assert.equal(document.activeElement, search, '"/" focuses the search');
+
+  const nav = document.querySelector('.dev-sidebar')!;
+  const ops = [...nav.querySelectorAll<HTMLButtonElement>('.dev-op')];
+  ops[0].focus();
+  rtl.fireEvent.keyDown(ops[0], { key: 'ArrowDown' });
+  assert.equal(document.activeElement, ops[1]);
+  rtl.fireEvent.keyDown(ops[1], { key: 'ArrowUp' });
+  assert.equal(document.activeElement, ops[0]);
+
+  const group = nav.querySelector('.dev-group')!;
+  const before = group.querySelectorAll('.dev-op').length;
+  assert.ok(before > 0);
+  rtl.fireEvent.click(group.querySelector('.dev-group-btn')!);
+  assert.equal(group.querySelectorAll('.dev-op').length, 0, 'a tag group collapses');
+  rtl.fireEvent.change(search, { target: { value: 'send-text' } });
+  assert.ok(
+    [...document.querySelectorAll('.dev-op-path')].some(p => p.textContent?.includes('send-text')),
+    'searching filters and expands matches',
+  );
+
+  const toggle = document.querySelector<HTMLButtonElement>('.dev-intro-toggle')!;
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  rtl.fireEvent.click(toggle);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(window.localStorage.getItem('zaplink_dev_intro_collapsed'), '1');
+  window.localStorage.removeItem('zaplink_dev_intro_collapsed');
+});
+
+test('response status tabs switch the schema shown and the code panel offers every language', async () => {
+  renderAt('/developer?op=MessageController_sendText', 'admin');
+  await rtl.waitFor(() => assert.ok(document.querySelector('#dev-detail-title')), { timeout: 10_000 });
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('.dev-status-tab')];
+  assert.ok(tabs.length > 1);
+  assert.equal(tabs.find(b => b.getAttribute('aria-selected') === 'true')?.textContent?.[0], '2');
+  const other = tabs.find(b => !b.textContent?.startsWith('2'))!;
+  rtl.fireEvent.click(other);
+  assert.equal(other.getAttribute('aria-selected'), 'true');
+  const langs = [...document.querySelectorAll('.dev-panel .dev-tab')].map(b => b.textContent);
+  for (const l of ['cURL', 'JavaScript', 'Python', 'PHP']) assert.ok(langs.includes(l), l);
+  assert.ok(document.querySelector('.dev-path-param')?.textContent === '{sessionId}');
 });
