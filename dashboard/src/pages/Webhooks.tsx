@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CustomSelect } from '../components/CustomSelect';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -494,18 +495,16 @@ export function Webhooks() {
           }
         >
           <label htmlFor="wh-1">{t('webhooks.session')}</label>
-          <select
+          <CustomSelect
             id="wh-1"
+            variant="field"
             value={newWebhook.sessionId}
-            onChange={e => setNewWebhook({ ...newWebhook, sessionId: e.target.value })}
-          >
-            <option value="">{t('webhooks.selectSession')}</option>
-            {sessions.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            onChange={sessionId => setNewWebhook({ ...newWebhook, sessionId })}
+            options={[
+              { value: '', label: t('webhooks.selectSession') },
+              ...sessions.map(s => ({ value: s.id, label: s.name })),
+            ]}
+          />
           <label htmlFor="wh-2">{t('common.url')}</label>
           <input
             id="wh-2"

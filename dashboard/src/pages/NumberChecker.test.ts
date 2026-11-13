@@ -2,6 +2,7 @@ import '../test-helpers/register-hooks.ts';
 import { test, before, afterEach, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
+import { chooseOption, optionEntries, selectedValue } from '../test-helpers/custom-select.ts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 type RTL = typeof import('@testing-library/react');
@@ -109,8 +110,8 @@ const registered = (number: string) => jsonResponse({ number, exists: true, what
 
 async function openBulkTab(): Promise<HTMLTextAreaElement> {
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  return rtl.screen.getByPlaceholderText(/9612345678/i) as HTMLTextAreaElement;
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  return rtl.screen.getByPlaceholderText(/923001234567/) as HTMLTextAreaElement;
 }
 
 before(async () => {
@@ -161,7 +162,7 @@ test('NumberChecker: a failed sessions read is reported, not shown as "no sessio
 test('NumberChecker: renders single check form and tabs', () => {
   const { getByText, getByPlaceholderText } = renderComponent();
   assert.ok(getByText('Check Single Account'));
-  assert.ok(getByPlaceholderText('e.g. 919876543210 or 6281234567890'));
+  assert.ok(getByPlaceholderText('e.g. 923001234567 or 14155552671'));
 });
 
 test('NumberChecker: switches to bulk / batch tab when clicked', () => {
@@ -172,7 +173,7 @@ test('NumberChecker: switches to bulk / batch tab when clicked', () => {
   assert.ok(headings.length >= 1);
 });
 
-// The +91 rewrite is opt-in: `autoPrefix` is whether the box is ticked before the number is checked.
+// The +92 rewrite is on by default: `autoPrefix` is whether the box is still ticked when the number is checked.
 for (const [raw, autoPrefix, expected] of [
   ['00376 612 345', false, '376612345'],
   ['00298 212345', true, '298212345'],
@@ -185,9 +186,10 @@ for (const [raw, autoPrefix, expected] of [
   ['9876543210', false, '9876543210'],
   ['09876543210', false, '09876543210'],
   ['9109876543210', false, '9109876543210'],
-  ['9876543210', true, '919876543210'],
-  ['09876543210', true, '919876543210'],
-  ['08123456789', true, '918123456789'],
+  ['3001234567', true, '923001234567'],
+  ['03001234567', true, '923001234567'],
+  ['9203001234567', true, '923001234567'],
+  ['08123456789', true, '928123456789'],
 ] as const) {
   test(`NumberChecker: checks ${raw} as ${expected} with auto-prefix ${autoPrefix}`, async () => {
     const lookups: string[] = [];
@@ -202,10 +204,10 @@ for (const [raw, autoPrefix, expected] of [
     }) as typeof fetch;
 
     const { container } = renderComponent();
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
-    if (autoPrefix) rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+    if (!autoPrefix) rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
     assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, autoPrefix);
-    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: raw } });
+    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: raw } });
     if (raw.startsWith('+') || raw.startsWith('00')) {
       assert.ok(!container.querySelector('.nc-format-preview')?.textContent?.includes('auto-prefixed'));
     }
@@ -220,18 +222,18 @@ for (const [typed, autoPrefix, expected] of [
   ['0065 8123 4567', false, 'Will check as: +6581234567 (10 digits)'],
   ['+65 8123 4567', true, 'Will check as: +6581234567 (10 digits)'],
   ['916581234567', false, 'Will check as: +916581234567 (12 digits \u2192 kept as-is)'],
-  ['9876543210', true, 'Will check as: +919876543210 (10 digits \u2192 auto-prefixed with 91)'],
+  ['3001234567', true, 'Will check as: +923001234567 (10 digits \u2192 auto-prefixed with 92)'],
 ] as const) {
   test(`NumberChecker: the preview for ${typed} with auto-prefix ${autoPrefix} reads ${expected}`, async () => {
     const { container } = renderComponent();
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
-    if (autoPrefix) rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
-    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: typed } });
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+    if (!autoPrefix) rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
+    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: typed } });
     assert.equal(container.querySelector('.nc-format-preview')?.textContent, expected);
   });
 }
 
-test('NumberChecker: bulk parsing deduplicates explicit international numbers without adding +91', async () => {
+test('NumberChecker: bulk parsing deduplicates explicit international numbers without adding +92', async () => {
   const lookups: string[] = [];
   globalThis.fetch = ((input: RequestInfo | URL) => {
     const url = String(input);
@@ -245,7 +247,6 @@ test('NumberChecker: bulk parsing deduplicates explicit international numbers wi
 
   renderComponent();
   const textarea = await openBulkTab();
-  rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
   rtl.fireEvent.change(textarea, { target: { value: '+65 8123 4567\n0065 8123 4567' } });
   assert.match(rtl.screen.getByText(/ten-digit/).textContent ?? '', /0 ten-digit/);
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Start Batch Check/i }));
@@ -267,8 +268,8 @@ for (const [script, zero] of DIGIT_SCRIPTS) {
   test(`NumberChecker: ${script} digits are previewed and looked up as ASCII digits`, async () => {
     const lookups = stubLookups(registered);
     const { container } = renderComponent();
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
-    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), {
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), {
       target: { value: toDigits('6281234567891', zero) },
     });
     assert.match(container.querySelector('.nc-format-preview')?.textContent ?? '', /\+6281234567891 \(13 digits\)/);
@@ -291,7 +292,7 @@ test('NumberChecker: a bulk list in several scripts is parsed and deduplicated a
 });
 
 // A plus sign that arrives behind invisible direction marks, or as a full-width character, still marks an international
-// number: with the +91 rule on, losing it would look a foreign 10-digit number up as an Indian one.
+// number: with the +92 rule on, losing it would look a foreign 10-digit number up as a Pakistani one.
 const char = (code: number) => String.fromCharCode(code);
 const WRAPPED_PLUS = [
   ['direction marks around the number', `${char(0x202a)}+65 8123 4567${char(0x202c)}`],
@@ -300,12 +301,11 @@ const WRAPPED_PLUS = [
 ] as const;
 
 for (const [label, typed] of WRAPPED_PLUS) {
-  test(`NumberChecker: with +91 on, ${label} still marks an international number`, async () => {
+  test(`NumberChecker: with +92 on, ${label} still marks an international number`, async () => {
     const lookups = stubLookups(registered);
     renderComponent();
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
-    rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
-    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: typed } });
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: typed } });
     rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
     await rtl.screen.findByText('Registered', { selector: '.nc-status-badge' });
     assert.deepEqual(lookups, ['6581234567']);
@@ -324,8 +324,8 @@ for (const [label, typed, expected] of MARKED_NUMBERS) {
   test(`NumberChecker: ${label} is not read as digits of the number`, async () => {
     const lookups = stubLookups(registered);
     renderComponent();
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
-    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: typed } });
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+    rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: typed } });
     rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
     await rtl.screen.findByText('Registered', { selector: '.nc-status-badge' });
     assert.deepEqual(lookups, [expected]);
@@ -365,24 +365,22 @@ for (const [label, separator] of [
 }
 
 // The single-number preview counts the digits typed after folding them, so ten Devanagari digits still read as a
-// ten-digit number that the +91 rule prefixes.
-test('NumberChecker: ten Devanagari digits with +91 on show the auto-prefixed preview', async () => {
+// ten-digit number that the +92 rule prefixes.
+test('NumberChecker: ten Devanagari digits with +92 on show the auto-prefixed preview', async () => {
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
-  const typed = [...'9876543210'].map(d => char(0x0966 + Number(d))).join('');
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: typed } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  const typed = [...'3001234567'].map(d => char(0x0966 + Number(d))).join('');
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: typed } });
   assert.equal(
     container.querySelector('.nc-format-pill.highlight')?.textContent,
-    'Will check as: +919876543210 (10 digits \u2192 auto-prefixed with 91)',
+    'Will check as: +923001234567 (10 digits \u2192 auto-prefixed with 92)',
   );
 });
 
-test('NumberChecker: a bulk list keeps wrapped and full-width plus numbers international with +91 on', async () => {
+test('NumberChecker: a bulk list keeps wrapped and full-width plus numbers international with +92 on', async () => {
   const lookups = stubLookups(registered);
   renderComponent();
   const textarea = await openBulkTab();
-  rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
   rtl.fireEvent.change(textarea, {
     target: { value: WRAPPED_PLUS.map(([, typed]) => typed).join('\n') + `\n${char(0x200f)}+65 9123 4567` },
   });
@@ -421,8 +419,8 @@ test('NumberChecker: a bulk list copied from a spreadsheet keeps each column apa
 test('NumberChecker: numbers and ids are isolated as left-to-right, so a right-to-left page keeps them in order', async () => {
   stubLookups(registered);
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '+65 8123 4567' } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '+65 8123 4567' } });
   assert.equal(container.querySelector('.nc-format-pill strong')?.getAttribute('dir'), 'ltr');
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.screen.findByText('Registered', { selector: '.nc-status-badge' });
@@ -437,8 +435,8 @@ test('NumberChecker: numbers and ids are isolated as left-to-right, so a right-t
 
 test('NumberChecker: the number field and the bulk list are typed left to right, so a right-to-left page keeps the plus sign in front', async () => {
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  assert.equal(rtl.screen.getByPlaceholderText(/9876543210/).getAttribute('dir'), 'ltr');
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  assert.equal(rtl.screen.getByPlaceholderText(/923001234567 or/).getAttribute('dir'), 'ltr');
 
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
   assert.equal(container.querySelector('.nc-textarea')?.getAttribute('dir'), 'ltr');
@@ -449,8 +447,8 @@ test('NumberChecker: the number field and the bulk list are typed left to right,
 test('NumberChecker: both result tables sit in a named, focusable scroll container that a narrow card does not clip', async () => {
   stubLookups(registered);
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '919876543210' } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '919876543210' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.screen.findByText('Registered', { selector: '.nc-status-badge' });
   const wrapper = () => container.querySelector('.nc-history-table')?.parentElement;
@@ -462,7 +460,7 @@ test('NumberChecker: both result tables sit in a named, focusable scroll contain
   assert.equal(rtl.screen.getByRole('region', { name: 'Recent Checks' }), wrapper());
 
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: '911111111111' } });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: '911111111111' } });
   startBatch();
   await rtl.screen.findByText('+911111111111');
   assert.equal(container.querySelectorAll('.nc-history-table').length, 1);
@@ -475,8 +473,8 @@ test('NumberChecker: both result tables sit in a named, focusable scroll contain
 test('NumberChecker: the Message Tester button reads as a plain link, because it passes no number along', async () => {
   stubLookups(registered);
   renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '919876543210' } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '919876543210' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.screen.findByText('Registered', { selector: '.nc-status-badge' });
   assert.ok(rtl.screen.getByRole('button', { name: 'Go to Message Tester' }));
@@ -487,8 +485,8 @@ test('NumberChecker: every number and id cell of both result tables is isolated 
     number === '916581234567' ? jsonResponse({ number, exists: false, whatsappId: null }) : registered(number),
   );
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  const phone = rtl.screen.getByPlaceholderText(/9876543210/);
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  const phone = rtl.screen.getByPlaceholderText(/923001234567 or/);
   const check = () => rtl.screen.getByRole('button', { name: 'Check' });
   rtl.fireEvent.change(phone, { target: { value: '+65 8123 4567' } });
   rtl.fireEvent.click(check());
@@ -508,7 +506,7 @@ test('NumberChecker: every number and id cell of both result tables is isolated 
   ]);
 
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: '911111111111' } });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: '911111111111' } });
   startBatch();
   await rtl.screen.findByText('+911111111111');
   assert.deepEqual(isolation([1, 3]), [['ltr', 'ltr']]);
@@ -547,7 +545,7 @@ test('NumberChecker: the result filters report which one is pressed', async () =
 
 test('NumberChecker: the number field and the bulk list are named by their labels, not their placeholders', async () => {
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
   assert.equal(rtl.screen.getByLabelText('Phone Number').tagName, 'INPUT');
 
   rtl.fireEvent.click(container.querySelectorAll('.nc-tab')[1]);
@@ -565,7 +563,7 @@ test('NumberChecker: the run progress bar is a progressbar that reports how many
   }) as typeof fetch;
   const { container } = renderComponent();
   rtl.fireEvent.click(container.querySelectorAll('.nc-tab')[1]);
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
   rtl.fireEvent.change(container.querySelector('.nc-textarea')!, { target: { value: THREE_NUMBERS } });
   startBatch();
 
@@ -578,11 +576,11 @@ test('NumberChecker: the run progress bar is a progressbar that reports how many
 test('NumberChecker: a finished single check is announced through a status region that exists beforehand', async () => {
   stubLookups(registered);
   const { container } = renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
   const region = container.querySelector('[role="status"]');
   assert.ok(region, 'there is no status region before the check');
 
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '+65 8123 4567' } });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '+65 8123 4567' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.screen.findByText('Registered on WhatsApp');
   assert.equal(container.querySelector('[role="status"]') === region, true);
@@ -594,7 +592,7 @@ test('NumberChecker: a finished single check is announced through a status regio
 test('NumberChecker: the Enter that commits an input method composition does not run the check', async () => {
   const lookups = stubLookups(registered);
   renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
   const field = rtl.screen.getByLabelText('Phone Number');
 
   rtl.fireEvent.compositionStart(field);
@@ -634,13 +632,13 @@ test('NumberChecker: viewers cannot start single or bulk lookups, including with
   }) as typeof fetch;
 
   renderComponent('viewer');
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  const input = rtl.screen.getByPlaceholderText(/9876543210/);
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  const input = rtl.screen.getByPlaceholderText(/923001234567 or/);
   rtl.fireEvent.change(input, { target: { value: '9876543210' } });
   assert.equal((rtl.screen.getByRole('button', { name: 'Check' }) as HTMLButtonElement).disabled, true);
   await rtl.act(async () => rtl.fireEvent.keyDown(input, { key: 'Enter' }));
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: '9876543210' } });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: '9876543210' } });
   assert.equal((rtl.screen.getByRole('button', { name: /Start Batch Check/i }) as HTMLButtonElement).disabled, true);
   assert.deepEqual(lookups, []);
 });
@@ -662,8 +660,8 @@ test('NumberChecker: CSV export neutralizes error formulas and releases its obje
 
   renderComponent();
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: '919999999999' } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: '919999999999' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Start Batch Check/i }));
   await rtl.screen.findByText('Failed', { selector: '.nc-status-badge' });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Export Results/i }));
@@ -712,7 +710,10 @@ async function exportedFirstCells(numbers: string, answer: (number: string) => R
   t.mock.method(HTMLAnchorElement.prototype, 'click', () => {});
   stubLookups(answer);
   renderComponent();
-  rtl.fireEvent.change(await openBulkTab(), { target: { value: numbers } });
+  const textarea = await openBulkTab();
+  // Untick the +92 rule so the numbers are exported exactly as typed.
+  rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
+  rtl.fireEvent.change(textarea, { target: { value: numbers } });
   startBatch();
   await rtl.waitFor(() => rtl.screen.getByRole('button', { name: /Export Results/i }), { timeout: 5000 });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Export Results/i }));
@@ -722,11 +723,11 @@ async function exportedFirstCells(numbers: string, answer: (number: string) => R
 
 test('NumberChecker: the CSV writes each phone number as bare digits, with no apostrophe', async t => {
   const cells = await exportedFirstCells(
-    '919612345678\n08123456789',
+    '923001234567\n08123456789',
     number => jsonResponse({ number, exists: false, whatsappId: null }),
     t,
   );
-  assert.deepEqual(cells, ['919612345678', '08123456789']);
+  assert.deepEqual(cells, ['923001234567', '08123456789']);
 });
 
 test('NumberChecker: a number typed with a plus is checked and exported as bare digits', async t => {
@@ -796,10 +797,10 @@ test('NumberChecker: a rejected lookup is recorded as failed with error status, 
     rtl.fireEvent.click(bulkTab);
 
     // Wait for session to be selected
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
 
     // Enter phone number
-    const textarea = rtl.screen.getByPlaceholderText(/9612345678/i);
+    const textarea = rtl.screen.getByPlaceholderText(/923001234567/);
     rtl.fireEvent.change(textarea, { target: { value: '919999999999' } });
 
     // Start batch
@@ -863,9 +864,9 @@ test('NumberChecker: Stop followed by Start while lookup is pending cancels earl
   const bulkTab = rtl.screen.getByRole('tab', { name: /Bulk/i });
   rtl.fireEvent.click(bulkTab);
 
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
 
-  const textarea = rtl.screen.getByPlaceholderText(/9612345678/i);
+  const textarea = rtl.screen.getByPlaceholderText(/923001234567/);
 
   // Run 1: Start checking 911111111111
   rtl.fireEvent.change(textarea, { target: { value: '911111111111' } });
@@ -1035,28 +1036,40 @@ test('NumberChecker: a lookup of an abandoned run that fails late adds no row to
   assert.equal(statValue('Checked'), '1');
 });
 
-test('NumberChecker: the +91 rule is off by default in both tabs and the hints say numbers are checked as typed', async () => {
+test('NumberChecker: the +92 rule is on by default in both tabs and unticking it checks numbers as typed', async () => {
   renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, false);
-  assert.ok(rtl.screen.getByText(/checked as typed/));
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, true);
+  assert.ok(rtl.screen.getByText(/Adds \+92/));
+  assert.equal(rtl.screen.queryByText(/checked as typed/), null);
 
   const textarea = await openBulkTab();
   const box = rtl.screen.getByRole('checkbox') as HTMLInputElement;
-  assert.equal(box.checked, false);
-  assert.ok(rtl.screen.getByText(/checked as typed/));
-  rtl.fireEvent.change(textarea, { target: { value: '08123456789\n4155552671' } });
-  assert.equal(rtl.screen.queryByText(/ten-digit/), null);
+  assert.equal(box.checked, true);
+  rtl.fireEvent.change(textarea, { target: { value: '03001234567\n3211234567' } });
+  assert.match(rtl.screen.getByText(/ten-digit/).textContent ?? '', /2 ten-digit/);
 
   rtl.fireEvent.click(box);
-  assert.match(rtl.screen.getByText(/ten-digit/).textContent ?? '', /2 ten-digit/);
-  assert.equal(rtl.screen.queryByText(/checked as typed/), null);
+  assert.equal(box.checked, false);
+  assert.ok(rtl.screen.getByText(/checked as typed/));
+  assert.equal(rtl.screen.queryByText(/ten-digit/), null);
 });
 
-test('NumberChecker: a bulk run looks numbers up as typed by default', async () => {
+test('NumberChecker: a bulk run adds +92 to Pakistani numbers by default', async () => {
   const lookups = stubLookups(number => jsonResponse({ number, exists: false, whatsappId: null }));
   renderComponent();
   const textarea = await openBulkTab();
+  rtl.fireEvent.change(textarea, { target: { value: '03001234567\n3211234567\n+14155552671' } });
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Start Batch Check/i }));
+  await rtl.screen.findByText('Completed checking 3 numbers.', {}, { timeout: 4000 });
+  assert.deepEqual(lookups, ['923001234567', '923211234567', '14155552671']);
+});
+
+test('NumberChecker: a bulk run with the +92 rule unticked looks numbers up as typed', async () => {
+  const lookups = stubLookups(number => jsonResponse({ number, exists: false, whatsappId: null }));
+  renderComponent();
+  const textarea = await openBulkTab();
+  rtl.fireEvent.click(rtl.screen.getByRole('checkbox'));
   rtl.fireEvent.change(textarea, { target: { value: '08123456789\n4155552671' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Start Batch Check/i }));
   await rtl.screen.findByText('Completed checking 2 numbers.', {}, { timeout: 3000 });
@@ -1066,10 +1079,10 @@ test('NumberChecker: a bulk run looks numbers up as typed by default', async () 
 test('NumberChecker: the pacing delay starts at one second and offers nothing faster', async () => {
   renderComponent();
   await openBulkTab();
-  const select = rtl.screen.getByLabelText('Safe Pacing Delay (ms)') as HTMLSelectElement;
-  assert.equal(select.value, '1000');
+  const select = document.getElementById('nc-batch-delay') as HTMLButtonElement;
+  assert.equal(selectedValue(select), '1000');
   assert.deepEqual(
-    [...select.options].map(option => option.value),
+    optionEntries(rtl.fireEvent, select).map(([value]) => value),
     ['1000', '2000', '3000'],
   );
 });
@@ -1115,19 +1128,19 @@ test('NumberChecker: a chosen session that leaves the ready list is replaced by 
   }) as typeof fetch;
   const client = createTestQueryClient();
   renderComponent('operator', client);
-  await rtl.screen.findByRole('option', { name: /Beta/ });
-  const select = rtl.screen.getByRole('combobox', { name: 'WhatsApp Session' }) as HTMLSelectElement;
-  rtl.fireEvent.change(select, { target: { value: 'sess-b' } });
-  assert.equal(select.value, 'sess-b');
+  await rtl.screen.findAllByText(/^Alpha/, { selector: '.custom-select-label' });
+  const select = document.getElementById('nc-single-session') as HTMLButtonElement;
+  chooseOption(rtl.fireEvent, select, 'sess-b');
+  assert.equal(selectedValue(select), 'sess-b');
 
   await rtl.act(async () => client.setQueryData(['sessions'], twoSessions('disconnected')));
   // Only Alpha is left to show, so Alpha is the session the lookup has to use.
-  await rtl.waitFor(() => assert.equal(rtl.screen.queryByRole('option', { name: /Beta/ }) === null, true));
+  await rtl.waitFor(() => assert.equal(selectedValue(select), 'sess-a'));
   assert.deepEqual(
-    [...select.options].map(option => option.value),
+    optionEntries(rtl.fireEvent, select).map(([value]) => value),
     ['sess-a'],
   );
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '919876543210' } });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '919876543210' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.screen.findByText('Not Registered', { selector: '.nc-status-badge' });
   assert.equal(checked.length, 1);
@@ -1154,30 +1167,32 @@ test('NumberChecker: a locked select keeps naming the run session when the chose
   }) as typeof fetch;
   const client = createTestQueryClient();
   renderComponent('operator', client);
-  await rtl.screen.findByRole('option', { name: /Beta/ });
-  const select = () => rtl.screen.getByRole('combobox', { name: 'WhatsApp Session' }) as HTMLSelectElement;
-  const options = () => [...select().options].map(option => option.value);
+  await rtl.screen.findAllByText(/^Alpha/, { selector: '.custom-select-label' });
+  const select = () => document.querySelector('#nc-single-session, #nc-batch-session') as HTMLButtonElement;
+  const options = () => optionEntries(rtl.fireEvent, select()).map(([value]) => value);
 
   // Beta is chosen, drops out (the select falls back to Alpha), and the run starts on Alpha.
-  rtl.fireEvent.change(select(), { target: { value: 'sess-b' } });
+  chooseOption(rtl.fireEvent, select(), 'sess-b');
   await rtl.act(async () => client.setQueryData(['sessions'], twoSessions('disconnected')));
-  await rtl.waitFor(() => assert.deepEqual(options(), ['sess-a']));
+  await rtl.waitFor(() => assert.equal(selectedValue(select()), 'sess-a'));
+  assert.deepEqual(options(), ['sess-a']);
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: THREE_NUMBERS } });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: THREE_NUMBERS } });
   startBatch();
   await rtl.waitFor(() => assert.equal(checked.length, 1));
   assert.match(checked[0], /\/sessions\/sess-a\//);
 
   // Beta returns while the run is going: the select still names the session the lookups go to.
   await rtl.act(async () => client.setQueryData(['sessions'], twoSessions('ready')));
-  await rtl.waitFor(() => assert.deepEqual(options(), ['sess-a', 'sess-b']));
-  assert.equal(select().value, 'sess-a');
+  // The select is locked during the run, so its list cannot be opened; what it shows is what matters.
+  await rtl.act(async () => {});
+  assert.equal(selectedValue(select()), 'sess-a');
   assert.equal(select().disabled, true);
 
   // A single check made meanwhile goes to the session the select shows too.
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Single Check/i }));
-  assert.equal(select().value, 'sess-a');
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '919999999999' } });
+  assert.equal(selectedValue(select()), 'sess-a');
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '919999999999' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.waitFor(() => assert.equal(checked.length, 2));
   assert.match(checked[1], /\/sessions\/sess-a\/contacts\/check\/919999999999/);
@@ -1193,13 +1208,13 @@ test('NumberChecker: the session cannot be switched from the Single tab while a 
   }) as typeof fetch;
   renderComponent();
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  await rtl.screen.findByRole('option', { name: /Beta/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: THREE_NUMBERS } });
+  await rtl.screen.findAllByText(/^Alpha/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: THREE_NUMBERS } });
   startBatch();
   await rtl.screen.findByRole('button', { name: /Stop Checking/i });
 
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Single Check/i }));
-  const select = rtl.screen.getByRole('combobox', { name: 'WhatsApp Session' }) as HTMLSelectElement;
+  const select = document.getElementById('nc-single-session') as HTMLButtonElement;
   assert.equal(select.disabled, true);
 });
 
@@ -1415,8 +1430,8 @@ test('NumberChecker: Copy works where navigator.clipboard does not exist', async
   assert.equal(navigator.clipboard, undefined);
 
   renderComponent();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: '919876543210' } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: '919876543210' } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
   await rtl.screen.findByText('Registered', { selector: '.nc-status-badge' });
 
@@ -1441,9 +1456,10 @@ async function finishSingleResponse(pending: ReturnType<typeof heldSingleRespons
   });
 }
 
+// Typed with a plus, so the default +92 rule leaves the Singapore number as it is.
 async function startSingleLookup(number = '6581234567') {
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9876543210/), { target: { value: number } });
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567 or/), { target: { value: `+${number}` } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Check' }));
 }
 
@@ -1462,7 +1478,7 @@ async function retireSingleLookup(reason: SingleRetirement) {
     rtl.cleanup();
     sessionStorage.setItem('zaplink_api_key', SINGLE_KEY_B);
     renderRoutes();
-    await rtl.screen.findByRole('option', { name: /Primary Session/ });
+    await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
   }
 }
 
@@ -1515,7 +1531,7 @@ for (const reason of ['route', 'key-change', 'logout-login'] as const) {
       assert.equal(document.querySelector('.toast') === null, true, 'a retired lookup published a toast');
       if (reason === 'route') {
         rtl.fireEvent.click(rtl.screen.getByText('Return'));
-        await rtl.screen.findByRole('option', { name: /Primary Session/ });
+        await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
         assert.equal(document.querySelector('.nc-result-card') === null, true);
       }
     });

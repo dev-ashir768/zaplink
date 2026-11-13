@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import {
   useTable,
@@ -34,6 +34,9 @@ import {
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import { SessionScopePicker } from '../components/SessionScopePicker';
+import { CustomSelect } from '../components/CustomSelect';
+import { DateTimePicker } from '../components/DateTimePicker';
+import { parseDateTimeLocal } from '../utils/dateTimeLocal';
 import { useToast } from '../hooks/useToast';
 import { copyToClipboard } from '../utils/clipboard';
 import { captionLength } from '../utils/bulkMedia';
@@ -107,6 +110,12 @@ function expiryMax(): string {
   return utcCap.startsWith('9999-') ? utcCap : '9999-12-31T23:59';
 }
 
+// The picker only emits complete values, but a stored expiry (set from another time zone or through the API)
+// can still sit past this browser's max, and new Date() cannot parse a year past 9999.
+export function expiryInvalid(expires: string): boolean {
+  return expires !== '' && (parseDateTimeLocal(expires) === null || expires > expiryMax());
+}
+
 // IP, chat and expiry limits shared by the create and edit modals. Chats are offered only where
 // sessions are: admin keys stay unscoped in the dashboard.
 function KeyLimitFields({
@@ -118,7 +127,6 @@ function KeyLimitFields({
   errors,
   onChange,
   disabled,
-  expiresRef,
 }: {
   idPrefix: string;
   role: string;
@@ -128,12 +136,8 @@ function KeyLimitFields({
   errors: LimitErrors;
   onChange: (patch: { ips?: string; chats?: string; expires?: string }) => void;
   disabled?: boolean;
-  expiresRef: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useTranslation();
-  // A datetime-local with a blank segment reports value '', like an empty field, so only badInput says
-  // there are leftover segments to clear.
-  const [partialExpiry, setPartialExpiry] = useState(false);
   const lidHintId = normalizeChatScope(chats).some(entry => /@lid$/i.test(entry)) ? `${idPrefix}-chats-lid` : undefined;
   return (
     <>
@@ -184,34 +188,15 @@ function KeyLimitFields({
       )}
       <label htmlFor={`${idPrefix}-expires`}>{t('apiKeys.expiry.label')}</label>
       <div className="key-expiry-row">
-        <input
+        <DateTimePicker
           id={`${idPrefix}-expires`}
-          ref={expiresRef}
-          type="datetime-local"
           max={expiryMax()}
           value={expires}
           disabled={disabled}
-          onChange={e => {
-            setPartialExpiry(e.target.validity.badInput);
-            onChange({ expires: e.target.value });
-          }}
-          // A partial date typed into an empty field leaves the value at '' and fires no change, so
-          // badInput is read again when focus leaves the field (clicking Create or Save does that).
-          onBlur={e => setPartialExpiry(e.currentTarget.validity.badInput)}
+          onChange={next => onChange({ expires: next })}
         />
-        {(expires || partialExpiry) && (
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={disabled}
-            onClick={() => {
-              // With the state already '', React writes nothing to the input, so the segments are
-              // wiped here.
-              if (expiresRef.current) expiresRef.current.value = '';
-              setPartialExpiry(false);
-              onChange({ expires: '' });
-            }}
-          >
+        {expires && (
+          <button type="button" className="btn-secondary" disabled={disabled} onClick={() => onChange({ expires: '' })}>
             {t('apiKeys.expiry.clear')}
           </button>
         )}
@@ -275,15 +260,9 @@ export function ApiKeys() {
     createMutation.reset();
   };
 
-  // A datetime-local with a blank segment reports an empty value, the same as no expiry at all, and
-  // fires no change while it stays incomplete. Only the input's own validity tells the two apart. It
-  // also flags a year past the max, which new Date() cannot parse.
-  const newExpiresRef = useRef<HTMLInputElement>(null);
-  const editExpiresRef = useRef<HTMLInputElement>(null);
-
   const handleCreate = async () => {
     if (!canCreate) return;
-    if (newExpiresRef.current && !newExpiresRef.current.validity.valid) {
+    if (expiryInvalid(newKey.expires)) {
       toast.error(t('apiKeys.createBtn'), t('apiKeys.expiry.invalid'));
       return;
     }
@@ -327,7 +306,7 @@ export function ApiKeys() {
     // A stored expiry left as it is is not sent (see apiKeyPatch), so one past this browser's max (set
     // from another time zone or through the API) does not block an unrelated change.
     const expiryUntouched = editDraft.expires !== '' && editDraft.expires === toDateTimeLocal(editingKey.expiresAt);
-    if (!expiryUntouched && editExpiresRef.current && !editExpiresRef.current.validity.valid) {
+    if (!expiryUntouched && expiryInvalid(editDraft.expires)) {
       toast.error(t('apiKeys.edit.title'), t('apiKeys.expiry.invalid'));
       return;
     }
@@ -641,24 +620,20 @@ export function ApiKeys() {
                 {nameTooLong ? t('common.fieldTooLong', { max: 100, count: nameLength }) : ''}
               </span>
               <label htmlFor="ak-2">{t('common.role')}</label>
-              <select
+              <CustomSelect
                 id="ak-2"
+                variant="field"
                 value={newKey.role}
-                onChange={e =>
+                options={roleNames.map(r => ({ value: r, label: t(`apiKeys.roles.${r}`) }))}
+                onChange={role =>
                   setNewKey({
                     ...newKey,
-                    role: e.target.value,
-                    allowedSessions: canScopeSessions(e.target.value) ? newKey.allowedSessions : [],
-                    chats: canScopeSessions(e.target.value) ? newKey.chats : '',
+                    role,
+                    allowedSessions: canScopeSessions(role) ? newKey.allowedSessions : [],
+                    chats: canScopeSessions(role) ? newKey.chats : '',
                   })
                 }
-              >
-                {roleNames.map(r => (
-                  <option key={r} value={r}>
-                    {t(`apiKeys.roles.${r}`)}
-                  </option>
-                ))}
-              </select>
+              />
               {canScopeSessions(newKey.role) && (
                 <SessionScopePicker
                   sessions={sessions}
@@ -676,7 +651,6 @@ export function ApiKeys() {
                 errors={newErrors}
                 onChange={patch => setNewKey(prev => ({ ...prev, ...patch }))}
                 disabled={createMutation.isPending}
-                expiresRef={newExpiresRef}
               />
             </>
           )}
@@ -710,18 +684,14 @@ export function ApiKeys() {
             </p>
           )}
           <label htmlFor="ak-edit-role">{t('common.role')}</label>
-          <select
+          <CustomSelect
             id="ak-edit-role"
+            variant="field"
             value={editDraft.role}
             disabled={updateMutation.isPending}
-            onChange={e => setEditDraft({ ...editDraft, role: e.target.value })}
-          >
-            {roleNames.map(r => (
-              <option key={r} value={r}>
-                {t(`apiKeys.roles.${r}`)}
-              </option>
-            ))}
-          </select>
+            options={roleNames.map(r => ({ value: r, label: t(`apiKeys.roles.${r}`) }))}
+            onChange={role => setEditDraft({ ...editDraft, role })}
+          />
           {canScopeSessions(editDraft.role) && (
             <SessionScopePicker
               sessions={sessions}
@@ -739,7 +709,6 @@ export function ApiKeys() {
             errors={editErrors ?? { ip: null, chat: null, chatCount: null }}
             onChange={patch => setEditDraft(prev => (prev ? { ...prev, ...patch } : prev))}
             disabled={updateMutation.isPending}
-            expiresRef={editExpiresRef}
           />
         </Modal>
       )}

@@ -4,6 +4,7 @@
 // instead of rendering the "no webhooks configured" empty state. The role defaults to operator, the lowest
 // one that can read the list.
 import '../test-helpers/register-hooks.ts';
+import { chooseOption } from '../test-helpers/custom-select.ts';
 import { test, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -281,9 +282,8 @@ test('a second click on Create while the first create is in flight sends nothing
   renderWebhooks();
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add Webhook' }));
-  const sessionSelect = screen.getByLabelText<HTMLSelectElement>('Session');
-  await rtl.findByText(sessionSelect, 'Main');
-  fireEvent.change(sessionSelect, { target: { value: 'sess-1' } });
+  const sessionSelect = screen.getByLabelText<HTMLButtonElement>('Session');
+  await rtl.waitFor(() => chooseOption(fireEvent, sessionSelect, 'sess-1'));
   fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'https://example.test/hook' } });
 
   const create = screen.getByRole<HTMLButtonElement>('button', { name: 'Create' });
@@ -305,14 +305,18 @@ test('Create stays disabled until both a session and a URL are filled in', async
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add Webhook' }));
   const create = screen.getByRole<HTMLButtonElement>('button', { name: 'Create' });
-  const sessionSelect = screen.getByLabelText<HTMLSelectElement>('Session');
-  await rtl.findByText(sessionSelect, 'Main');
+  const sessionSelect = screen.getByLabelText<HTMLButtonElement>('Session');
+  await rtl.waitFor(() => {
+    fireEvent.click(sessionSelect);
+    rtl.screen.getByRole('option', { name: 'Main' });
+    fireEvent.click(sessionSelect);
+  });
   assert.equal(create.disabled, true, 'nothing filled in');
 
   fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'https://example.test/hook' } });
   assert.equal(create.disabled, true, 'URL without a session');
 
-  fireEvent.change(sessionSelect, { target: { value: 'sess-1' } });
+  chooseOption(fireEvent, sessionSelect, 'sess-1');
   assert.equal(create.disabled, false);
 
   fireEvent.change(screen.getByLabelText('URL'), { target: { value: '' } });
@@ -327,9 +331,8 @@ test('Create stays disabled with a hint while no event is selected', async () =>
   renderWebhooks();
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add Webhook' }));
-  const sessionSelect = screen.getByLabelText<HTMLSelectElement>('Session');
-  await rtl.findByText(sessionSelect, 'Main');
-  fireEvent.change(sessionSelect, { target: { value: 'sess-1' } });
+  const sessionSelect = screen.getByLabelText<HTMLButtonElement>('Session');
+  await rtl.waitFor(() => chooseOption(fireEvent, sessionSelect, 'sess-1'));
   fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'https://example.test/hook' } });
   const create = screen.getByRole<HTMLButtonElement>('button', { name: 'Create' });
   assert.equal(create.disabled, false);
@@ -366,9 +369,8 @@ for (const [url, hint] of [
     renderWebhooks();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add Webhook' }));
-    const sessionSelect = screen.getByLabelText<HTMLSelectElement>('Session');
-    await rtl.findByText(sessionSelect, 'Main');
-    fireEvent.change(sessionSelect, { target: { value: 'sess-1' } });
+    const sessionSelect = screen.getByLabelText<HTMLButtonElement>('Session');
+    await rtl.waitFor(() => chooseOption(fireEvent, sessionSelect, 'sess-1'));
     fireEvent.change(screen.getByLabelText('URL'), { target: { value: url } });
     const create = screen.getByRole<HTMLButtonElement>('button', { name: 'Create' });
     assert.equal(create.disabled, true, 'Create was offered for a URL the gateway refuses');
@@ -467,9 +469,8 @@ async function openCreateModal(): Promise<HTMLButtonElement> {
   window.sessionStorage.setItem('zaplink_user_role', 'operator');
   renderWebhooks();
   fireEvent.click(await screen.findByRole('button', { name: 'Add Webhook' }));
-  const sessionSelect = screen.getByLabelText<HTMLSelectElement>('Session');
-  await rtl.findByText(sessionSelect, 'Main');
-  fireEvent.change(sessionSelect, { target: { value: 'sess-1' } });
+  const sessionSelect = screen.getByLabelText<HTMLButtonElement>('Session');
+  await rtl.waitFor(() => chooseOption(fireEvent, sessionSelect, 'sess-1'));
   fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'https://example.test/hook' } });
   return screen.getByRole<HTMLButtonElement>('button', { name: 'Create' });
 }

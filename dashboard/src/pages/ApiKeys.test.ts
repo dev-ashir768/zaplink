@@ -2,6 +2,7 @@
 // harness. The list endpoint returns only each key's prefix (the plaintext exists once, at creation),
 // so the row offers no control that claims to show the key.
 import '../test-helpers/register-hooks.ts';
+import { chooseOption, pickDateTime, selectedValue } from '../test-helpers/custom-select.ts';
 import { test, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -65,6 +66,7 @@ function installFetchStub(): void {
 
 let rtl: typeof import('@testing-library/react');
 let ApiKeys: (typeof import('./ApiKeys.tsx'))['ApiKeys'];
+let expiryInvalid: (typeof import('./ApiKeys.tsx'))['expiryInvalid'];
 let ToastProvider: (typeof import('../components/Toast.tsx'))['ToastProvider'];
 let queryClient: QueryClient | undefined;
 
@@ -76,7 +78,7 @@ before(async () => {
   await i18nReady;
   rtl = await import('@testing-library/react');
   ({ ToastProvider } = await import('../components/Toast.tsx'));
-  ({ ApiKeys } = await import('./ApiKeys.tsx'));
+  ({ ApiKeys, expiryInvalid } = await import('./ApiKeys.tsx'));
 });
 
 afterEach(() => {
@@ -177,7 +179,8 @@ test('a create sends the IP allow-list, chats and expiry only when filled in', a
   fireEvent.change(screen.getByLabelText('Chat access (optional)'), {
     target: { value: '6281234\n120363000@g.us\n6281234@c.us' },
   });
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '2027-06-01T09:30' } });
+  pickDateTime(fireEvent, screen.getByLabelText('Expires at (optional)'), '2027-06-01T09:30');
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   fireEvent.click(create);
   await waitFor(() => assert.ok(createBody));
   assert.deepEqual(createBody, {
@@ -357,7 +360,7 @@ test('switching the new key to admin hides and drops the chat list', async () =>
   const create = await openCreate();
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'root-key' } });
   fireEvent.change(screen.getByLabelText('Chat access (optional)'), { target: { value: '120363000@g.us' } });
-  fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'admin' } });
+  chooseOption(fireEvent, screen.getByLabelText('Role'), 'admin');
   assert.equal(screen.queryByLabelText('Chat access (optional)') === null, true);
   fireEvent.click(create);
   await waitFor(() => assert.ok(createBody));
@@ -430,7 +433,7 @@ test('an edit sends only what changed', async () => {
 
   rtl.cleanup();
   save = await openEdit({ ...billingBot, allowedSessions: ['sess-1'] });
-  fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'admin' } });
+  chooseOption(fireEvent, screen.getByLabelText('Role'), 'admin');
   fireEvent.click(save);
   await waitFor(() => assert.equal(updateBodies.length, 2));
   assert.deepEqual(updateBodies[1], { role: 'admin', allowedSessions: [] });
@@ -524,7 +527,7 @@ test('a refused update keeps the editor open and shows the reason', async () => 
   const { screen, fireEvent, waitFor } = rtl;
   updateStatus = 409;
   const save = await openEdit({ ...billingBot, role: 'admin' });
-  fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+  chooseOption(fireEvent, screen.getByLabelText('Role'), 'viewer');
   fireEvent.click(save);
   await screen.findByText('Cannot remove the last active admin key');
   await waitFor(() => assert.equal(save.disabled, false));
@@ -586,57 +589,19 @@ test('editing the key seeded from API_MASTER_KEY does not warn when the dashboar
   assert.notEqual(signedInNote(), null);
 });
 
-// A datetime-local with a blank segment reports value '' (as an empty field does) and sets badInput.
-// jsdom never sets badInput, so it is stubbed on the element. As in a browser, assigning the element's
-// value from code wipes the leftover segments; the value fireEvent.change types goes through the
-// prototype setter and leaves them.
-function markExpiryIncomplete(): void {
-  const input = rtl.screen.getByLabelText<HTMLInputElement>('Expires at (optional)');
-  let incomplete = true;
-  const own = Object.getOwnPropertyDescriptor(input, 'value');
-  const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-  Object.defineProperty(input, 'value', {
-    configurable: true,
-    get: () => (own?.get ?? proto!.get!).call(input),
-    set: (value: string) => {
-      incomplete = false;
-      (own?.set ?? proto!.set!).call(input, value);
-    },
-  });
-  Object.defineProperty(input, 'validity', {
-    configurable: true,
-    get: () => ({ valid: !incomplete, badInput: incomplete }),
-  });
-}
-
-const invalidExpiry =
-  'Enter a complete date and time no later than the year 9999, or clear the field for a key that never expires.';
-
-test('a half-filled expiry blocks Create and Save instead of meaning no expiry', async () => {
-  const { screen, fireEvent } = rtl;
-  const create = await openCreate();
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
-  markExpiryIncomplete();
-  fireEvent.click(create);
-  await screen.findByText(invalidExpiry);
-  assert.equal(createBody, undefined);
-
-  rtl.cleanup();
-  const save = await openEdit({ ...billingBot, expiresAt: '2027-03-04T05:06:59.000Z' });
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '' } });
-  markExpiryIncomplete();
-  fireEvent.click(save);
-  await screen.findByText(invalidExpiry);
-  assert.deepEqual(updateBodies, []);
-});
-
-test('Remove expiry clears a half-filled expiry so Save drops it', async () => {
+// The expiry is a themed picker, not a datetime-local: it only ever holds a complete value or '', so the
+// half-filled state the native field had cannot happen. What still has to hold: a picked value is sent, the
+// picker's own Clear and the Remove expiry button both mean no expiry, and a value past the gateway's cap is
+// refused before toISOString() could throw.
+test('the expiry picker sets a complete value, and Clear or Remove expiry drop it', async () => {
   const { screen, fireEvent, waitFor } = rtl;
   const save = await openEdit({ ...billingBot, expiresAt: '2027-03-04T05:06:59.000Z' });
-  markExpiryIncomplete();
-  // Deleting one segment turns the value to '' while the others stay filled.
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Remove expiry' }));
+  const picker = screen.getByLabelText<HTMLButtonElement>('Expires at (optional)');
+  pickDateTime(fireEvent, picker, '2028-02-29T17:45');
+  assert.equal(selectedValue(picker), '2028-02-29T17:45');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  assert.equal(selectedValue(picker), '');
+  assert.equal(screen.queryByRole('button', { name: 'Remove expiry' }), null);
   fireEvent.click(save);
   await waitFor(() => assert.equal(updateBodies.length, 1));
   assert.deepEqual(updateBodies[0], { expiresAt: null });
@@ -644,61 +609,34 @@ test('Remove expiry clears a half-filled expiry so Save drops it', async () => {
   rtl.cleanup();
   const create = await openCreate();
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '2027-03-04T05:06' } });
-  markExpiryIncomplete();
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '' } });
+  pickDateTime(fireEvent, screen.getByLabelText('Expires at (optional)'), '2027-03-04T05:06');
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   fireEvent.click(screen.getByRole('button', { name: 'Remove expiry' }));
   fireEvent.click(create);
   await waitFor(() => assert.notEqual(createBody, undefined));
   assert.equal(createBody?.expiresAt, undefined);
 });
 
-// Typing part of a date into an empty field keeps the value at '', so the browser fires no change
-// event; leaving the field (as clicking Create or Save does) must still offer Remove expiry.
-test('Remove expiry appears for a partial expiry typed into an empty field', async () => {
-  const { screen, fireEvent, waitFor } = rtl;
-  const create = await openCreate();
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
-  markExpiryIncomplete();
-  fireEvent.blur(screen.getByLabelText('Expires at (optional)'));
-  fireEvent.click(create);
-  await screen.findByText(invalidExpiry);
-  assert.equal(createBody, undefined);
-  fireEvent.click(screen.getByRole('button', { name: 'Remove expiry' }));
-  fireEvent.click(create);
-  await waitFor(() => assert.notEqual(createBody, undefined));
-  assert.deepEqual(createBody, { name: 'crm-bot', role: 'operator', allowedSessions: [] });
-
-  rtl.cleanup();
-  const save = await openEdit(billingBot);
-  markExpiryIncomplete();
-  fireEvent.blur(screen.getByLabelText('Expires at (optional)'));
-  fireEvent.click(save);
-  await screen.findByText(invalidExpiry);
-  assert.deepEqual(updateBodies, []);
-  fireEvent.click(screen.getByRole('button', { name: 'Remove expiry' }));
-  fireEvent.click(save);
-  await waitFor(() => assert.equal(screen.queryByRole('button', { name: 'Save' }) === null, true));
-  assert.deepEqual(updateBodies, []);
+test('Escape closes the expiry picker and leaves the dialog open', async () => {
+  const { screen, fireEvent } = rtl;
+  await openCreate();
+  const picker = screen.getByLabelText<HTMLButtonElement>('Expires at (optional)');
+  fireEvent.click(picker);
+  screen.getByRole('dialog', { name: 'Choose date and time' });
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  assert.equal(screen.queryByRole('dialog', { name: 'Choose date and time' }), null);
+  screen.getByRole('button', { name: 'Create' });
 });
 
-// Chrome takes up to six year digits in a datetime-local without a max, and new Date() cannot parse a
-// five-digit year, so such a value used to reach toISOString() and throw.
-test('an expiry past the year 9999 blocks Create and Save with a message', async () => {
-  const { screen, fireEvent } = rtl;
-  const create = await openCreate();
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '20266-01-01T00:00' } });
-  fireEvent.click(create);
-  await screen.findByText(invalidExpiry);
-  assert.equal(createBody, undefined);
-
-  rtl.cleanup();
-  const save = await openEdit(billingBot);
-  fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '20266-01-01T00:00' } });
-  fireEvent.click(save);
-  await screen.findByText(invalidExpiry);
-  assert.deepEqual(updateBodies, []);
+// Chrome took up to six year digits in a datetime-local, and new Date() cannot parse a five-digit year, so
+// such a value used to reach toISOString() and throw. The picker cannot produce one, and the check that guards
+// Create and Save still refuses it.
+test('an expiry past the year 9999 or not a complete date is refused', () => {
+  assert.equal(expiryInvalid(''), false);
+  assert.equal(expiryInvalid('2027-06-01T09:30'), false);
+  assert.equal(expiryInvalid('20266-01-01T00:00'), true);
+  assert.equal(expiryInvalid('2027-06-01'), true);
+  assert.equal(expiryInvalid('2027-02-30T10:00'), true);
 });
 
 async function inTimeZone(zone: string, run: () => Promise<void>): Promise<void> {
@@ -716,40 +654,25 @@ async function inTimeZone(zone: string, run: () => Promise<void>): Promise<void>
 // gateway refuses, so the cap follows the browser's offset.
 test('west of UTC the expiry cap is the last minute of 9999 in UTC', () =>
   inTimeZone('America/New_York', async () => {
-    const { screen, fireEvent } = rtl;
-    const create = await openCreate();
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'crm-bot' } });
-    const input = screen.getByLabelText<HTMLInputElement>('Expires at (optional)');
-    assert.equal(input.max, '9999-12-31T18:59');
-    fireEvent.change(input, { target: { value: '9999-12-31T23:00' } });
-    fireEvent.click(create);
-    await screen.findByText(invalidExpiry);
-    assert.equal(createBody, undefined);
+    const { screen } = rtl;
+    await openCreate();
+    const picker = screen.getByLabelText<HTMLButtonElement>('Expires at (optional)');
+    assert.equal(picker.getAttribute('data-max'), '9999-12-31T18:59');
+    assert.equal(expiryInvalid('9999-12-31T23:00'), true);
+    assert.equal(expiryInvalid('9999-12-31T18:59'), false);
   }));
 
-// A 9999-12-31T23:59:59Z expiry reads as 10000-01-01T06:59 in Jakarta, past the input's max.
+// A 9999-12-31T23:59:59Z expiry reads as 10000-01-01T06:59 in Jakarta, past the picker's max.
 test('east of UTC a stored expiry past the cap does not block an unrelated edit', () =>
   inTimeZone('Asia/Jakarta', async () => {
     const { screen, fireEvent, waitFor } = rtl;
     const save = await openEdit({ ...billingBot, expiresAt: '9999-12-31T23:59:59.000Z' });
-    assert.equal(screen.getByLabelText<HTMLInputElement>('Expires at (optional)').max, '9999-12-31T23:59');
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+    assert.equal(screen.getByLabelText('Expires at (optional)').getAttribute('data-max'), '9999-12-31T23:59');
+    chooseOption(fireEvent, screen.getByLabelText('Role'), 'viewer');
     fireEvent.click(save);
     await waitFor(() => assert.equal(updateBodies.length, 1));
     assert.deepEqual(updateBodies[0], { role: 'viewer' });
   }));
-
-test('an expiry Save cannot convert ends in an error toast, not a silent no-op', async () => {
-  const { screen, fireEvent } = rtl;
-  const save = await openEdit(billingBot);
-  const input = screen.getByLabelText<HTMLInputElement>('Expires at (optional)');
-  fireEvent.change(input, { target: { value: '20266-01-01T00:00' } });
-  // A browser that let the value through as valid.
-  Object.defineProperty(input, 'validity', { value: { valid: true }, configurable: true });
-  fireEvent.click(save);
-  await screen.findByText('Invalid time value');
-  assert.deepEqual(updateBodies, []);
-});
 
 // The name of a key is free text and is interpolated into the delete confirmation. A name carrying a
 // styled tag became a real element with a string `style`, which React throws on, so the page went down.
@@ -795,7 +718,7 @@ for (const dismissal of ['Cancel', 'Close'] as const) {
     const firstRow = screen.getByText('billing-bot').closest('tr') as HTMLElement;
     fireEvent.click(within(firstRow).getByTitle('Edit access'));
     const firstDialog = await screen.findByRole('dialog');
-    fireEvent.change(within(firstDialog).getByLabelText('Role'), { target: { value: 'viewer' } });
+    chooseOption(fireEvent, within(firstDialog).getByLabelText('Role'), 'viewer');
     fireEvent.click(within(firstDialog).getByRole('button', { name: 'Save' }));
     await waitFor(() => assert.equal(updateBodies.length, 1));
     fireEvent.click(within(firstDialog).getByRole('button', { name: dismissal }));
@@ -805,7 +728,7 @@ for (const dismissal of ['Cancel', 'Close'] as const) {
     fireEvent.click(within(secondRow).getByTitle('Edit access'));
     const secondDialog = await screen.findByRole('dialog');
     within(secondDialog).getByText('support-bot');
-    assert.equal(within(secondDialog).getByLabelText<HTMLSelectElement>('Role').disabled, true);
+    assert.equal(within(secondDialog).getByLabelText<HTMLButtonElement>('Role').disabled, true);
     await act(async () => {
       release();
       await updateGate;
@@ -817,7 +740,7 @@ for (const dismissal of ['Cancel', 'Close'] as const) {
       'the completed key update closed the replacement editor',
     );
     within(secondDialog).getByText('support-bot');
-    assert.equal(within(secondDialog).getByLabelText<HTMLSelectElement>('Role').value, 'operator');
+    assert.equal(selectedValue(within(secondDialog).getByLabelText<HTMLButtonElement>('Role')), 'operator');
     assert.deepEqual(updatePaths, ['/api/auth/api-keys/key-1']);
     assert.deepEqual(updateBodies, [{ role: 'viewer' }]);
   });
@@ -828,10 +751,10 @@ test('a successful key update closes its own editor after the response settles',
   let release!: () => void;
   updateGate = new Promise<void>(resolve => (release = resolve));
   const save = await openEdit(billingBot);
-  fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+  chooseOption(fireEvent, screen.getByLabelText('Role'), 'viewer');
   fireEvent.click(save);
   await waitFor(() => assert.equal(updateBodies.length, 1));
-  assert.equal(screen.getByLabelText<HTMLSelectElement>('Role').disabled, true);
+  assert.equal(screen.getByLabelText<HTMLButtonElement>('Role').disabled, true);
   assert.equal(save.disabled, true);
   fireEvent.click(save);
   assert.equal(updateBodies.length, 1, 'a pending save sent another update');
@@ -844,7 +767,7 @@ test('a successful key update closes its own editor after the response settles',
 test('cancelling an unsaved key edit closes it without an update', async () => {
   const { screen, fireEvent, within } = rtl;
   await openEdit(billingBot);
-  fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+  chooseOption(fireEvent, screen.getByLabelText('Role'), 'viewer');
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
   assert.equal(screen.queryByRole('dialog') === null, true);
   assert.deepEqual(updateBodies, []);
@@ -857,17 +780,17 @@ test('a refused delayed key update keeps the draft available for retry and cance
   updateGate = new Promise<void>(resolve => (release = resolve));
   const save = await openEdit({ ...billingBot, role: 'admin' });
   const dialog = screen.getByRole('dialog');
-  fireEvent.change(within(dialog).getByLabelText('Role'), { target: { value: 'viewer' } });
+  chooseOption(fireEvent, within(dialog).getByLabelText('Role'), 'viewer');
   fireEvent.click(save);
   await waitFor(() => assert.equal(updateBodies.length, 1));
-  assert.equal(within(dialog).getByLabelText<HTMLSelectElement>('Role').disabled, true);
+  assert.equal(within(dialog).getByLabelText<HTMLButtonElement>('Role').disabled, true);
   assert.equal(save.disabled, true);
   release();
   await screen.findByText('Cannot remove the last active admin key');
   await waitFor(() => assert.equal(save.disabled, false));
   assert.equal(screen.getByRole('dialog') === dialog, true);
-  assert.equal(within(dialog).getByLabelText<HTMLSelectElement>('Role').value, 'viewer');
-  assert.equal(within(dialog).getByLabelText<HTMLSelectElement>('Role').disabled, false);
+  assert.equal(selectedValue(within(dialog).getByLabelText<HTMLButtonElement>('Role')), 'viewer');
+  assert.equal(within(dialog).getByLabelText<HTMLButtonElement>('Role').disabled, false);
   assert.deepEqual(updatePaths, ['/api/auth/api-keys/key-1']);
   assert.deepEqual(updateBodies, [{ role: 'viewer' }]);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));

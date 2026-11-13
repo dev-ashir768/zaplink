@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus, Send, Smile, X } from 'lucide-react';
+import { FileText, Loader2, Plus, Send, Smile, X } from 'lucide-react';
 import { messageApi, type Chat, type MessageType } from '../../services/api';
 import { type ChatMessageView } from '../../utils/chatMessages';
 import { chatTitle } from '../../utils/formatPhone';
@@ -13,6 +13,7 @@ import type { ScrollDirection } from '../../utils/scrollDecision';
 import { MEDIA_UPLOAD_MAX_BYTES } from '../../utils/mediaUpload';
 import { BULK_CAPTION_MAX_LENGTH, captionLength } from '../../utils/bulkMedia';
 import { isComposingKey } from '../../utils/composition';
+import { ChatTemplatePicker, type TemplatePick } from './ChatTemplatePicker';
 
 // The gateway's bound on the text of a send and of a reply, MESSAGE_TEXT_MAX_LENGTH in
 // src/modules/message/dto/send-message.dto.ts. A caption is bounded at BULK_CAPTION_MAX_LENGTH, as SendMediaMessageDto
@@ -98,6 +99,7 @@ function ChatComposer({
   const textTooLong = !attachmentIsAudio && textLength > textMax;
 
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   // Monotonic token invalidating an in-flight attachment FileReader: picking a second file (or
   // removing the attachment) before `onload` fires must win over the late-arriving bytes —
   // otherwise the slower read overwrites the newer pick. Same pattern as composeImageReadSeq.
@@ -109,6 +111,7 @@ function ChatComposer({
   // against whichever chat is open by then. The attachment state itself lives in the page.
   useEffect(() => {
     setShowEmojiPicker(false);
+    setShowTemplatePicker(false);
     return () => {
       attachmentReadSeq.current += 1;
     };
@@ -349,6 +352,55 @@ function ChatComposer({
     }
   };
 
+  // A template goes out through send-template, which renders it on the gateway; the bubble shows the same text the
+  // panel previewed until the stored row replaces it.
+  const handleSendTemplate = async (pick: TemplatePick) => {
+    if (!selectedSessionId || !activeChat || sending) return;
+    setShowTemplatePicker(false);
+    const sessionId = selectedSessionId;
+    const chatId = activeChat.id;
+    const threadKey = activeThreadKey;
+    setSendingByThread(prev => ({ ...prev, [threadKey]: (prev[threadKey] ?? 0) + 1 }));
+    const tempId = `temp_${Date.now()}_${++tempSeqRef.current}`;
+    const tempMessage: ChatMessageView = {
+      id: tempId,
+      chatId,
+      from: 'me',
+      to: chatId,
+      body: pick.text,
+      type: 'text',
+      direction: 'outgoing',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    appendMessage(sessionId, chatId, tempMessage);
+    onMessageAppended('outgoing');
+    try {
+      const result = await messageApi.sendTemplate(sessionId, { chatId, templateId: pick.templateId, vars: pick.vars });
+      const reconciled: ChatMessageView = {
+        ...tempMessage,
+        id: result.messageId || tempId.replace(/^temp_/, 'sent_'),
+        waMessageId: result.messageId || undefined,
+        timestamp: result.timestamp,
+        status: 'sent',
+      };
+      upsertCachedMessage(queryClient, messagesQueryKey(sessionId, chatId), reconciled, { dropId: tempId });
+      onSendConfirmed?.(tempId, reconciled.waMessageId ?? reconciled.id);
+      onSent(sessionId, chatId, pick.text, Math.floor(Date.now() / 1000));
+    } catch (err) {
+      showErrorToast(t('chats.errors.send'), err instanceof Error ? err.message : undefined);
+      updateMessage(sessionId, chatId, tempId, { status: 'failed' });
+    } finally {
+      setSendingByThread(prev => {
+        const nextCount = (prev[threadKey] ?? 0) - 1;
+        if (nextCount > 0) return { ...prev, [threadKey]: nextCount };
+        const next = { ...prev };
+        delete next[threadKey];
+        return next;
+      });
+    }
+  };
+
   return (
     <>
       {/* Composer extras: the attachment, emoji and reply panels stack above the input bar. */}
@@ -388,6 +440,21 @@ function ChatComposer({
         </div>
       )}
 
+      {showTemplatePicker && canWrite && (
+        <ChatTemplatePicker
+          sessionId={selectedSessionId}
+          disabled={sending}
+          onClose={() => setShowTemplatePicker(false)}
+          onInsert={text => {
+            // The message field is one line: line breaks between header, body and footer become spaces.
+            setMessageInput(text.replace(/\s*\n+\s*/g, ' '));
+            setShowTemplatePicker(false);
+            textInputRef.current?.focus();
+          }}
+          onSend={pick => void handleSendTemplate(pick)}
+        />
+      )}
+
       {replyingTo && (
         <div className="composer-banner replying-preview-banner">
           <div className="replying-preview-content">
@@ -424,6 +491,21 @@ function ChatComposer({
             aria-label={t('chats.attachTitle')}
           >
             <Plus size={24} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowEmojiPicker(false);
+              setShowTemplatePicker(open => !open);
+            }}
+            disabled={!canWrite}
+            className={`btn-input-accessory ${showTemplatePicker ? 'active' : ''}`}
+            title={t('chats.template.title')}
+            aria-label={t('chats.template.title')}
+            aria-expanded={showTemplatePicker}
+          >
+            <FileText size={22} />
           </button>
 
           {/* The text field and the emoji toggle share one pill, as in WhatsApp. */}

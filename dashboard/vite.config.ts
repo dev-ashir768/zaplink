@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { defineConfig } from 'vite';
+import { createHash } from 'node:crypto';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Single source of truth for the version shown in the dashboard: the ROOT package.json, which is
@@ -16,15 +17,41 @@ const { version: pkgVersion } = JSON.parse(
   version: string;
 };
 
+// The Developer Center renders the API reference from the ROOT openapi.json (what `npm run openapi:export`
+// regenerates and `npm run openapi:check` gates), read at build time so the page can never drift from the
+// API it ships with. It is emitted as a separate, content-hashed asset and fetched only when the page opens,
+// so the ~850 KB document stays out of every JS chunk. Nothing is copied into the source tree.
+const OPENAPI_SOURCE = new URL('../openapi.json', import.meta.url);
+const openapiSource = readFileSync(OPENAPI_SOURCE, 'utf-8');
+const OPENAPI_FILE = `assets/openapi-${createHash('sha256').update(openapiSource).digest('hex').slice(0, 10)}.json`;
+
+function openapiSpecPlugin(): Plugin {
+  return {
+    name: 'zaplink-openapi-spec',
+    configureServer(server) {
+      // Dev: serve the live root file on every request, so a re-export shows up on reload.
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.split('?')[0] !== `/${OPENAPI_FILE}`) return next();
+        res.setHeader('Content-Type', 'application/json');
+        res.end(readFileSync(OPENAPI_SOURCE, 'utf-8'));
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: OPENAPI_FILE, source: openapiSource });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), openapiSpecPlugin()],
   appType: 'spa', // Enable SPA fallback for client-side routing
   // Fonts stay files: a small subset inlined as a data: URI is blocked by the gateway CSP (font-src 'self').
   build: { assetsInlineLimit: file => (file.endsWith('.woff2') ? false : undefined) },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.APP_VERSION || pkgVersion),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __OPENAPI_SPEC_URL__: JSON.stringify(`/${OPENAPI_FILE}`),
   },
   server: {
     port: 2886,

@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
+import { CustomSelect } from '../components/CustomSelect';
 import { useTranslation } from 'react-i18next';
 import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus, AlertCircle } from 'lucide-react';
 import {
@@ -11,7 +12,8 @@ import {
 } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
-import { useSessionsQuery, useSessionGroupsQuery } from '../hooks/queries';
+import { useSessionsQuery, useSessionGroupsQuery, useTemplatesQuery } from '../hooks/queries';
+import { filledVars, renderTemplate, templateVariables } from '../utils/templateRender';
 import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTES } from '../utils/bulkRecipients';
 import {
   BULK_CAPTION_MAX_LENGTH,
@@ -72,6 +74,7 @@ const messageTypes = [
   'poll',
   'forward',
   'bulk',
+  'template',
 ] as const;
 
 // The types that share the media upload/URL block (base64 XOR url + mimetype).
@@ -100,6 +103,7 @@ const mediaAccept: Record<(typeof messageTypes)[number], string> = {
   poll: '*/*',
   forward: '*/*',
   bulk: '*/*',
+  template: '*/*',
 };
 
 // Fallback MIME for when the browser leaves File.type empty (some extensions). The backend requires a
@@ -116,6 +120,7 @@ const fallbackMime: Record<(typeof messageTypes)[number], string> = {
   poll: 'application/octet-stream',
   forward: 'application/octet-stream',
   bulk: 'application/octet-stream',
+  template: 'text/plain',
 };
 
 // Batch statuses that stop the progress polling (mirrors the backend BatchStatus enum).
@@ -195,6 +200,9 @@ export function MessageTester() {
   const [batchStatus, setBatchStatus] = useState<BatchStatusResponse | null>(null);
   const [batchCancelling, setBatchCancelling] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
+  // Template mode: the stored template to send and a value per {{variable}} it uses.
+  const [templateId, setTemplateId] = useState('');
+  const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The session a running batch belongs to: the user may switch the selector mid-batch, and
   // poll/cancel must keep addressing the session the batch was created on.
@@ -205,6 +213,18 @@ export function MessageTester() {
     isLoading: loadingGroups,
     isError: groupsFailed,
   } = useSessionGroupsQuery(session, recipientType === 'group');
+
+  // Templates are stored per session, so the list follows the session picker; a pick from another session is not
+  // in the list and counts as none.
+  const {
+    data: templates = [],
+    isLoading: loadingTemplates,
+    error: templatesError,
+  } = useTemplatesQuery(session, messageType === 'template' && !!session);
+  const selectedTemplate = templates.find(tpl => tpl.id === templateId) ?? null;
+  const templateKeys = useMemo(() => (selectedTemplate ? templateVariables(selectedTemplate) : []), [selectedTemplate]);
+  const templateVars = filledVars(Object.fromEntries(templateKeys.map(key => [key, templateValues[key] ?? ''])));
+  const templatePreview = selectedTemplate ? renderTemplate(selectedTemplate, templateVars) : null;
 
   // Also re-picks when the chosen session leaves the ready list on a refetch: the select would show
   // the first option while every send still went to the dropped one.
@@ -405,6 +425,8 @@ export function MessageTester() {
       pollOptionsFilled.every(option => captionLength(option) <= POLL_OPTION_MAX_LENGTH);
   } else if (messageType === 'forward') {
     formValid = namesRecipient(forwardTo) && forwardMessageId.trim().length > 0;
+  } else if (messageType === 'template') {
+    formValid = selectedTemplate !== null && templateKeys.every(key => (templateValues[key] ?? '') !== '');
   } else if (messageType === 'bulk') {
     formValid =
       (content.trim().length > 0 || bulkAttachment !== null) &&
@@ -631,6 +653,13 @@ export function MessageTester() {
               messageId: forwardMessageId.trim(),
             });
           }
+          case 'template':
+            if (!selectedTemplate) throw new Error(t('messageTester.template.choose'));
+            return messageApi.sendTemplate(session, {
+              chatId: target,
+              templateId: selectedTemplate.id,
+              vars: templateVars,
+            });
           default:
             throw new Error(`Unsupported message type: ${messageType}`);
         }
@@ -772,16 +801,22 @@ export function MessageTester() {
 
           <div className="form-group">
             <label htmlFor="mt-1">{t('messageTester.session')}</label>
-            <select id="mt-1" value={session} onChange={e => setSession(e.target.value)} disabled={isGroupSending}>
-              {sessions.length === 0 && (
-                <option value="">{t(sessionsFailed ? 'dashboard.loadError' : 'messageTester.noReadySessions')}</option>
-              )}
-              {sessions.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.phone || t('messageTester.sessionOptionPhoneNone')})
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              id="mt-1"
+              variant="field"
+              value={session}
+              onChange={setSession}
+              disabled={isGroupSending}
+              options={[
+                ...(sessions.length === 0
+                  ? [{ value: '', label: t(sessionsFailed ? 'dashboard.loadError' : 'messageTester.noReadySessions') }]
+                  : []),
+                ...sessions.map(s => ({
+                  value: s.id,
+                  label: `${s.name} (${s.phone || t('messageTester.sessionOptionPhoneNone')})`,
+                })),
+              ]}
+            />
           </div>
 
           {/* Bulk carries its own recipient list, so the single-recipient selector is hidden there. */}
@@ -898,6 +933,73 @@ export function MessageTester() {
                   rows={5}
                 />
                 {tooLongHint(content, MESSAGE_TEXT_MAX_LENGTH)}
+              </div>
+            )}
+
+            {messageType === 'template' && (
+              <div className="form-group template-fields">
+                <label htmlFor="mt-tpl">{t('messageTester.template.label')}</label>
+                {templatesError ? (
+                  <p className="hint error" role="alert">
+                    {t('messageTester.template.loadError', { message: templatesError.message })}
+                  </p>
+                ) : !loadingTemplates && session && templates.length === 0 ? (
+                  <p className="hint" id="mt-tpl">
+                    {t('messageTester.template.none')} <a href="/templates">{t('messageTester.template.create')}</a>
+                  </p>
+                ) : (
+                  <CustomSelect
+                    id="mt-tpl"
+                    variant="field"
+                    value={selectedTemplate?.id ?? ''}
+                    disabled={loadingTemplates || !session}
+                    placeholder={
+                      loadingTemplates ? t('messageTester.template.loading') : t('messageTester.template.choose')
+                    }
+                    onChange={id => {
+                      setTemplateId(id);
+                      setTemplateValues({});
+                    }}
+                    options={templates.map(tpl => ({ value: tpl.id, label: tpl.name }))}
+                  />
+                )}
+                {selectedTemplate && (
+                  <>
+                    <span className="group-label">{t('messageTester.template.variables')}</span>
+                    {templateKeys.length === 0 ? (
+                      <p className="hint">{t('messageTester.template.noVariables')}</p>
+                    ) : (
+                      <div className="template-vars">
+                        {templateKeys.map(key => (
+                          <div className="template-var" key={key}>
+                            <label htmlFor={`mt-tpl-var-${key}`}>{key}</label>
+                            <input
+                              id={`mt-tpl-var-${key}`}
+                              type="text"
+                              value={templateValues[key] ?? ''}
+                              onChange={e => setTemplateValues(prev => ({ ...prev, [key]: e.target.value }))}
+                            />
+                          </div>
+                        ))}
+                        <p className="hint">{t('messageTester.template.variablesHint')}</p>
+                      </div>
+                    )}
+                    {templatePreview && (
+                      <div className="template-preview" aria-label={t('messageTester.template.preview')} role="region">
+                        <span className="group-label">{t('messageTester.template.preview')}</span>
+                        <div className="template-preview-bubble" data-testid="template-preview">
+                          {templatePreview.header && (
+                            <strong className="template-preview-header">{templatePreview.header}</strong>
+                          )}
+                          <p className="template-preview-body">{templatePreview.body}</p>
+                          {templatePreview.footer && (
+                            <small className="template-preview-footer">{templatePreview.footer}</small>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

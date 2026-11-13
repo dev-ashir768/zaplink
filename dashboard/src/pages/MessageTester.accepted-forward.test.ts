@@ -44,7 +44,7 @@ test('an accepted text send with an empty message id is reported as sent', async
   rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
-  await screen.findByRole('option', { name: /Main/ });
+  await screen.findByText(/^Main/, { selector: '.custom-select-label' });
   fireEvent.change(screen.getByPlaceholderText('+62812345678'), { target: { value: '15551112222@c.us' } });
   fireEvent.change(screen.getByPlaceholderText('Enter your message here...'), { target: { value: 'hello' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send Message' }));
@@ -71,7 +71,7 @@ test('a forward the gateway accepted without the copy id is reported as sent, no
   const { container } = rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
-  await screen.findByRole('option', { name: /Main/ });
+  await screen.findByText(/^Main/, { selector: '.custom-select-label' });
   fireEvent.click(screen.getByRole('button', { name: 'Forward' }));
   const set = (selector: string, value: string) =>
     fireEvent.change(container.querySelector(selector) as HTMLInputElement, { target: { value } });

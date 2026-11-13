@@ -2,6 +2,7 @@
 // (jsdom loader hooks, providers, a fetch stub). The picker refuses an oversized file BEFORE reading
 // it: FileReader would otherwise materialize a mistaken multi-hundred-MB pick as one JS string.
 import '../test-helpers/register-hooks.ts';
+import { chooseOption, selectedValue } from '../test-helpers/custom-select.ts';
 import { test, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -94,7 +95,7 @@ async function renderBulkAsWriter(): Promise<HTMLElement> {
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
   rtl.fireEvent.click(await rtl.screen.findByRole('button', { name: 'Bulk' }));
-  await rtl.screen.findByRole('option', { name: /Main/ });
+  await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
   return container;
 }
 
@@ -197,7 +198,7 @@ async function renderGroupsAsWriter(): Promise<void> {
   rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
-  await rtl.screen.findByRole('option', { name: /Main/ });
+  await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Group' }));
 }
 
@@ -383,7 +384,7 @@ test('the recipient list is parsed when it changes, not on every other keystroke
   const { container } = rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
-  await rtl.screen.findByRole('option', { name: /Main/ });
+  await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Bulk' }));
 
   // Count the phone normalization of the list: a textarea value read replaces other patterns in the same text.
@@ -560,14 +561,13 @@ test('a session that stops being ready is replaced by what the selector shows', 
   const { container } = rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
-  await rtl.screen.findByRole('option', { name: /Beta/ });
-  const select = field(container, '#mt-1');
-  rtl.fireEvent.change(select, { target: { value: 's2' } });
-  await rtl.waitFor(() => assert.equal(select.value, 's2'));
+  const select = await rtl.waitFor(() => field(container, '#mt-1'));
+  await rtl.waitFor(() => chooseOption(rtl.fireEvent, select, 's2'));
+  await rtl.waitFor(() => assert.equal(selectedValue(select), 's2'));
 
   status.s2 = 'disconnected';
   await client.invalidateQueries({ queryKey: ['sessions'] });
-  await rtl.waitFor(() => assert.equal(select.value, 's1'));
+  await rtl.waitFor(() => assert.equal(selectedValue(select), 's1'));
 
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Group' }));
   rtl.fireEvent.click(await rtl.screen.findByRole('checkbox', { name: 'Family' }));
@@ -579,7 +579,7 @@ test('a session that stops being ready is replaced by what the selector shows', 
 
   status.s1 = 'disconnected';
   await client.invalidateQueries({ queryKey: ['sessions'] });
-  await rtl.waitFor(() => assert.equal(select.value, ''));
+  await rtl.waitFor(() => assert.equal(selectedValue(select), ''));
   await rtl.waitFor(() => assert.equal(sendButton().disabled, true));
 });
 
@@ -971,7 +971,7 @@ test('a failed groups read is reported, not shown as "no groups found"', async (
     return Promise.resolve(jsonResponse([]));
   }) as typeof fetch;
   renderTesterAsWriter();
-  await rtl.screen.findByRole('option', { name: /Main/ });
+  await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Group' }));
 
   const alert = await rtl.screen.findByRole('alert');
@@ -1052,7 +1052,7 @@ for (const mode of ['text', 'forward'] as const) {
       const tree = () =>
         createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester)));
       const view = rtl.render(tree());
-      await rtl.screen.findByRole('option', { name: /Main/ });
+      await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
       type(view.container, '#mt-13', '15550000001');
       if (mode === 'forward') {
         rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Forward' }));
@@ -1070,7 +1070,7 @@ for (const mode of ['text', 'forward'] as const) {
         sessionStorage.setItem('zaplink_api_key', 'original-key');
         client.clear();
         rtl.render(tree());
-        await rtl.screen.findByRole('option', { name: /Main/ });
+        await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
       }
       await rtl.act(async () => {
         release(jsonResponse({ number: '15550000002', exists: true, whatsappId: 'destination@lid' }));
@@ -1108,7 +1108,7 @@ for (const [script, zero] of [
       createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
     );
     try {
-      await rtl.screen.findByRole('option', { name: /Main/ });
+      await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
       const native = (ascii: string) => [...ascii].map(d => String.fromCharCode(zero + Number(d))).join('');
       type(view.container, '#mt-13', native('15550000001'));
       rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Forward' }));
@@ -1152,7 +1152,7 @@ for (const field of ['recipient', 'forward target'] as const) {
       createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
     );
     try {
-      await rtl.screen.findByRole('option', { name: /Main/ });
+      await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
       const joined = '628111222333 628222333444';
       // A formatted number of 13 digits is still one number.
       type(view.container, '#mt-13', field === 'recipient' ? joined : '+62 812 3456 7890');
@@ -1212,7 +1212,7 @@ for (const chatId of ['185290012345678@lid', '628123456789:5@s.whatsapp.net']) {
     const { checked, writes } = stubPersonalSend();
     const { container, client } = renderTesterForKey();
     try {
-      await rtl.screen.findByRole('option', { name: /Main/ });
+      await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
       type(container, '#mt-13', ` ${chatId} `);
       type(container, '#mt-2', 'hello');
       rtl.fireEvent.click(sendButton());
@@ -1237,7 +1237,7 @@ for (const [typed, number] of [
     const { checked } = stubPersonalSend();
     const { container, client } = renderTesterForKey();
     try {
-      await rtl.screen.findByRole('option', { name: /Main/ });
+      await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
       type(container, '#mt-13', typed);
       type(container, '#mt-2', 'hello');
       rtl.fireEvent.click(sendButton());
@@ -1260,7 +1260,7 @@ for (const typed of [' abc ', '00', '+00', '0 0', String.fromCharCode(0xff20)]) 
       const { checked } = stubPersonalSend();
       const { container, client } = renderTesterForKey();
       try {
-        await rtl.screen.findByRole('option', { name: /Main/ });
+        await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
         type(container, '#mt-13', field === 'recipient' ? typed : '15550000001');
         if (field === 'recipient') {
           type(container, '#mt-2', 'hello');
@@ -1286,7 +1286,7 @@ test('a forward from a named chat neither needs nor looks up the personal recipi
   const { checked, writes } = stubPersonalSend();
   const { container, client } = renderTesterForKey();
   try {
-    await rtl.screen.findByRole('option', { name: /Main/ });
+    await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
     rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Forward' }));
     type(container, '#mt-17', '120363000000000000@g.us');
     type(container, '#mt-9', '120363999999999999@g.us');
@@ -1328,7 +1328,7 @@ test('an unchanged actor sends to canonical personal and forward destinations', 
   const view = rtl.render(
     createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
   );
-  await rtl.screen.findByRole('option', { name: /Main/ });
+  await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
   type(view.container, '#mt-13', '15550000001');
   type(view.container, '#mt-2', 'hello');
   rtl.fireEvent.click(sendButton());
@@ -1392,7 +1392,7 @@ test('an old lookup cannot complete a new operation after signing in with the sa
       createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
     );
   const start = async (view: ReturnType<typeof render>, content: string) => {
-    await rtl.screen.findByRole('option', { name: /Main/ });
+    await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
     type(view.container, '#mt-13', '15550000001');
     type(view.container, '#mt-2', content);
     rtl.fireEvent.click(sendButton());
@@ -1435,7 +1435,7 @@ test('an old lookup cannot complete a new operation after signing in with the sa
 test('phone fields are tel inputs and id fields are left to right', async () => {
   stubGateway();
   renderTesterAsWriter();
-  await rtl.screen.findByRole('option', { name: /Main/ });
+  await rtl.screen.findByText(/^Main/, { selector: '.custom-select-label' });
   const attr = (id: string, name: string): string | null => byId(id).getAttribute(name);
 
   assert.equal(attr('mt-13', 'type'), 'tel');

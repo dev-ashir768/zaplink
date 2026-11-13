@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/PageHeader';
+import { CustomSelect } from '../components/CustomSelect';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { copyToClipboard } from '../utils/clipboard';
 import { useSessionsQuery } from '../hooks/queries';
@@ -94,33 +95,33 @@ export function NumberChecker() {
   }, [shownSession]);
   const [batchFilter, setBatchFilter] = useState<'all' | 'registered' | 'unregistered' | 'failed'>('all');
 
-  // Opt-in: the +91 rewrite would turn any other country's 10-digit or 0-prefixed number into an Indian one.
-  const [autoPrefix91, setAutoPrefix91] = useState(false);
+  // On by default (Pakistan): a 10-digit 3xx number or an 03xx number becomes +92. Untick it for other countries.
+  const [autoPrefix92, setAutoPrefix92] = useState(true);
 
   // Format and clean phone number based on digit rules
   const formatNumberForCheck = useCallback(
-    (typed: string, applyPrefix = autoPrefix91) => {
+    (typed: string, applyPrefix = autoPrefix92) => {
       const raw = normalizePhoneText(typed);
       let digits = raw.replace(/[^0-9]/g, '');
       const isInternational = raw.trim().startsWith('+') || digits.startsWith('00');
-      // 1. If international dial exit code 00 is present (e.g. 009196...), strip '00'
+      // 1. If international dial exit code 00 is present (e.g. 0092300...), strip '00'
       digits = normalizePhoneDigits(digits);
-      // 2. If user entered +91 with domestic trunk 0 (e.g. +91 096... -> 13 digits), strip trunk 0
-      if (applyPrefix && digits.length === 13 && digits.startsWith('910')) {
-        digits = '91' + digits.substring(3);
+      // 2. If user entered +92 with domestic trunk 0 (e.g. +92 096... -> 13 digits), strip trunk 0
+      if (applyPrefix && digits.length === 13 && digits.startsWith('920')) {
+        digits = '92' + digits.substring(3);
       }
       // 3. If domestic 11 digits starting with 0 (e.g. 096xxxxxxxx), strip leading 0
       if (applyPrefix && !isInternational && digits.length === 11 && digits.startsWith('0')) {
         digits = digits.substring(1);
       }
-      // 4. If exactly 10 digits and autoPrefix is true: impose India country code (+91)
+      // 4. If exactly 10 digits and autoPrefix is true: impose Pakistan country code (+92)
       if (applyPrefix && !isInternational && digits.length === 10) {
-        return '91' + digits;
+        return '92' + digits;
       }
-      // 5. If 12 digits (already has country code, e.g. 91xxxxxxxxxx) or any other format: keep as-is
+      // 5. If 12 digits (already has country code, e.g. 92xxxxxxxxxx) or any other format: keep as-is
       return digits;
     },
-    [autoPrefix91],
+    [autoPrefix92],
   );
 
   // Preview formatted single number
@@ -145,8 +146,8 @@ export function NumberChecker() {
     const uniqueFormatted = new Set<string>();
 
     for (const raw of lines) {
-      // Measured after the 00 strip and the +91 rewrite, so a 00-prefixed full-length number is still one number.
-      const formatted = formatNumberForCheck(raw, autoPrefix91);
+      // Measured after the 00 strip and the +92 rewrite, so a 00-prefixed full-length number is still one number.
+      const formatted = formatNumberForCheck(raw, autoPrefix92);
       if (formatted.length > PHONE_MAX_DIGITS) {
         tooLongCount++;
         continue;
@@ -154,8 +155,8 @@ export function NumberChecker() {
       let d = raw.replace(/[^0-9]/g, '');
       const isInternational = raw.startsWith('+') || d.startsWith('00');
       d = normalizePhoneDigits(d);
-      if (autoPrefix91 && d.length === 13 && d.startsWith('910')) d = '91' + d.substring(3);
-      if (autoPrefix91 && !isInternational && d.length === 11 && d.startsWith('0')) d = d.substring(1);
+      if (autoPrefix92 && d.length === 13 && d.startsWith('920')) d = '92' + d.substring(3);
+      if (autoPrefix92 && !isInternational && d.length === 11 && d.startsWith('0')) d = d.substring(1);
 
       if (!isInternational && d.length === 10) {
         tenDigitsCount++;
@@ -178,7 +179,7 @@ export function NumberChecker() {
       tooLongCount,
       list: Array.from(uniqueFormatted),
     };
-  }, [batchInput, autoPrefix91, formatNumberForCheck]);
+  }, [batchInput, autoPrefix92, formatNumberForCheck]);
   const batchOverLimit = batchParsedStats.uniqueCount > NUMBER_CHECK_BATCH_MAX;
 
   // Perform single check
@@ -372,24 +373,19 @@ export function NumberChecker() {
                 <label htmlFor="nc-single-session" className="nc-label">
                   {t('numberChecker.session.label')}
                 </label>
-                <select
+                <CustomSelect
                   id="nc-single-session"
-                  aria-label={t('numberChecker.session.label')}
-                  className="nc-input"
+                  variant="field"
+                  ariaLabel={t('numberChecker.session.label')}
                   value={shownSession}
-                  onChange={e => setSelectedSession(e.target.value)}
+                  onChange={setSelectedSession}
                   disabled={readySessions.length === 0 || isCheckingBatch}
-                >
-                  {readySessions.length === 0 ? (
-                    <option value="">{t('numberChecker.session.none')}</option>
-                  ) : (
-                    readySessions.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} {s.phone ? `(${s.phone})` : ''}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  placeholder={t('numberChecker.session.none')}
+                  options={readySessions.map(s => ({
+                    value: s.id,
+                    label: s.phone ? `${s.name} (${s.phone})` : s.name,
+                  }))}
+                />
                 <span className="nc-hint">{t('numberChecker.session.hint')}</span>
               </div>
 
@@ -432,8 +428,8 @@ export function NumberChecker() {
                   <input
                     type="checkbox"
                     className="nc-checkbox"
-                    checked={autoPrefix91}
-                    onChange={e => setAutoPrefix91(e.target.checked)}
+                    checked={autoPrefix92}
+                    onChange={e => setAutoPrefix92(e.target.checked)}
                     disabled={isCheckingSingle}
                   />
                   <span className="nc-checkbox-label">
@@ -448,7 +444,7 @@ export function NumberChecker() {
                 )}
                 {phoneNumber.trim() && !singleTooLong && (
                   <div className="nc-format-preview">
-                    {singleTypedDigits.length === 10 && singleFormattedNumber === '91' + singleTypedDigits ? (
+                    {singleTypedDigits.length === 10 && singleFormattedNumber === '92' + singleTypedDigits ? (
                       <span className="nc-format-pill highlight">
                         <Trans
                           i18nKey="numberChecker.preview.prefixed"
@@ -476,7 +472,7 @@ export function NumberChecker() {
                   </div>
                 )}
                 <span className="nc-hint">
-                  {autoPrefix91 ? t('numberChecker.prefixHint.single') : t('numberChecker.prefixHint.off')}
+                  {autoPrefix92 ? t('numberChecker.prefixHint.single') : t('numberChecker.prefixHint.off')}
                 </span>
               </div>
 
@@ -656,42 +652,38 @@ export function NumberChecker() {
                 <label htmlFor="nc-batch-session" className="nc-label">
                   {t('numberChecker.session.label')}
                 </label>
-                <select
+                <CustomSelect
                   id="nc-batch-session"
-                  aria-label={t('numberChecker.session.label')}
-                  className="nc-input"
+                  variant="field"
+                  ariaLabel={t('numberChecker.session.label')}
                   value={shownSession}
-                  onChange={e => setSelectedSession(e.target.value)}
+                  onChange={setSelectedSession}
                   disabled={readySessions.length === 0 || isCheckingBatch}
-                >
-                  {readySessions.length === 0 ? (
-                    <option value="">{t('numberChecker.session.none')}</option>
-                  ) : (
-                    readySessions.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} {s.phone ? `(${s.phone})` : ''}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  placeholder={t('numberChecker.session.none')}
+                  options={readySessions.map(s => ({
+                    value: s.id,
+                    label: s.phone ? `${s.name} (${s.phone})` : s.name,
+                  }))}
+                />
               </div>
 
               <div className="nc-form-group">
                 <label htmlFor="nc-batch-delay" className="nc-label">
                   {t('numberChecker.bulk.delayLabel')}
                 </label>
-                <select
+                <CustomSelect
                   id="nc-batch-delay"
-                  aria-label={t('numberChecker.bulk.delayLabel')}
-                  className="nc-input"
-                  value={batchDelay}
-                  onChange={e => setBatchDelay(Number(e.target.value))}
+                  variant="field"
+                  ariaLabel={t('numberChecker.bulk.delayLabel')}
+                  value={String(batchDelay)}
+                  onChange={v => setBatchDelay(Number(v))}
                   disabled={isCheckingBatch}
-                >
-                  <option value={1000}>{t('numberChecker.bulk.delay1')}</option>
-                  <option value={2000}>{t('numberChecker.bulk.delay2')}</option>
-                  <option value={3000}>{t('numberChecker.bulk.delay3')}</option>
-                </select>
+                  options={[
+                    { value: '1000', label: t('numberChecker.bulk.delay1') },
+                    { value: '2000', label: t('numberChecker.bulk.delay2') },
+                    { value: '3000', label: t('numberChecker.bulk.delay3') },
+                  ]}
+                />
                 <span className="nc-hint">{t('numberChecker.bulk.delayHint')}</span>
               </div>
 
@@ -701,8 +693,8 @@ export function NumberChecker() {
                   <input
                     type="checkbox"
                     className="nc-checkbox"
-                    checked={autoPrefix91}
-                    onChange={e => setAutoPrefix91(e.target.checked)}
+                    checked={autoPrefix92}
+                    onChange={e => setAutoPrefix92(e.target.checked)}
                     disabled={isCheckingBatch}
                   />
                   <span className="nc-checkbox-label">
@@ -710,7 +702,7 @@ export function NumberChecker() {
                   </span>
                 </label>
                 <span className="nc-hint">
-                  {autoPrefix91 ? t('numberChecker.prefixHint.bulk') : t('numberChecker.prefixHint.off')}
+                  {autoPrefix92 ? t('numberChecker.prefixHint.bulk') : t('numberChecker.prefixHint.off')}
                 </span>
               </div>
             </div>
@@ -724,7 +716,7 @@ export function NumberChecker() {
                   id="nc-batch-numbers"
                   dir="ltr"
                   className="nc-textarea"
-                  placeholder="919612345678&#10;6281234567890&#10;14155552671"
+                  placeholder="923001234567&#10;6281234567890&#10;14155552671"
                   value={batchInput}
                   onChange={e => setBatchInput(e.target.value)}
                   disabled={isCheckingBatch}
@@ -739,7 +731,7 @@ export function NumberChecker() {
                         components={{ strong: <strong /> }}
                       />
                     </span>
-                    {autoPrefix91 && (
+                    {autoPrefix92 && (
                       <span className="nc-badge-sub">
                         {batchParsedStats.twelveDigitsCount > 0
                           ? t('numberChecker.bulk.tenDigitAddedPreserved', {

@@ -629,3 +629,55 @@
   margin: 0;
   min-width: 0;
 }
+
+/* Template mode: the variables form and a preview of the rendered message. */
+.message-tester .template-fields .template-vars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.message-tester .template-fields .template-var {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.message-tester .template-fields .template-var label {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.message-tester .template-fields .template-vars .hint {
+  grid-column: 1 / -1;
+}
+
+.message-tester .template-fields .template-preview {
+  margin-top: 0.75rem;
+}
+
+.message-tester .template-fields .template-preview-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 28rem;
+  margin-top: 0.25rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border-start-start-radius: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message-tester .template-fields .template-preview-body {
+  margin: 0;
+}
+
+.message-tester .template-fields .template-preview-footer {
+  color: var(--text-muted);
+}

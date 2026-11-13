@@ -138,7 +138,7 @@ test('every outline switched off leaves a keyboard focus cue in the --focus-ring
 // an error keeps its red border, so its focus cue is a ring beside it.
 test('fields that repaint their own border and native checkboxes draw their own focus cue', () => {
   for (const [selector, cue] of [
-    ['.filter-row select:focus', /border-color:\s*var\(--focus-ring\)/],
+    ['.custom-select.field .custom-select-trigger:focus-visible', /outline:\s*2px solid var\(--focus-ring\)/],
     [".chats-page .status-compose-modal input[type='color']:focus", /border-color:\s*var\(--focus-ring\)/],
     [".sessions-page .proxy-form-section input[type='text']:focus", /border-color:\s*var\(--focus-ring\)/],
     [".filter-text input[type='text']:focus", /border-color:\s*var\(--focus-ring\)/],

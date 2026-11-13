@@ -147,6 +147,8 @@ const mustKeep = [
   'dashboard/index.html',
   'dashboard/vite.config.ts',
   'dashboard/src/main.tsx',
+  // The dashboard build bundles the root OpenAPI document into the Developer Center (vite.config.ts).
+  'openapi.json',
   'scripts/postinstall.js',
   'scripts/patch-wwebjs-201832.js',
   'scripts/patch-wwebjs-newsletter-preview.js',

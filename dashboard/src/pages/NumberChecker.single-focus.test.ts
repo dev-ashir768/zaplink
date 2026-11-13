@@ -106,7 +106,7 @@ async function renderPage() {
       ),
     ),
   );
-  await rtl.screen.findByRole('option', { name: /main/ });
+  await rtl.screen.findAllByText(/^main/, { selector: '.custom-select-label' });
   const phone = rtl.screen.getByLabelText('Phone Number') as HTMLInputElement;
   phone.focus();
   rtl.fireEvent.change(phone, { target: { value: '15550001111' } });

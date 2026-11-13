@@ -396,11 +396,11 @@
   margin-bottom: 0.25rem;
 }
 
-.api-keys-page .key-expiry-row input {
+.api-keys-page .key-expiry-row .dtp {
   flex: 1 1 auto;
 }
 
-.api-keys-page .key-expiry-row button {
+.api-keys-page .key-expiry-row > button {
   flex: none;
   white-space: nowrap;
 }

@@ -1281,6 +1281,11 @@ export const auditApi = {
 // =============================================================================
 
 export const messageApi = {
+  sendTemplate: (sessionId: string, payload: { chatId: string; templateId: string; vars: Record<string, string> }) =>
+    request<MessageResponse>(`/sessions/${sessionId}/messages/send-template`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   sendText: (sessionId: string, chatId: string, text: string) =>
     request<MessageResponse>(`/sessions/${sessionId}/messages/send-text`, {
       method: 'POST',

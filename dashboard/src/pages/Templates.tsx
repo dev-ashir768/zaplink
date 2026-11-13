@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CustomSelect } from '../components/CustomSelect';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Copy, FileText, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { type MessageTemplate, type TemplatePayload } from '../services/api';
@@ -261,24 +262,22 @@ export function Templates() {
         title={t('templates.title')}
         subtitle={t('templates.subtitle')}
         actions={
-          <select
+          <CustomSelect
+            variant="field"
             className="templates-session-select"
-            aria-label={t('templates.sessionSelect')}
+            ariaLabel={t('templates.sessionSelect')}
             value={selectedSessionId}
-            onChange={event => {
-              setSelectedSessionId(event.target.value);
+            onChange={sessionId => {
+              setSelectedSessionId(sessionId);
               resetForm();
             }}
-          >
-            {sessions.length === 0 && (
-              <option value="">{t(sessionsFailed ? 'dashboard.loadError' : 'templates.noSessions')}</option>
-            )}
-            {sessions.map(session => (
-              <option key={session.id} value={session.id}>
-                {session.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              ...(sessions.length === 0
+                ? [{ value: '', label: t(sessionsFailed ? 'dashboard.loadError' : 'templates.noSessions') }]
+                : []),
+              ...sessions.map(session => ({ value: session.id, label: session.name })),
+            ]}
+          />
         }
       />
 

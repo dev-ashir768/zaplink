@@ -85,8 +85,8 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 300));
 
 async function singleField(): Promise<HTMLInputElement> {
   renderPage();
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  return rtl.screen.getByPlaceholderText(/919876543210 or 6281234567890/i) as HTMLInputElement;
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  return rtl.screen.getByPlaceholderText(/923001234567 or 14155552671/i) as HTMLInputElement;
 }
 
 async function checkSingle(value: string): Promise<HTMLButtonElement> {
@@ -101,8 +101,8 @@ async function checkSingle(value: string): Promise<HTMLButtonElement> {
 test('a bulk line holding two space-separated numbers is refused with a reason, and the other lines still run', async () => {
   renderPage();
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: /Bulk/i }));
-  await rtl.screen.findByRole('option', { name: /Primary Session/ });
-  const textarea = rtl.screen.getByPlaceholderText(/9612345678/i) as HTMLTextAreaElement;
+  await rtl.screen.findAllByText(/^Primary Session/, { selector: '.custom-select-label' });
+  const textarea = rtl.screen.getByPlaceholderText(/923001234567/) as HTMLTextAreaElement;
   rtl.fireEvent.change(textarea, { target: { value: `${TWO_NUMBERS}\n628111222333` } });
   assert.ok(
     rtl.screen.getByText('Left out, more than 15 digits (not one number): 1. Put each number on its own line.'),

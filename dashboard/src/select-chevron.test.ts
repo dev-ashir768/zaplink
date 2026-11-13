@@ -64,7 +64,7 @@ function targetsSelect(selector: string, classes: Set<string>): boolean {
 
 test('no rule that styles a select sets the background shorthand', () => {
   const classes = selectClasses();
-  assert.ok(classes.size > 0, 'the scan no longer finds the select classes');
+  // Every dropdown is a CustomSelect now, so no <select> may carry a class; rules on `select` itself are still checked.
   const offenders: string[] = [];
   for (const full of filesUnder(SRC, '.css')) {
     const css = readFileSync(full, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');

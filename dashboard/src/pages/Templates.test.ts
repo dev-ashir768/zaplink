@@ -4,6 +4,7 @@
 // must say so instead of rendering the "no templates saved" empty state. The role defaults to operator, the
 // lowest one that can read the list.
 import '../test-helpers/register-hooks.ts';
+import { chooseOption, selectedValue } from '../test-helpers/custom-select.ts';
 import { test, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -234,7 +235,7 @@ test('a failed sessions read shows the error, not "no sessions available"', asyn
   rtl.within(alert).getByText('Failed to load data');
   rtl.within(alert).getByText('gateway restarting');
   assert.equal(rtl.screen.queryByText('No sessions available') === null, true);
-  assert.equal(rtl.screen.queryByRole('option', { name: 'No sessions' }) === null, true);
+  assert.equal(rtl.screen.queryByText('No sessions') === null, true);
 });
 
 // The full-page loader puts both classes on the page root itself, so its rule must be a compound
@@ -271,14 +272,14 @@ test('a selected session that disappears from the list is replaced by the first 
   renderTemplates();
 
   await screen.findByText('invoice-reminder');
-  const select = screen.getByLabelText<HTMLSelectElement>('Session');
-  assert.equal(select.value, 'sess-1');
+  const select = screen.getByLabelText<HTMLButtonElement>(/^Session/);
+  assert.equal(selectedValue(select), 'sess-1');
 
   firstSessionGone = true;
   await act(() => queryClient!.refetchQueries({ queryKey: ['sessions'], exact: true }));
 
   await screen.findByText('support-greeting');
-  assert.equal(select.value, 'sess-2');
+  assert.equal(selectedValue(select), 'sess-2');
   assert.equal(screen.queryByText('invoice-reminder') === null, true);
   screen.getByText('Saved under support-bot');
   window.sessionStorage.setItem('zaplink_user_role', 'viewer');
@@ -342,13 +343,13 @@ test('a create that resolves after a session switch keeps the draft typed since'
   await screen.findByText('No templates saved');
   const name = screen.getByLabelText<HTMLInputElement>('Name');
   const body = screen.getByLabelText<HTMLTextAreaElement>('Body');
-  const select = screen.getByLabelText<HTMLSelectElement>('Session');
+  const select = screen.getByLabelText<HTMLButtonElement>(/^Session/);
   fireEvent.change(name, { target: { value: 'invoice-reminder' } });
   fireEvent.change(body, { target: { value: 'Hi {{name}}' } });
   fireEvent.click(screen.getByRole('button', { name: 'Create Template' }));
   await waitFor(() => assert.equal(created.length, 1));
 
-  fireEvent.change(select, { target: { value: 'sess-2' } });
+  chooseOption(fireEvent, select, 'sess-2');
   await screen.findByText('support-greeting');
   fireEvent.change(name, { target: { value: 'support-followup' } });
   fireEvent.change(body, { target: { value: 'Still there?' } });
@@ -357,7 +358,7 @@ test('a create that resolves after a session switch keeps the draft typed since'
   await screen.findByText('Template created successfully');
   assert.equal(name.value, 'support-followup', 'the draft typed after the switch was cleared');
   assert.equal(body.value, 'Still there?');
-  assert.equal(select.value, 'sess-2');
+  assert.equal(selectedValue(select), 'sess-2');
   assert.ok(
     screen.getByRole('heading', { name: 'Create Template' }),
     'the new draft was tied to the first session row',
@@ -576,7 +577,7 @@ test('an update that resolves after its session disappeared leaves the next sess
 
   release();
   await screen.findByText('Template updated successfully');
-  assert.equal(screen.getByLabelText<HTMLSelectElement>('Session').value, 'sess-2');
+  assert.equal(selectedValue(screen.getByLabelText<HTMLButtonElement>(/^Session/)), 'sess-2');
   assert.ok(
     screen.getByRole('heading', { name: 'Create Template' }),
     'the next session draft was tied to the old session row',
@@ -669,14 +670,14 @@ for (const replacement of ['another template', 'a new template', 'another sessio
     if (replacement === 'another template') fireEvent.click(screen.getByText('invoice'));
     else if (replacement === 'a new template') fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
     else {
-      fireEvent.change(screen.getByLabelText('Session'), { target: { value: 'sess-2' } });
+      chooseOption(fireEvent, screen.getByLabelText<HTMLButtonElement>(/^Session/), 'sess-2');
       await screen.findByText('support-greeting');
     }
     const name = screen.getByLabelText<HTMLInputElement>('Name');
     const body = screen.getByLabelText<HTMLTextAreaElement>('Body');
     assert.equal(name.disabled, false);
     assert.equal(body.disabled, false);
-    assert.equal(screen.getByLabelText<HTMLSelectElement>('Session').disabled, false);
+    assert.equal(screen.getByLabelText<HTMLButtonElement>(/^Session/).disabled, false);
     assert.equal(screen.getByRole<HTMLButtonElement>('button', { name: 'New Template' }).disabled, false);
     fireEvent.change(name, { target: { value: 'replacement-draft' } });
     fireEvent.change(body, { target: { value: 'Hello {{customer}}' } });
@@ -690,7 +691,7 @@ for (const replacement of ['another template', 'a new template', 'another sessio
     assert.equal(document.querySelector('.template-preview-message pre')?.textContent, 'Hello Ada');
     screen.getByRole('heading', { name: replacement === 'another template' ? 'Edit Template' : 'Create Template' });
     assert.equal(
-      screen.getByLabelText<HTMLSelectElement>('Session').value,
+      selectedValue(screen.getByLabelText<HTMLButtonElement>(/^Session/)),
       replacement === 'another session' ? 'sess-2' : 'sess-1',
     );
     assert.deepEqual(deletePaths, ['/api/sessions/sess-1/templates/tpl-1']);

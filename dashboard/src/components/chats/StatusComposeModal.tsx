@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
@@ -242,15 +243,17 @@ function StatusComposeModal({ sessionId, onClose, onPosted }: Props) {
             </div>
             <div className="compose-field">
               <label htmlFor="scm-3">{t('chats.status.font')}</label>
-              <select id="scm-3" value={composeFont} onChange={e => setComposeFont(e.target.value)}>
-                <option value="">{t('chats.status.fontDefault')}</option>
-                {/* The WhatsApp status font enum; 3 to 5 don't exist on the wire and the backend rejects them. */}
-                {statusFontsFor(engineType).map(f => (
-                  <option key={f.id} value={f.id}>
-                    {t(f.labelKey)}
-                  </option>
-                ))}
-              </select>
+              {/* The WhatsApp status font enum; 3 to 5 don't exist on the wire and the backend rejects them. */}
+              <CustomSelect
+                id="scm-3"
+                variant="field"
+                value={composeFont}
+                onChange={setComposeFont}
+                options={[
+                  { value: '', label: t('chats.status.fontDefault') },
+                  ...statusFontsFor(engineType).map(f => ({ value: String(f.id), label: t(f.labelKey) })),
+                ]}
+              />
             </div>
           </div>
         </>

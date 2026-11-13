@@ -185,8 +185,8 @@ async function startBulkRun(role = 'operator'): Promise<{ lookups: string[]; res
   }) as typeof fetch;
   renderAt('/number-checker', role);
   rtl.fireEvent.click(await rtl.screen.findByRole('tab', { name: /Bulk/i }, { timeout: 10_000 }));
-  await rtl.screen.findByRole('option', { name: /Primary/ });
-  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/9612345678/i), { target: { value: THREE_NUMBERS } });
+  await rtl.screen.findAllByText(/^Primary/, { selector: '.custom-select-label' });
+  rtl.fireEvent.change(rtl.screen.getByPlaceholderText(/923001234567/), { target: { value: THREE_NUMBERS } });
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: /Start Batch Check/i }));
   await rtl.waitFor(() => assert.equal(lookups.length, 1));
   return { lookups, restore: () => (globalThis.fetch = previous) };

@@ -6,6 +6,7 @@ import {
   Smartphone,
   MessageSquare,
   Webhook,
+  BookOpen,
   Key,
   FileText,
   ClipboardList,
@@ -45,6 +46,14 @@ const allNavItems = [
   { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
   { to: '/api-keys', icon: Key, key: 'apiKeys' as const, adminOnly: true, unscopedOnly: true },
+  // The API reference every role can read; its label lives with the page's own strings.
+  {
+    to: '/developer',
+    icon: BookOpen,
+    key: 'developerCenter' as const,
+    adminOnly: false,
+    labelKey: 'developerCenter.title',
+  },
   { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
   // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
   { to: '/infrastructure', icon: Server, key: 'infrastructure' as const, adminOnly: true, unscopedOnly: true },
@@ -286,8 +295,9 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map(({ to, icon: Icon, key }) => {
-            const label = t(`nav.${key}`);
+          {navItems.map(item => {
+            const { to, icon: Icon, key } = item;
+            const label = 'labelKey' in item && item.labelKey ? t(item.labelKey) : t(`nav.${key}`);
             return (
               <NavLink
                 key={to}

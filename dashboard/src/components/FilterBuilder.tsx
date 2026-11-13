@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CustomSelect } from './CustomSelect';
 import { useTranslation } from 'react-i18next';
 import { Plus, X } from 'lucide-react';
 import {
@@ -240,31 +241,25 @@ export function FilterBuilder({ filters, onChange, chats }: FilterBuilderProps) 
         const def = descriptorFor(condition.field);
         return (
           <div key={rowKeyFor(condition)} className="filter-row">
-            <select
+            <CustomSelect
+              variant="field"
+              compact
               className="filter-field"
-              aria-label={t('webhooks.filters.fieldLabel')}
+              ariaLabel={t('webhooks.filters.fieldLabel')}
               value={condition.field}
-              onChange={e => changeField(index, e.target.value)}
-            >
-              {MESSAGE_FIELDS.map(f => (
-                <option key={f.field} value={f.field}>
-                  {t(`webhooks.filters.fields.${f.field}`)}
-                </option>
-              ))}
-            </select>
+              onChange={field => changeField(index, field)}
+              options={MESSAGE_FIELDS.map(f => ({ value: f.field, label: t(`webhooks.filters.fields.${f.field}`) }))}
+            />
 
-            <select
+            <CustomSelect
+              variant="field"
+              compact
               className="filter-operator"
-              aria-label={t('webhooks.filters.operatorLabel')}
+              ariaLabel={t('webhooks.filters.operatorLabel')}
               value={condition.operator}
-              onChange={e => updateAt(index, { operator: e.target.value as WebhookFilterOperator })}
-            >
-              {def.operators.map(op => (
-                <option key={op} value={op}>
-                  {t(`webhooks.filters.operators.${op}`)}
-                </option>
-              ))}
-            </select>
+              onChange={op => updateAt(index, { operator: op as WebhookFilterOperator })}
+              options={def.operators.map(op => ({ value: op, label: t(`webhooks.filters.operators.${op}`) }))}
+            />
 
             <div className="filter-value">
               {(def.kind === 'id' || def.kind === 'idArray') && (
@@ -320,15 +315,18 @@ export function FilterBuilder({ filters, onChange, chats }: FilterBuilderProps) 
               )}
 
               {def.kind === 'boolean' && (
-                <select
+                <CustomSelect
+                  variant="field"
+                  compact
                   className="filter-bool"
-                  aria-label={t('webhooks.filters.valueLabel')}
+                  ariaLabel={t('webhooks.filters.valueLabel')}
                   value={condition.value === true ? 'true' : 'false'}
-                  onChange={e => updateAt(index, { value: e.target.value === 'true' })}
-                >
-                  <option value="true">{t('webhooks.filters.yes')}</option>
-                  <option value="false">{t('webhooks.filters.no')}</option>
-                </select>
+                  onChange={v => updateAt(index, { value: v === 'true' })}
+                  options={[
+                    { value: 'true', label: t('webhooks.filters.yes') },
+                    { value: 'false', label: t('webhooks.filters.no') },
+                  ]}
+                />
               )}
             </div>
 

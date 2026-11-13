@@ -1,6 +1,7 @@
 // An image status is posted as base64 JSON, so a file past the upload cap is refused only after the whole
 // inflated body went up. The picker rejects it before reading, like the chat composer does.
 import '../../test-helpers/register-hooks.ts';
+import { chooseOption, optionEntries } from '../../test-helpers/custom-select.ts';
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -235,8 +236,7 @@ test('a number typed in native digits finds a recipient by its number', async ()
 });
 
 // The ids are the protocol's FontType enum; the picker names them as the protocol does instead of showing bare numbers.
-const fontOptions = () =>
-  [...(document.getElementById('scm-3') as HTMLSelectElement).options].map(o => [o.value, o.textContent]);
+const fontOptions = () => optionEntries(rtl.fireEvent, document.getElementById('scm-3') as HTMLElement);
 
 test('the font picker names every id after the protocol, on Baileys', async () => {
   emptyContacts = true;
@@ -268,7 +268,7 @@ test('a picked font is posted under its own id', async () => {
   const { screen, fireEvent, waitFor } = rtl;
   render();
   fireEvent.change(document.getElementById('scm-1') as HTMLTextAreaElement, { target: { value: 'hello' } });
-  fireEvent.change(document.getElementById('scm-3') as HTMLSelectElement, { target: { value: '2' } });
+  chooseOption(fireEvent, document.getElementById('scm-3') as HTMLElement, '2');
   fireEvent.click(screen.getByRole('button', { name: 'Post' }));
   await waitFor(() => assert.equal(posted.length, 1));
   assert.equal((posted[0] as { font?: number }).font, 2);
