@@ -65,6 +65,7 @@ import {
   RECIPIENT_LOOKUP_503,
   SESSION_NOT_STARTED_400,
 } from '../../common/openapi/engine-status-responses';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 /** The 400 the `:sessionId` pipe answers, as the routes that list it word it. */
 const SESSION_ID_400 = `The session id has characters other than letters, digits and hyphens, or is longer than ${MAX_SESSION_ID_LENGTH} characters`;
@@ -690,6 +691,7 @@ export class SessionController {
 
   @ChatScoped('fenced')
   @Post(':sessionId/presence/subscribe')
+  @RequiresEngineCapability('subscribeToPresence')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

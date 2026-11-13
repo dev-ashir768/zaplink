@@ -1977,7 +1977,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js reaches a WhatsApp Web internal that no longer exists, so group creation is Baileys-only.",
+            "description": "Not supported by the active engine: whatsapp-web.js reaches a WhatsApp Web internal that no longer exists, so group creation is Baileys-only.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2000,6 +2000,10 @@
         "summary": "Create a new group",
         "tags": [
           "groups"
+        ],
+        "x-engine-capability": "createGroup",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -2305,7 +2309,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot observe presence (whatsapp-web.js)",
+            "description": "The active engine cannot observe presence (whatsapp-web.js)\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2328,6 +2332,10 @@
         "summary": "Subscribe to a chat's presence",
         "tags": [
           "sessions"
+        ],
+        "x-engine-capability": "subscribeToPresence",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -5751,7 +5759,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -5774,6 +5782,10 @@
         "summary": "Click a button on a WhatsApp Business prompt (Baileys only)",
         "tags": [
           "messages"
+        ],
+        "x-engine-capability": "clickButton",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -6258,7 +6270,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6281,6 +6293,10 @@
         "summary": "Fetch chat history live from WhatsApp",
         "tags": [
           "messages"
+        ],
+        "x-engine-capability": "getChatHistory",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -6381,7 +6397,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6404,6 +6420,10 @@
         "summary": "Get reactions for a specific message",
         "tags": [
           "messages"
+        ],
+        "x-engine-capability": "getMessageReactions",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -6501,7 +6521,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6524,6 +6544,10 @@
         "summary": "Get delivery and read receipts for a specific message",
         "tags": [
           "messages"
+        ],
+        "x-engine-capability": "getMessageReceipts",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -6806,7 +6830,7 @@
             }
           },
           "501": {
-            "description": "Not supported on the Baileys engine",
+            "description": "Not supported on the Baileys engine\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6829,6 +6853,10 @@
         "summary": "Cast a vote on a poll",
         "tags": [
           "messages"
+        ],
+        "x-engine-capability": "votePoll",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -7964,6 +7992,49 @@
           }
         },
         "summary": "Get current active engine",
+        "tags": [
+          "infrastructure"
+        ]
+      }
+    },
+    "/api/infra/capabilities": {
+      "get": {
+        "description": "The active engine, the default, both engines with a short profile, and every capability that is available on only one engine (capabilities missing from the list work on both). Routes that need an unavailable capability answer `501` with `code: ENGINE_NOT_SUPPORTED`. Readable by any unscoped key.",
+        "operationId": "InfraStatusController_getCapabilities",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Capability matrix",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfraCapabilitiesResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Engine capability matrix",
         "tags": [
           "infrastructure"
         ]
@@ -11235,7 +11306,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js has no member-label setter, so this is Baileys-only.",
+            "description": "Not supported by the active engine: whatsapp-web.js has no member-label setter, so this is Baileys-only.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -11258,6 +11329,10 @@
         "summary": "Set this account's member label in a group",
         "tags": [
           "groups"
+        ],
+        "x-engine-capability": "setGroupMemberLabel",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -12406,7 +12481,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot reject a call (whatsapp-web.js)",
+            "description": "The active engine cannot reject a call (whatsapp-web.js)\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12429,6 +12504,10 @@
         "summary": "Reject a ringing incoming call",
         "tags": [
           "calls"
+        ],
+        "x-engine-capability": "rejectCall",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -12501,7 +12580,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12524,6 +12603,10 @@
         "summary": "Get all labels (WhatsApp Business only)",
         "tags": [
           "labels"
+        ],
+        "x-engine-capability": "getLabels",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -12612,7 +12695,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12635,6 +12718,10 @@
         "summary": "Get a specific label by ID",
         "tags": [
           "labels"
+        ],
+        "x-engine-capability": "getLabelById",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       },
       "put": {
@@ -12722,7 +12809,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot edit labels (whatsapp-web.js)",
+            "description": "The active engine cannot edit labels (whatsapp-web.js)\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12745,6 +12832,10 @@
         "summary": "Create or update a label",
         "tags": [
           "labels"
+        ],
+        "x-engine-capability": "upsertLabel",
+        "x-engines": [
+          "baileys"
         ]
       },
       "delete": {
@@ -12822,7 +12913,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot edit labels (whatsapp-web.js)",
+            "description": "The active engine cannot edit labels (whatsapp-web.js)\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12845,6 +12936,10 @@
         "summary": "Delete a label",
         "tags": [
           "labels"
+        ],
+        "x-engine-capability": "deleteLabel",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -12937,7 +13032,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot list chats by label (Baileys)",
+            "description": "The active engine cannot list chats by label (Baileys)\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -12960,6 +13055,10 @@
         "summary": "Get every chat carrying a label",
         "tags": [
           "labels"
+        ],
+        "x-engine-capability": "getChatsByLabel",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -13041,7 +13140,7 @@
             }
           },
           "501": {
-            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13064,6 +13163,10 @@
         "summary": "Get labels for a specific chat",
         "tags": [
           "labels"
+        ],
+        "x-engine-capability": "getChatLabels",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       },
       "post": {
@@ -13384,7 +13487,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: the Baileys adapter cannot list subscribed channels.",
+            "description": "Not supported by the active engine: the Baileys adapter cannot list subscribed channels.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13397,6 +13500,10 @@
         "summary": "Get all subscribed channels/newsletters",
         "tags": [
           "channels"
+        ],
+        "x-engine-capability": "getSubscribedChannels",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       },
       "post": {
@@ -13788,7 +13895,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: the Baileys adapter cannot read channel messages.",
+            "description": "Not supported by the active engine: the Baileys adapter cannot read channel messages.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -13801,6 +13908,10 @@
         "summary": "Get messages from a channel",
         "tags": [
           "channels"
+        ],
+        "x-engine-capability": "getChannelMessages",
+        "x-engines": [
+          "whatsapp-web.js"
         ]
       }
     },
@@ -14114,7 +14225,7 @@
             }
           },
           "501": {
-            "description": "The whatsapp-web.js engine cannot perform this: the WhatsApp Web module its library method targets no longer exports the function. Use the Baileys engine.",
+            "description": "The whatsapp-web.js engine cannot perform this: the WhatsApp Web module its library method targets no longer exports the function. Use the Baileys engine.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14137,6 +14248,10 @@
         "summary": "Demote a channel admin back to a subscriber",
         "tags": [
           "channels"
+        ],
+        "x-engine-capability": "demoteChannelAdmin",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -14236,7 +14351,7 @@
             }
           },
           "501": {
-            "description": "The whatsapp-web.js engine cannot perform this: its page function rejects every call locally against a subscriber list the page cannot repopulate. Use the Baileys engine.",
+            "description": "The whatsapp-web.js engine cannot perform this: its page function rejects every call locally against a subscriber list the page cannot repopulate. Use the Baileys engine.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14259,6 +14374,10 @@
         "summary": "Transfer channel ownership to another account",
         "tags": [
           "channels"
+        ],
+        "x-engine-capability": "transferChannelOwnership",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -14358,7 +14477,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js cannot subscribe by invite code.",
+            "description": "Not supported by the active engine: whatsapp-web.js cannot subscribe by invite code.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14381,6 +14500,10 @@
         "summary": "Subscribe to a channel using invite code",
         "tags": [
           "channels"
+        ],
+        "x-engine-capability": "subscribeToChannel",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -15605,7 +15728,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js has no catalog API.",
+            "description": "Not supported by the active engine: whatsapp-web.js has no catalog API.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15628,6 +15751,10 @@
         "summary": "Get business catalog info (Baileys engine only)",
         "tags": [
           "catalog"
+        ],
+        "x-engine-capability": "getCatalog",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -15728,7 +15855,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js has no catalog API.",
+            "description": "Not supported by the active engine: whatsapp-web.js has no catalog API.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15751,6 +15878,10 @@
         "summary": "List catalog products (Baileys engine only)",
         "tags": [
           "catalog"
+        ],
+        "x-engine-capability": "getProducts",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -15827,7 +15958,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js has no catalog API.",
+            "description": "Not supported by the active engine: whatsapp-web.js has no catalog API.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15850,6 +15981,10 @@
         "summary": "Get a specific product (Baileys engine only)",
         "tags": [
           "catalog"
+        ],
+        "x-engine-capability": "getProduct",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -15938,7 +16073,7 @@
             }
           },
           "501": {
-            "description": "Not supported by the active engine: whatsapp-web.js cannot send product messages.",
+            "description": "Not supported by the active engine: whatsapp-web.js cannot send product messages.\n\nThe active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the `engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15961,6 +16096,10 @@
         "summary": "Send a product message (Baileys engine only)",
         "tags": [
           "catalog"
+        ],
+        "x-engine-capability": "sendProduct",
+        "x-engines": [
+          "baileys"
         ]
       }
     },
@@ -20252,6 +20391,29 @@
           "features"
         ]
       },
+      "UnsupportedCapabilityDto": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "type": "string",
+            "description": "Capability (engine method) name.",
+            "example": "getLabels"
+          },
+          "supportedBy": {
+            "example": [
+              "whatsapp-web.js"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "capability",
+          "supportedBy"
+        ]
+      },
       "InfraCurrentEngineResponseDto": {
         "type": "object",
         "properties": {
@@ -20259,10 +20421,100 @@
             "type": "string",
             "description": "Engine the process resolved at boot.",
             "example": "baileys"
+          },
+          "defaultEngine": {
+            "type": "string",
+            "description": "Engine used when nothing selects one.",
+            "example": "baileys"
+          },
+          "supported": {
+            "description": "Engine-specific capabilities the active engine supports.",
+            "example": [
+              "upsertLabel",
+              "rejectCall"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsupported": {
+            "description": "Engine-specific capabilities the active engine lacks; their routes answer 501.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnsupportedCapabilityDto"
+            }
           }
         },
         "required": [
-          "engineType"
+          "engineType",
+          "defaultEngine",
+          "supported",
+          "unsupported"
+        ]
+      },
+      "EngineProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "baileys"
+          },
+          "name": {
+            "type": "string",
+            "example": "Baileys"
+          },
+          "summary": {
+            "type": "string",
+            "example": "Talks to WhatsApp over a WebSocket. No browser."
+          },
+          "ramPerNumber": {
+            "type": "string",
+            "example": "~20-50 MB"
+          },
+          "recommendedFor": {
+            "type": "string",
+            "example": "Many numbers on one server (100+). Default."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "summary",
+          "ramPerNumber",
+          "recommendedFor"
+        ]
+      },
+      "InfraCapabilitiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "activeEngine": {
+            "type": "string",
+            "example": "baileys"
+          },
+          "defaultEngine": {
+            "type": "string",
+            "example": "baileys"
+          },
+          "engines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EngineProfileDto"
+            }
+          },
+          "capabilities": {
+            "description": "Every capability available on only one engine. A capability not listed works on both.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnsupportedCapabilityDto"
+            }
+          }
+        },
+        "required": [
+          "activeEngine",
+          "defaultEngine",
+          "engines",
+          "capabilities"
         ]
       },
       "InfraUpdateCheckResponseDto": {
@@ -20501,7 +20753,8 @@
         "properties": {
           "type": {
             "type": "string",
-            "example": "whatsapp-web.js"
+            "description": "Effective engine; `baileys` when nothing selects one.",
+            "example": "baileys"
           },
           "headless": {
             "type": "boolean",

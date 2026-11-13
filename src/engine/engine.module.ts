@@ -1,4 +1,6 @@
 import { Global, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { EngineCapabilityInterceptor } from './requires-engine-capability';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EngineFactory } from './engine.factory';
 import { BaileysStoredMessage } from './adapters/baileys-stored-message.entity';
@@ -24,6 +26,9 @@ import { EngineRegistry } from './engine-registry.service';
     ChatStateStoreService,
     StoredChatPreviewService,
     EngineRegistry,
+    // Global: answers 501 ENGINE_NOT_SUPPORTED for a @RequiresEngineCapability route the active
+    // engine cannot serve, before the handler (and so the engine) is reached.
+    { provide: APP_INTERCEPTOR, useClass: EngineCapabilityInterceptor },
   ],
   exports: [EngineFactory, LidMappingStoreService, ChatStateStoreService, EngineRegistry],
 })

@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { DEFAULT_ENGINE } from './engine-capabilities';
 import * as path from 'path';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -42,7 +43,7 @@ export class EngineFactory implements OnModuleInit {
     private readonly chatStateStore: ChatStateStoreService,
     private readonly storedChatPreviews?: StoredChatPreviewService,
   ) {
-    this.engineType = this.configService.get<string>('engine.type') ?? 'whatsapp-web.js';
+    this.engineType = this.configService.get<string>('engine.type') || DEFAULT_ENGINE;
   }
 
   async onModuleInit(): Promise<void> {

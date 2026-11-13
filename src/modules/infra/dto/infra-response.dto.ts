@@ -243,9 +243,53 @@ export class AvailableEngineDto {
   library?: EngineLibraryDto;
 }
 
+export class UnsupportedCapabilityDto {
+  @ApiProperty({ description: 'Capability (engine method) name.', example: 'getLabels' })
+  capability!: string;
+
+  @ApiProperty({ type: [String], example: ['whatsapp-web.js'] })
+  supportedBy!: string[];
+}
+
 export class InfraCurrentEngineResponseDto {
   @ApiProperty({ description: 'Engine the process resolved at boot.', example: 'baileys' })
   engineType!: string;
+
+  @ApiProperty({ description: 'Engine used when nothing selects one.', example: 'baileys' })
+  defaultEngine!: string;
+
+  @ApiProperty({
+    type: [String],
+    description: 'Engine-specific capabilities the active engine supports.',
+    example: ['upsertLabel', 'rejectCall'],
+  })
+  supported!: string[];
+
+  @ApiProperty({
+    type: [UnsupportedCapabilityDto],
+    description: 'Engine-specific capabilities the active engine lacks; their routes answer 501.',
+  })
+  unsupported!: UnsupportedCapabilityDto[];
+}
+
+export class EngineProfileDto {
+  @ApiProperty({ example: 'baileys' }) id!: string;
+  @ApiProperty({ example: 'Baileys' }) name!: string;
+  @ApiProperty({ example: 'Talks to WhatsApp over a WebSocket. No browser.' }) summary!: string;
+  @ApiProperty({ example: '~20-50 MB' }) ramPerNumber!: string;
+  @ApiProperty({ example: 'Many numbers on one server (100+). Default.' }) recommendedFor!: string;
+}
+
+export class InfraCapabilitiesResponseDto {
+  @ApiProperty({ example: 'baileys' }) activeEngine!: string;
+  @ApiProperty({ example: 'baileys' }) defaultEngine!: string;
+  @ApiProperty({ type: [EngineProfileDto] }) engines!: EngineProfileDto[];
+
+  @ApiProperty({
+    type: [UnsupportedCapabilityDto],
+    description: 'Every capability available on only one engine. A capability not listed works on both.',
+  })
+  capabilities!: UnsupportedCapabilityDto[];
 }
 
 // ---------- GET /infra/update-check ----------
@@ -378,7 +422,7 @@ export class InfraConfigStorageDto {
 }
 
 export class InfraConfigEngineDto {
-  @ApiProperty({ example: 'whatsapp-web.js' })
+  @ApiProperty({ description: 'Effective engine; `baileys` when nothing selects one.', example: 'baileys' })
   type!: string;
 
   @ApiProperty({ example: true })

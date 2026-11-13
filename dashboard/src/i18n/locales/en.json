@@ -1206,7 +1206,27 @@
       "sessionDataPath": "Session Data Path",
       "browserArgs": "Browser Arguments",
       "noBrowser": "This engine connects over WebSocket — it has no browser, so there are no headless or browser-argument settings. The active engine is applied after a restart.",
-      "restartNote": "Switching the engine takes effect after a server restart.",
+      "restartNote": "Switching the engine takes effect after you save and restart the server.",
+      "active": "Active",
+      "default": "Default",
+      "ramPerNumber": "RAM per number",
+      "recommendedFor": "Recommended for",
+      "onlyHere": "Only on this engine",
+      "rescanNote": "Sessions are engine-specific: after switching engines, every WhatsApp number must scan its QR code (or pair) again.",
+      "switchTitle": "Switch to {{engine}}?",
+      "switchConfirm": "Switch to {{engine}}",
+      "switchWarning": "Every WhatsApp number will be logged out of this gateway and must scan its QR code (or enter a pairing code) again after the restart. Links made with one engine do not carry over to the other. Message history already stored is kept.",
+      "switchApply": "Then press Save Configuration and restart the server to apply it.",
+      "profiles": {
+        "baileys": {
+          "summary": "Talks to WhatsApp over a WebSocket. No browser.",
+          "recommendedFor": "Many numbers on one server (100+). The default."
+        },
+        "wwjs": {
+          "summary": "Drives WhatsApp Web in a headless Chromium for each number.",
+          "recommendedFor": "A few numbers that need label reads, live chat history, receipts, reactions or channel reads."
+        }
+      },
       "webVersion": "WhatsApp Web build",
       "webVersionNative": "auto (whatsapp-web.js default)",
       "webVersionSource": {
@@ -1544,6 +1564,10 @@
     "wsHelp": "Connect with Socket.IO to the /events namespace, pass the key in auth, then subscribe to a session (or * on an unrestricted key) and the events you want:",
     "tagline": "Every endpoint of the ZapLink API, with schemas, live examples and copy-ready code.",
     "statEndpoints": "endpoints",
+    "showingFor": "Showing APIs for {{engine}}",
+    "engineChipHint": "Only operations the active engine supports are listed. Switch engines in Infrastructure > Engine.",
+    "showAllEngines": "Show all engines ({{count}} more)",
+    "needsEngine": "Needs {{engine}}",
     "statTags": "tags",
     "request": "Request",
     "response": "Response",

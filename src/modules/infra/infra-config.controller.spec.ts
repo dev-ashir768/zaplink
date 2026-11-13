@@ -2389,9 +2389,9 @@ describe('InfraConfigController.getConfig reflects environment-pinned values (#1
     recordPinnedEnvKeys({ ENGINE_TYPE: '' });
     process.env.ENGINE_TYPE = '';
     (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.readFileSync as jest.Mock).mockReturnValue('ENGINE_TYPE=baileys\n');
+    (fs.readFileSync as jest.Mock).mockReturnValue('ENGINE_TYPE=whatsapp-web.js\n');
 
-    expect(newController().getConfig().engine.type).toBe('whatsapp-web.js');
+    expect(newController().getConfig().engine.type).toBe('baileys');
 
     (fs.existsSync as jest.Mock).mockReturnValue(false);
     (fs.readFileSync as jest.Mock).mockReturnValue('');

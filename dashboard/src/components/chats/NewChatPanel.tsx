@@ -9,6 +9,7 @@ import { useToast } from '../../hooks/useToast';
 import ChatAvatar from './ChatAvatar';
 import { normalizePhoneDigits, normalizePhoneText, phoneQueryDigits } from '../../utils/phone';
 import { isComposingKey } from '../../utils/composition';
+import { engineSupports } from '../../utils/engineCapabilities';
 
 type Mode = 'chat' | 'group';
 
@@ -76,7 +77,7 @@ function NewChatPanel({ sessionId, onOpenChat, findListedChat, onClose }: NewCha
   const { t } = useTranslation();
   const { error: showErrorToast, success: showSuccessToast } = useToast();
   const { engineType } = useRole();
-  const groupsSupported = engineType === 'baileys';
+  const groupsSupported = engineType !== null && engineSupports(engineType, 'createGroup');
 
   const [mode, setMode] = useState<Mode>('chat');
   const [query, setQuery] = useState('');

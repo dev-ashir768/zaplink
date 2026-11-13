@@ -13,6 +13,7 @@ import {
   ENGINE_NOT_SUPPORTED_501,
   LABEL_NOT_FOUND_404,
 } from '../../common/openapi/engine-status-responses';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 @ApiTags('labels')
 @Controller('sessions/:sessionId/labels')
@@ -23,6 +24,7 @@ export class LabelController {
   ) {}
 
   @Get()
+  @RequiresEngineCapability('getLabels')
   @ApiOperation({ summary: 'Get all labels (WhatsApp Business only)' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({
@@ -44,6 +46,7 @@ export class LabelController {
   }
 
   @Get(':labelId')
+  @RequiresEngineCapability('getLabelById')
   @ApiOperation({ summary: 'Get a specific label by ID' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'labelId', description: 'Label ID' })
@@ -64,6 +67,7 @@ export class LabelController {
 
   @ChatScoped('filtered')
   @Get(':labelId/chats')
+  @RequiresEngineCapability('getChatsByLabel')
   @ApiOperation({
     summary: 'Get every chat carrying a label',
     description:
@@ -92,6 +96,7 @@ export class LabelController {
   }
 
   @Put(':labelId')
+  @RequiresEngineCapability('upsertLabel')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -128,6 +133,7 @@ export class LabelController {
   }
 
   @Delete(':labelId')
+  @RequiresEngineCapability('deleteLabel')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -158,6 +164,7 @@ export class LabelController {
 
   @ChatScoped('fenced')
   @Get('chat/:chatId')
+  @RequiresEngineCapability('getChatLabels')
   @ApiOperation({ summary: 'Get labels for a specific chat' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'chatId', description: 'Chat ID' })

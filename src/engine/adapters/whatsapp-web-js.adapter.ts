@@ -900,7 +900,7 @@ export class WhatsAppWebJsAdapter implements IWhatsAppEngine {
   // whatsapp-web.js has no Catalog API at all (no Client.getCatalog/getProducts/getProduct symbol in
   // index.d.ts). These used to be phantom stubs — a warn log plus null/empty results — so the API
   // reported "no catalog" / "no products" for a capability that never ran. Honest 501s instead,
-  // matching sendProduct/sendCatalog below.
+  // matching sendProduct below.
 
   getCatalog(): Promise<Catalog | null> {
     return this.catalog.getCatalog();
@@ -916,10 +916,6 @@ export class WhatsAppWebJsAdapter implements IWhatsAppEngine {
 
   sendProduct(_chatId: string, _productId: string, _body?: string): Promise<MessageResult> {
     return this.catalog.sendProduct(_chatId, _productId, _body);
-  }
-
-  sendCatalog(_chatId: string, _body?: string): Promise<MessageResult> {
-    return this.catalog.sendCatalog(_chatId, _body);
   }
 
   getChats(): Promise<ChatSummary[]> {

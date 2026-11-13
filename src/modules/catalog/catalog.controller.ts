@@ -6,6 +6,7 @@ import { ChatScoped, RequireRole } from '../auth/decorators/auth.decorators';
 import { ApiKeyRole } from '../auth/entities/api-key.entity';
 import { CatalogDto, PaginatedProductsDto, ProductDto, ProductMessageResponseDto } from './dto/catalog-response.dto';
 import { ENGINE_NOT_READY_409, SEND_503, SESSION_NOT_STARTED_404 } from '../../common/openapi/engine-status-responses';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 /**
  * Every catalog read walks WhatsApp's business-catalog IQ, which the server simply leaves
@@ -25,6 +26,7 @@ export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get('catalog')
+  @RequiresEngineCapability('getCatalog')
   @ApiOperation({ summary: 'Get business catalog info (Baileys engine only)' })
   @ApiResponse({
     status: 200,
@@ -44,6 +46,7 @@ export class CatalogController {
   }
 
   @Get('catalog/products')
+  @RequiresEngineCapability('getProducts')
   @ApiOperation({ summary: 'List catalog products (Baileys engine only)' })
   @ApiResponse({ status: 200, description: 'One page of catalog products', type: PaginatedProductsDto })
   @ApiResponse({
@@ -63,6 +66,7 @@ export class CatalogController {
   }
 
   @Get('catalog/products/:productId')
+  @RequiresEngineCapability('getProduct')
   @ApiOperation({ summary: 'Get a specific product (Baileys engine only)' })
   @ApiResponse({
     status: 200,
@@ -83,6 +87,7 @@ export class CatalogController {
 
   @ChatScoped('fenced')
   @Post('messages/send-product')
+  @RequiresEngineCapability('sendProduct')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a product message (Baileys engine only)' })
   @ApiResponse({ status: 201, description: 'Product message accepted for sending', type: ProductMessageResponseDto })

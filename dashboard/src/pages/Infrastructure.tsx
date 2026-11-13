@@ -25,6 +25,13 @@ import { useRestartFlow } from '../hooks/useRestartFlow';
 import { useDataBackup } from '../hooks/useDataBackup';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
+import {
+  CAPABILITY_LABELS,
+  DEFAULT_ENGINE,
+  ENGINE_PROFILES,
+  ENGINE_SPECIFIC_CAPABILITIES,
+  isEngineId,
+} from '../utils/engineCapabilities';
 import { useToast } from '../hooks/useToast';
 import './Infrastructure.css';
 
@@ -83,6 +90,11 @@ export function Infrastructure() {
   const { data: engines = [] } = useEnginesQuery();
   const { data: currentEngineData } = useCurrentEngineQuery();
   const currentEngine = currentEngineData?.engineType ?? '';
+  // The engine the operator picked on a card and has not confirmed yet (the QR-rescan dialog is open).
+  const [pendingEngine, setPendingEngine] = useState<string | null>(null);
+  const engineName = (id: string) => engines.find(e => e.id === id)?.name ?? id;
+  // ENGINE_TYPE set in the process env/.env pins the engine: the cards cannot change it then.
+  const enginePinned = Boolean(infraStatus?.envPinned?.includes('ENGINE_TYPE'));
   const footerRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const footer = footerRef.current;
@@ -112,6 +124,8 @@ export function Infrastructure() {
   }, [loading, configLoading, infraStatus, savedConfig, toast.toasts.length]);
 
   const configForm = useInfraConfigForm(infraStatus, savedConfig);
+  // The restart about to run applies a different engine than the one running now.
+  const engineSwitchPending = Boolean(currentEngine) && configForm.engineConfig.type !== currentEngine;
   const queryClient = useQueryClient();
   // The saved config as the page first read it. A save refetches the saved config (so the pending-restart
   // notes see it), but until a restart the database still running is the one read here.
@@ -638,28 +652,64 @@ export function Infrastructure() {
               snapped back after a restart and read as "the save did nothing" (#1082). */}
           {settingNote('ENGINE_TYPE', infraStatus.engine.type, savedConfig?.engine.type)}
 
-          <div className="radio-group">
-            {engines.map(engine => (
-              <label
-                key={engine.id}
-                className={`radio-option ${configForm.engineConfig.type === engine.id ? 'selected' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="engineType"
-                  checked={configForm.engineConfig.type === engine.id}
-                  onChange={() => configForm.updateEngineConfig('type', engine.id)}
-                />
-                <Cpu className="watermark-icon" />
-                <span>{engine.name}</span>
-                <small>
-                  {engine.library
-                    ? `${engine.library.name} ${engine.library.version}`
-                    : t('infrastructure.engine.builtIn')}
-                </small>
-              </label>
-            ))}
+          {/* Two engine cards. Picking the engine that is not running asks first: WhatsApp links are
+              engine-specific, so every number has to scan its QR again after the switch. */}
+          <div className="radio-group engine-cards">
+            {engines.map(engine => {
+              const profile = isEngineId(engine.id) ? ENGINE_PROFILES[engine.id] : undefined;
+              const running = engine.id === currentEngine;
+              const selected = configForm.engineConfig.type === engine.id;
+              return (
+                <label key={engine.id} className={`radio-option engine-card ${selected ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="engineType"
+                    checked={selected}
+                    disabled={enginePinned}
+                    onChange={() => {
+                      if (currentEngine && engine.id !== currentEngine) setPendingEngine(engine.id);
+                      else configForm.updateEngineConfig('type', engine.id);
+                    }}
+                  />
+                  <Cpu className="watermark-icon" />
+                  <span className="engine-card-title">
+                    {engine.name}
+                    {running && <em className="engine-badge active">{t('infrastructure.engine.active')}</em>}
+                    {engine.id === DEFAULT_ENGINE && (
+                      <em className="engine-badge">{t('infrastructure.engine.default')}</em>
+                    )}
+                  </span>
+                  <small>
+                    {engine.library
+                      ? `${engine.library.name} ${engine.library.version}`
+                      : t('infrastructure.engine.builtIn')}
+                  </small>
+                  {profile && (
+                    <span className="engine-card-body">
+                      <span>{t(`infrastructure.engine.profiles.${engine.id === 'baileys' ? 'baileys' : 'wwjs'}.summary`)}</span>
+                      <span>
+                        <strong>{t('infrastructure.engine.ramPerNumber')}:</strong> {profile.ramPerNumber}
+                      </span>
+                      <span>
+                        <strong>{t('infrastructure.engine.recommendedFor')}:</strong>{' '}
+                        {t(`infrastructure.engine.profiles.${engine.id === 'baileys' ? 'baileys' : 'wwjs'}.recommendedFor`)}
+                      </span>
+                      <span className="engine-card-features">
+                        <strong>{t('infrastructure.engine.onlyHere')}:</strong>{' '}
+                        {Object.entries(ENGINE_SPECIFIC_CAPABILITIES)
+                          .filter(([, by]) => by.includes(profile.id))
+                          .map(([cap]) => CAPABILITY_LABELS[cap] ?? cap)
+                          .join(', ')}
+                      </span>
+                    </span>
+                  )}
+                </label>
+              );
+            })}
           </div>
+          <p className="muted-hint engine-rescan-note">
+            <AlertTriangle size={14} /> {t('infrastructure.engine.rescanNote')}
+          </p>
 
           {/* The WhatsApp Web build the gateway resolves for sessions to pin, distinct from the library version above
               (#488). A session whose pinned page cannot be downloaded or written starts unpinned, and a page can
@@ -1069,6 +1119,41 @@ export function Infrastructure() {
         </section>
       </div>
 
+      {pendingEngine && (
+        <Modal
+          open
+          onClose={() => setPendingEngine(null)}
+          title={t('infrastructure.engine.switchTitle', { engine: engineName(pendingEngine) })}
+          className="engine-switch-modal"
+          closeLabel={t('common.close')}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setPendingEngine(null)}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  configForm.updateEngineConfig('type', pendingEngine);
+                  setPendingEngine(null);
+                }}
+              >
+                {t('infrastructure.engine.switchConfirm', { engine: engineName(pendingEngine) })}
+              </button>
+            </>
+          }
+        >
+          <div className="migration-warning">
+            <AlertTriangle size={18} />
+            <div>
+              <p>{t('infrastructure.engine.switchWarning')}</p>
+              <p>{t('infrastructure.engine.switchApply')}</p>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {restartFlow.showRestartModal && (
         <Modal
           open
@@ -1106,6 +1191,15 @@ export function Infrastructure() {
                     </Fragment>
                   ))}
                 </p>
+              )}
+              {engineSwitchPending && (
+                <div className="migration-warning">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>{t('infrastructure.engine.switchTitle', { engine: engineName(configForm.engineConfig.type) })}</strong>
+                    <p>{t('infrastructure.engine.switchWarning')}</p>
+                  </div>
+                </div>
               )}
               {(restartFlow.dbSwitch || restartFlow.storageSwitch) && (
                 <div className="migration-warning">

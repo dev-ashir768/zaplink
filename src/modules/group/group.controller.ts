@@ -49,6 +49,7 @@ import {
   MEDIA_URL_PROXY_503,
   SESSION_NOT_STARTED_400,
 } from '../../common/openapi/engine-status-responses';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 // Every Baileys group call maps WhatsApp's own rate-limit and server-timeout answers to 503 as well,
 // so each 503 below ends with this sentence; a throttled caller should back off, not retry at once.
@@ -251,6 +252,7 @@ export class GroupController {
   }
 
   @Post()
+  @RequiresEngineCapability('createGroup')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Create a new group' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
@@ -534,6 +536,7 @@ export class GroupController {
 
   @ChatScoped('fenced')
   @Put(':groupId/member-label')
+  @RequiresEngineCapability('setGroupMemberLabel')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({
     summary: "Set this account's member label in a group",

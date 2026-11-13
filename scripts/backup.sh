@@ -340,7 +340,7 @@ if [ -d "$BAILEYS_DIR" ]; then
 # The warning is advisory, so an ENGINE_TYPE line the scripts cannot parse skips it instead of the backup,
 # and its error is reported as a warning. A failed lookup prints nothing on stdout and a successful one
 # nothing on stderr, so both share the substitution.
-elif ! ENGINE_TYPE_RESOLVED="$(zaplink_resolve ENGINE_TYPE '' 2>&1)"; then
+elif ! ENGINE_TYPE_RESOLVED="$(zaplink_resolve ENGINE_TYPE 'baileys' 2>&1)"; then
   sed -e 's/^\[config\] ERROR: /[config] WARN: /' -e 's/^\[config\]        /[config]       /' <<<"$ENGINE_TYPE_RESOLVED" >&2
   log "WARN: ENGINE_TYPE could not be read (see above); skipping only the check for missing Baileys state"
 elif [ "$ENGINE_TYPE_RESOLVED" = "baileys" ]; then

@@ -37,6 +37,7 @@
     "postinstall": "node scripts/postinstall.js",
     "check:dockerignore": "node scripts/check-dockerignore.mjs",
     "check:audit": "node scripts/check-audit.mjs",
+    "docs:engine-matrix": "ts-node scripts/engine-matrix-docs.ts",
     "openapi:export": "ts-node scripts/export-openapi.ts openapi.json",
     "openapi:check": "ts-node scripts/export-openapi.ts .openapi.generated.json && diff -u openapi.json .openapi.generated.json; status=$?; rm -f .openapi.generated.json; exit $status",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",

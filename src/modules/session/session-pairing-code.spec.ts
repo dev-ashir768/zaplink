@@ -53,12 +53,12 @@ describe('SessionService.requestPairingCode', () => {
     expect(engine.requestPairingCode).not.toHaveBeenCalled();
   });
 
-  it('defaults to whatsapp-web.js when the engine type is not configured', async () => {
+  it('defaults to baileys (no cross-session revoke guard) when the engine type is not configured', async () => {
     const { service, engine } = fixture({ others: ['628111000111'] });
 
-    await expect(service.requestPairingCode(ID, '628111000111')).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.requestPairingCode(ID, '628111000111')).resolves.toMatchObject({ pairingCode: 'ABCD1234' });
 
-    expect(engine.requestPairingCode).not.toHaveBeenCalled();
+    expect(engine.requestPairingCode).toHaveBeenCalled();
   });
 
   it.each([

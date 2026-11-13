@@ -118,7 +118,7 @@ export function useInfraConfigForm(
   });
 
   const [engineConfig, setEngineConfig] = useState<EngineConfig>({
-    type: 'whatsapp-web.js',
+    type: 'baileys',
     headless: true,
     sessionDataPath: './data/sessions',
     browserArgs: '--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu',

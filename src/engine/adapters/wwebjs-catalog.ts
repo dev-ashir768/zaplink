@@ -37,10 +37,5 @@ export class WwebjsCatalog {
     this.host.ensureReady();
     throw new EngineNotSupportedError('sendProduct');
   }
-
-  async sendCatalog(_chatId: string, _body?: string): Promise<MessageResult> {
-    this.host.ensureReady();
-    throw new EngineNotSupportedError('sendCatalog');
-  }
   /* eslint-enable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
 }

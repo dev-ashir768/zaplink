@@ -1708,8 +1708,8 @@ export interface StatusCapability {
 }
 
 /**
- * Catalog (WhatsApp Business): catalog and product reads. sendProduct and sendCatalog stay here
- * rather than in MessagingCapability — they ship a catalog entity into a chat, and their consumer
+ * Catalog (WhatsApp Business): catalog and product reads. sendProduct stays here
+ * rather than in MessagingCapability — it ships a catalog entity into a chat, and its consumer
  * is the commerce domain, so a messaging-only dependency need not carry them.
  */
 export interface CatalogCapability {
@@ -1720,8 +1720,6 @@ export interface CatalogCapability {
   getProduct(productId: string): Promise<Product | null>;
 
   sendProduct(chatId: string, productId: string, body?: string): Promise<MessageResult>;
-
-  sendCatalog(chatId: string, body?: string): Promise<MessageResult>;
 }
 
 /**

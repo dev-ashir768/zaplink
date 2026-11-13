@@ -14,6 +14,19 @@ This guide puts ZapLink on one Linux server (VPS) with HTTPS, sized for 100+ Wha
 Use Ubuntu 22.04/24.04 or Debian 12. Baileys is the default because whatsapp-web.js runs a full
 Chrome per number (300–500 MB each). Pick whatsapp-web.js only if you need a feature Baileys lacks.
 
+### Engines
+
+- **Baileys** (default): WebSocket client, no browser, ~20-50 MB per number. Use it for 100+ numbers.
+- **whatsapp-web.js**: a headless Chrome per number, ~300-500 MB each. Use it only for features
+  Baileys lacks (label reads, live chat history, receipts, reactions, channel reads, poll votes).
+
+The image ships Chromium, so both engines run with no rebuild. Switch from the dashboard:
+**Infrastructure > Engine**, pick the engine, confirm, **Save Configuration**, restart. Do not put
+`ENGINE_TYPE` in `/opt/zaplink/.env`; a value there pins the engine and the dashboard switch stops
+working. **Every number must scan its QR code again after a switch**, because a WhatsApp link belongs
+to one engine. The full feature difference table is in the README ("Engines"); routes the active engine
+cannot serve answer `501 ENGINE_NOT_SUPPORTED`.
+
 ## 2. Domain
 
 Create an **A record** (for example `wa.yourcompany.com`) pointing at the server's IP. Wait until

@@ -68,6 +68,7 @@ import {
   SEND_503,
 } from '../../common/openapi/engine-status-responses';
 import { IdempotentSend } from './idempotency/idempotent-send.decorator';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 // whatsapp-web.js drops these sends without an error, so its adapter refuses them up front
 // (ensureSendable in wwebjs-messaging.ts). The contract keeps one entry per status, so on a route
@@ -489,6 +490,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('click-button')
+  @RequiresEngineCapability('clickButton')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({
     summary: 'Click a button on a WhatsApp Business prompt (Baileys only)',
@@ -642,6 +644,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Get(':chatId/history')
+  @RequiresEngineCapability('getChatHistory')
   @ApiOperation({
     summary: 'Fetch chat history live from WhatsApp',
     description:
@@ -708,6 +711,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Get(':chatId/:messageId/reactions')
+  @RequiresEngineCapability('getMessageReactions')
   @ApiOperation({ summary: 'Get reactions for a specific message' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'chatId', description: 'Chat ID containing the message' })
@@ -737,6 +741,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Get(':chatId/:messageId/receipts')
+  @RequiresEngineCapability('getMessageReceipts')
   @ApiOperation({ summary: 'Get delivery and read receipts for a specific message' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'chatId', description: 'Chat ID containing the message' })
@@ -859,6 +864,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('vote-poll')
+  @RequiresEngineCapability('votePoll')
   @HttpCode(HttpStatus.OK)
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Cast a vote on a poll' })

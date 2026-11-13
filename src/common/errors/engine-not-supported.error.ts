@@ -11,6 +11,12 @@ import { NotImplementedException } from '@nestjs/common';
  */
 export class EngineNotSupportedError extends NotImplementedException {
   constructor(method: string) {
-    super(`Operation not supported by the active engine: ${method}`);
+    super({
+      statusCode: 501,
+      error: 'Not Implemented',
+      code: 'ENGINE_NOT_SUPPORTED',
+      message: `Operation not supported by the active engine: ${method}`,
+      capability: method,
+    });
   }
 }

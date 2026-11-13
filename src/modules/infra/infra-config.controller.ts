@@ -185,7 +185,7 @@ export class InfraConfigController {
         ),
       },
       engine: {
-        type: effective('ENGINE_TYPE') || 'whatsapp-web.js',
+        type: effective('ENGINE_TYPE') || 'baileys',
         headless: effective('PUPPETEER_HEADLESS') !== 'false',
         sessionDataPath: effective('SESSION_DATA_PATH') || '',
         browserArgs: effective('PUPPETEER_ARGS') || '',

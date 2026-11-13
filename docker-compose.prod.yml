@@ -34,7 +34,9 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - ENGINE_TYPE=${ENGINE_TYPE:-baileys}
+      # Blank by default so the dashboard choice (Infrastructure > Engine, saved to data/.env.generated)
+      # wins; with nothing chosen the app defaults to baileys. A real value in .env pins the engine.
+      - ENGINE_TYPE=${ENGINE_TYPE:-}
       - BASE_URL=https://${ZAPLINK_DOMAIN:?set ZAPLINK_DOMAIN in .env}
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.16.0.0/12}
       - AUTO_START_SESSIONS=${AUTO_START_SESSIONS:-true}

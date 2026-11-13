@@ -62,6 +62,8 @@ export interface OperationObject {
   responses?: Record<string, ResponseObject>;
   security?: Array<Record<string, string[]>>;
   deprecated?: boolean;
+  /** Engines that can serve this operation; absent means every engine (the server's x-engines extension). */
+  'x-engines'?: string[];
 }
 
 export interface OpenApiDocument {
@@ -371,6 +373,18 @@ export function listEndpoints(doc: OpenApiDocument): Endpoint[] {
     }
   }
   return out;
+}
+
+/** Engines that can serve an operation, or null when it works on every engine. */
+export function operationEngines(op: OperationObject): string[] | null {
+  const engines = op['x-engines'];
+  return Array.isArray(engines) ? engines : null;
+}
+
+/** Whether an operation runs on the given engine. An unknown (null) engine keeps every operation. */
+export function endpointRunsOn(endpoint: Endpoint, engine: string | null): boolean {
+  const engines = operationEngines(endpoint.operation);
+  return engines === null || engine === null || engines.includes(engine);
 }
 
 /** Case-insensitive match on path, summary, tag and operationId; every whitespace-separated term must hit. */

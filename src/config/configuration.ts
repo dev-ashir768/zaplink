@@ -214,7 +214,9 @@ export default () => ({
 
   // WhatsApp engine configuration
   engine: {
-    type: process.env.ENGINE_TYPE || 'whatsapp-web.js',
+    // Baileys when nothing selects an engine (DEFAULT_ENGINE in engine/engine-capabilities.ts). The
+    // dashboard (Infrastructure > Engine) owns the choice through data/.env.generated.
+    type: process.env.ENGINE_TYPE || 'baileys',
     puppeteer: {
       headless: process.env.PUPPETEER_HEADLESS !== 'false',
       // Accept either delimiter: .env/compose use commas, the dashboard Infrastructure form

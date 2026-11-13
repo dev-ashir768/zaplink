@@ -855,11 +855,6 @@ export class BaileysAdapter implements IWhatsAppEngine {
     }
     return this.messaging.sendProductMessage(chatId, product, body, sock);
   }
-  // No catalog-level message primitive exists in Baileys (only the single-product {product}
-  // content), so sendCatalog stays a documented library limitation.
-  sendCatalog(_chatId: string, _body?: string): Promise<MessageResult> {
-    return this.unsupported('sendCatalog');
-  }
   /* eslint-enable @typescript-eslint/no-unused-vars */
 
   // ----- Events -----

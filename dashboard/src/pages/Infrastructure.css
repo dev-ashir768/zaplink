@@ -784,3 +784,44 @@
   color: var(--error-text);
   margin-bottom: 1rem;
 }
+
+/* Engine cards: name + badges, profile lines and the features only that engine has. */
+.infrastructure-page .engine-card {
+  align-items: flex-start;
+  text-align: start;
+}
+.infrastructure-page .engine-card-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.infrastructure-page .engine-badge {
+  font-style: normal;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-tertiary, rgba(127, 127, 127, 0.15));
+  color: var(--text-secondary, inherit);
+}
+.infrastructure-page .engine-badge.active {
+  background: var(--primary-soft, rgba(37, 211, 102, 0.15));
+  color: var(--primary-text, inherit);
+}
+.infrastructure-page .engine-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.infrastructure-page .engine-card-features {
+  color: var(--text-muted, inherit);
+}
+.infrastructure-page .engine-rescan-note {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}

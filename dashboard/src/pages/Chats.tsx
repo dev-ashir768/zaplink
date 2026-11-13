@@ -93,6 +93,7 @@ import ChatThread from '../components/chats/ChatThread';
 import ChatComposer, { type StagedAttachment } from '../components/chats/ChatComposer';
 import StatusMedia from '../components/chats/StatusMedia';
 import StatusComposeModal from '../components/chats/StatusComposeModal';
+import { engineSupports } from '../utils/engineCapabilities';
 import './Chats.css';
 
 // Quiet window for coalescing mark-as-read RPCs (see markReadCoalescer below).
@@ -277,7 +278,7 @@ export function Chats() {
   // Channels tab: only whatsapp-web.js implements channel listing/reading — Baileys throws 501 for
   // both, so the query is gated off entirely (never fired) rather than left to fail per-request.
   // The engine comes from the sign-in validate response, which every role can read.
-  const channelsSupported = engineType === 'whatsapp-web.js';
+  const channelsSupported = engineType !== null && engineSupports(engineType, 'getSubscribedChannels');
   const channelsQuery = useQuery({
     queryKey: ['channels', selectedSessionId],
     queryFn: () => sessionApi.getSubscribedChannels(selectedSessionId!),
@@ -331,8 +332,8 @@ export function Chats() {
   } = useChatMessages(
     selectedSessionId,
     activeChat?.id ?? null,
-    // Baileys has no live per-chat history read and answers 501 to it; any other or unknown engine is asked.
-    engineType !== 'baileys',
+    // Baileys has no live per-chat history read and answers 501 to it (see utils/engineCapabilities).
+    engineSupports(engineType, 'getChatHistory'),
   );
   const { appendMessage, updateMessage } = useChatMessagesActions();
   const queryClient = useQueryClient();

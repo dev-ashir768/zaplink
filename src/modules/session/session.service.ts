@@ -1447,7 +1447,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
 
   /** Whether the engine in use is whatsapp-web.js, where a pairing request can revoke a linked device. */
   private pairingMayRevoke(): boolean {
-    return (this.configService?.get<string>('engine.type') ?? 'whatsapp-web.js') === 'whatsapp-web.js';
+    return (this.configService?.get<string>('engine.type') || 'baileys') === 'whatsapp-web.js';
   }
 
   /**

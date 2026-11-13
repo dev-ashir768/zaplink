@@ -21,6 +21,7 @@ messages from any system that can make an HTTP request.
 - [Before you connect a number](#before-you-connect-a-number)
 - [Quick start (Docker)](#quick-start-docker)
 - [The data folder](#the-data-folder)
+- [Engines](#engines)
 - [Configuration](#configuration)
 - [API examples](#api-examples)
 - [Local development](#local-development)
@@ -32,7 +33,7 @@ messages from any system that can make an HTTP request.
 ## Features
 
 - **Sessions** — many WhatsApp numbers on one server; QR code or pairing-code login; optional per-session proxy.
-- **Two engines** — `whatsapp-web.js` (headless Chromium) or `baileys` (WebSocket, no browser), chosen with `ENGINE_TYPE`.
+- **Two engines** — `baileys` (WebSocket, no browser; the default) or `whatsapp-web.js` (headless Chromium), switched from the dashboard. See [Engines](#engines).
 - **Messaging** — text, media, location, contacts, polls, reactions, replies, forwards, edits and deletes; bulk sends with pacing.
 - **Chats, contacts and groups** — list, search, archive, pin, mute, labels, group admin actions.
 - **Webhooks** — HMAC-signed deliveries with retries, filters and a dead-letter list; optional Redis queue.
@@ -127,6 +128,66 @@ that do not belong in a database:
 
 It is created automatically, is ignored by git, and is included in backups. Never commit it.
 
+## Engines
+
+ZapLink runs one engine for every number on the server.
+
+| Engine            | How it works                                          | RAM per number | Use it for                                                    |
+| ----------------- | ----------------------------------------------------- | -------------- | ------------------------------------------------------------- |
+| `baileys`         | WebSocket client, no browser                          | ~20-50 MB      | Many numbers on one server (100+). **The default.**           |
+| `whatsapp-web.js` | Drives WhatsApp Web in a headless Chromium per number | ~300-500 MB    | A few numbers that need the features only it has (see below). |
+
+**Switching.** Open the dashboard, **Infrastructure > Engine**, pick the other engine, confirm, press
+**Save Configuration** and restart when asked. The choice is saved to `data/.env.generated`. Do not set
+`ENGINE_TYPE` in `.env` or in the compose environment: a value there pins the engine and the dashboard
+switch stops working (the page says so). With nothing chosen anywhere, ZapLink runs Baileys.
+
+**Sessions are engine-specific.** After a switch every number has to scan its QR code (or enter a
+pairing code) again. Stored messages, contacts and webhooks are kept.
+
+**What differs.** Most of the API works on both engines. The table lists every capability that only one
+engine has. A request for one the active engine lacks answers `501` with
+`{ "code": "ENGINE_NOT_SUPPORTED", "engine", "capability", "supportedBy" }` without touching WhatsApp.
+`GET /api/infra/capabilities` returns the same list at runtime, each operation in `/api/docs-json`
+carries `x-engines`, and the dashboard's Developer Center lists only the operations the active engine
+supports (toggle **Show all engines** to see the rest).
+
+<!-- engine-matrix:start (generated from src/engine/engine-capability-matrix.ts) -->
+
+| Feature                             | Capability                 | Baileys | whatsapp-web.js |
+| ----------------------------------- | -------------------------- | ------- | --------------- |
+| Tap business buttons / list replies | `clickButton`              | yes     | —               |
+| Create groups                       | `createGroup`              | yes     | —               |
+| Delete labels                       | `deleteLabel`              | yes     | —               |
+| Demote channel admins               | `demoteChannelAdmin`       | yes     | —               |
+| Read the business catalog           | `getCatalog`               | yes     | —               |
+| Read channel posts                  | `getChannelMessages`       | —       | yes             |
+| Live per-chat history read          | `getChatHistory`           | —       | yes             |
+| Read a chat’s labels                | `getChatLabels`            | —       | yes             |
+| List chats by label                 | `getChatsByLabel`          | —       | yes             |
+| Live contact status read (engine)   | `getContactStatus`         | —       | yes             |
+| Live status feed read (engine)      | `getContactStatuses`       | —       | yes             |
+| Read one label                      | `getLabelById`             | —       | yes             |
+| List labels                         | `getLabels`                | —       | yes             |
+| Read message reactions              | `getMessageReactions`      | —       | yes             |
+| Read delivery/read receipts         | `getMessageReceipts`       | —       | yes             |
+| Read one product                    | `getProduct`               | yes     | —               |
+| List products                       | `getProducts`              | yes     | —               |
+| List followed channels              | `getSubscribedChannels`    | —       | yes             |
+| Reject incoming calls               | `rejectCall`               | yes     | —               |
+| Send a product                      | `sendProduct`              | yes     | —               |
+| Disappearing messages in groups     | `setGroupEphemeral`        | yes     | —               |
+| Group member labels                 | `setGroupMemberLabel`      | yes     | —               |
+| Follow a channel by invite          | `subscribeToChannel`       | yes     | —               |
+| Subscribe to presence               | `subscribeToPresence`      | yes     | —               |
+| Transfer channel ownership          | `transferChannelOwnership` | yes     | —               |
+| Create / edit labels                | `upsertLabel`              | yes     | —               |
+| Vote in polls                       | `votePoll`                 | —       | yes             |
+
+<!-- engine-matrix:end -->
+
+Regenerate the table with `npm run docs:engine-matrix`; a test fails when it drifts from the matrix.
+
 ## Configuration
 
 All settings are environment variables. [`.env.example`](./.env.example) has the few most people need;
@@ -135,16 +196,16 @@ All settings are environment variables. [`.env.example`](./.env.example) has the
 
 Commonly changed:
 
-| Variable              | Default           | Purpose                                                    |
-| --------------------- | ----------------- | ---------------------------------------------------------- |
-| `DATABASE_PASSWORD`   | — (required)      | PostgreSQL password                                        |
-| `DATABASE_HOST`       | `postgres`        | Point at an external PostgreSQL instead of the bundled one |
-| `ENGINE_TYPE`         | `whatsapp-web.js` | `whatsapp-web.js` or `baileys`                             |
-| `API_PORT`            | `2785`            | Host port the API and dashboard are published on           |
-| `STORAGE_TYPE`        | `local`           | `local` or `s3` for media                                  |
-| `REDIS_ENABLED`       | `false`           | Redis for rate limits, cache and WebSocket fan-out         |
-| `QUEUE_ENABLED`       | `false`           | Redis-backed webhook delivery queue                        |
-| `AUTO_START_SESSIONS` | `false`           | Reconnect linked sessions when the server starts           |
+| Variable              | Default      | Purpose                                                             |
+| --------------------- | ------------ | ------------------------------------------------------------------- |
+| `DATABASE_PASSWORD`   | — (required) | PostgreSQL password                                                 |
+| `DATABASE_HOST`       | `postgres`   | Point at an external PostgreSQL instead of the bundled one          |
+| `ENGINE_TYPE`         | `baileys`    | Leave unset; pick the engine in the dashboard ([Engines](#engines)) |
+| `API_PORT`            | `2785`       | Host port the API and dashboard are published on                    |
+| `STORAGE_TYPE`        | `local`      | `local` or `s3` for media                                           |
+| `REDIS_ENABLED`       | `false`      | Redis for rate limits, cache and WebSocket fan-out                  |
+| `QUEUE_ENABLED`       | `false`      | Redis-backed webhook delivery queue                                 |
+| `AUTO_START_SESSIONS` | `false`      | Reconnect linked sessions when the server starts                    |
 
 The API is published on `127.0.0.1` only. To expose it, put a TLS reverse proxy (nginx, Caddy, a cloud
 load balancer) in front of it.

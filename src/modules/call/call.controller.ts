@@ -7,6 +7,7 @@ import { CallService } from './call.service';
 import { RequireRole } from '../auth/decorators/auth.decorators';
 import { ApiKeyRole } from '../auth/entities/api-key.entity';
 import { ENGINE_NOT_READY_409 } from '../../common/openapi/engine-status-responses';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 @ApiTags('calls')
 @Controller('sessions/:sessionId/calls')
@@ -31,6 +32,7 @@ export class CallController {
   }
 
   @Post(':callId/reject')
+  @RequiresEngineCapability('rejectCall')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reject a ringing incoming call' })

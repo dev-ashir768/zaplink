@@ -25,6 +25,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useRole } from '../../hooks/useRole';
+import { engineSupports, needsEngineText } from '../../utils/engineCapabilities';
 import { sessionApi, type Chat } from '../../services/api';
 import {
   buildMentionNameMap,
@@ -126,7 +127,10 @@ function ChatThread({
   const { t } = useTranslation();
   // Reply, react, delete and prompt taps all need an operator key, like the composer; a viewer
   // would only reach a 403.
-  const { canWrite } = useRole();
+  const { canWrite, engineType } = useRole();
+  // Tapping a business prompt button is Baileys-only; on another engine the buttons stay visible but
+  // disabled with a tooltip naming the engine that can do it.
+  const clickButtonSupported = engineSupports(engineType, 'clickButton');
 
   // The message actions sit behind hover, so a keyboard user reaches them through the bubble that carries
   // them: the bubbles are one tab stop (the focused message, else the newest), the arrow keys move between
@@ -815,7 +819,8 @@ function ChatThread({
                                 key={`${idx}:${btn.id}`}
                                 type="button"
                                 className={`message-prompt-button${state?.selectedId === btn.id ? ' selected' : ''}${state?.done ? ' answered' : ''}`}
-                                disabled={disabled || !canWrite}
+                                disabled={disabled || !canWrite || !clickButtonSupported}
+                                title={clickButtonSupported ? undefined : needsEngineText('clickButton')}
                                 onClick={() => void handleClickButton(msg, btn)}
                               >
                                 {loading ? <Loader2 size={14} className="animate-spin" /> : btn.text}

@@ -714,6 +714,8 @@ test('an operator selection wins over the seed and is what gets saved', async ()
   // Guards the #735 invariant through the seeding rewrite: whatever the seed chose, a click owns the
   // field afterwards and the payload must carry the click.
   fireEvent.click(engineRadios(container)[1]);
+  // Picking an engine that is not running asks first (every number has to scan its QR again).
+  fireEvent.click(await screen.findByRole('button', { name: /^Switch to / }));
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   await waitFor(() => {
@@ -2101,6 +2103,8 @@ test('an operator engine pick under a pin is deliberate and still saved', async 
   await awaitConfigHydrated(container);
 
   fireEvent.click(engineRadios(container)[1]);
+  // Picking an engine that is not running asks first (every number has to scan its QR again).
+  fireEvent.click(await screen.findByRole('button', { name: /^Switch to / }));
   fireEvent.click(screen.getByRole('button', { name: 'Save Configuration' }));
 
   await waitFor(() => {

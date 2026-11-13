@@ -1,8 +1,17 @@
 import { Controller, Get, Optional } from '@nestjs/common';
+import {
+  capabilityReport,
+  DEFAULT_ENGINE,
+  ENGINE_IDS,
+  ENGINE_PROFILES,
+  engineSpecificCapabilities,
+  resolveEngineId,
+} from '../../engine/engine-capabilities';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import {
   AvailableEngineDto,
   InfraCurrentEngineResponseDto,
+  InfraCapabilitiesResponseDto,
   InfraHealthResponseDto,
   InfraStatusResponseDto,
   InfraUpdateCheckResponseDto,
@@ -190,7 +199,7 @@ export class InfraStatusController {
     // backend. `path` is kept (additive) so the dashboard's local-mode rendering is unchanged.
     const storageBucket = this.configService.get<string>('storage.s3.bucket');
 
-    const engineType = this.configService.get<string>('engine.type', 'whatsapp-web.js');
+    const engineType = this.configService.get<string>('engine.type', 'baileys');
     // whatsapp-web.js only: surface the WhatsApp Web build the gateway resolves for sessions to pin (not the
     // library version, and not what a page runs). Trigger the auto-resolve so the panel is populated even
     // before a session starts; the result is cached, so this is a one-time fetch. (#488)
@@ -323,8 +332,33 @@ export class InfraStatusController {
   @RequireRole(ApiKeyRole.ADMIN)
   @ApiOperation({ summary: 'Get current active engine' })
   @ApiResponse({ status: 200, description: 'Current engine info', type: InfraCurrentEngineResponseDto })
-  getCurrentEngine(): { engineType: string } {
-    return { engineType: this.engineFactory.getCurrentEngine() };
+  getCurrentEngine(): InfraCurrentEngineResponseDto {
+    const engineType = this.engineFactory.getCurrentEngine();
+    const report = capabilityReport(resolveEngineId(engineType));
+    return {
+      engineType,
+      defaultEngine: DEFAULT_ENGINE,
+      supported: report.supported,
+      unsupported: report.unsupported,
+    };
+  }
+
+  @Get('capabilities')
+  @ApiOperation({
+    summary: 'Engine capability matrix',
+    description:
+      'The active engine, the default, both engines with a short profile, and every capability that is ' +
+      'available on only one engine (capabilities missing from the list work on both). Routes that need ' +
+      'an unavailable capability answer `501` with `code: ENGINE_NOT_SUPPORTED`. Readable by any unscoped key.',
+  })
+  @ApiResponse({ status: 200, description: 'Capability matrix', type: InfraCapabilitiesResponseDto })
+  getCapabilities(): InfraCapabilitiesResponseDto {
+    return {
+      activeEngine: resolveEngineId(this.engineFactory.getCurrentEngine()),
+      defaultEngine: DEFAULT_ENGINE,
+      engines: ENGINE_IDS.map(id => ENGINE_PROFILES[id]),
+      capabilities: engineSpecificCapabilities().map(({ capability, supportedBy }) => ({ capability, supportedBy })),
+    };
   }
 
   @Get('update-check')

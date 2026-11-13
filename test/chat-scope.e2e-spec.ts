@@ -46,7 +46,16 @@ describe('Chat-restricted API keys (e2e)', () => {
 
   const get = (path: string, key: string) => request(app.getHttpServer()).get(path).set('X-API-Key', key);
 
+  // labels/:id/chats is a whatsapp-web.js capability: on the default engine (Baileys) the capability
+  // interceptor answers 501 before the fence is reached, so this suite runs as whatsapp-web.js.
+  const prevEngine = process.env.ENGINE_TYPE;
+  afterAll(() => {
+    if (prevEngine === undefined) delete process.env.ENGINE_TYPE;
+    else process.env.ENGINE_TYPE = prevEngine;
+  });
+
   beforeAll(async () => {
+    process.env.ENGINE_TYPE = 'whatsapp-web.js';
     const moduleFixture: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleFixture.createNestApplication();
     applyGlobalValidation(app);

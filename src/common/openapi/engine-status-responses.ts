@@ -198,7 +198,9 @@ export const LABEL_NOT_FOUND_404 =
 /** `EngineNotSupportedError` (501) — in the engine contract, but not implementable on this engine. */
 export const ENGINE_NOT_SUPPORTED_501 =
   'The active engine cannot serve this operation. It is part of the engine contract, but the engine ' +
-  'currently running has no implementation for it.';
+  'currently running has no implementation for it. The body carries `code: ENGINE_NOT_SUPPORTED`, the ' +
+  "`engine`, the `capability` and `supportedBy` (the engines that can); the operation's `x-engines` " +
+  'extension lists the same engines. Switch engines in the dashboard (Infrastructure > Engine).';
 
 /** `ChannelMediaNotSupportedError` (501) — media to an `@newsletter` recipient on whatsapp-web.js. */
 export const CHANNEL_MEDIA_501 =

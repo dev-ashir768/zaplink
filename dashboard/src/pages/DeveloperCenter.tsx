@@ -14,6 +14,7 @@ import {
   CircleUser,
   Contact,
   Copy,
+  Cpu,
   Gauge,
   Globe,
   HeartPulse,
@@ -44,13 +45,16 @@ import {
 import { PageHeader } from '../components/PageHeader';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
+import { ENGINE_LABELS, isEngineId } from '../utils/engineCapabilities';
 import { API_ORIGIN } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 import {
   buildUrl,
   codeSample,
   exampleRequest,
+  endpointRunsOn,
   filterEndpoints,
+  operationEngines,
   groupByTag,
   isPublic,
   listEndpoints,
@@ -880,7 +884,19 @@ export function DeveloperCenter() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const endpoints = useMemo(() => (doc ? listEndpoints(doc) : []), [doc]);
+  const { engineType } = useRole();
+  const activeEngine = isEngineId(engineType) ? engineType : null;
+  const [showAllEngines, setShowAllEngines] = useState(false);
+  const allEndpoints = useMemo(() => (doc ? listEndpoints(doc) : []), [doc]);
+  // By default only the operations the ACTIVE engine can serve are listed; the others answer 501.
+  const hiddenCount = useMemo(
+    () => allEndpoints.filter(e => !endpointRunsOn(e, activeEngine)).length,
+    [allEndpoints, activeEngine],
+  );
+  const endpoints = useMemo(
+    () => (showAllEngines ? allEndpoints : allEndpoints.filter(e => endpointRunsOn(e, activeEngine))),
+    [allEndpoints, showAllEngines, activeEngine],
+  );
   const filtered = useMemo(() => filterEndpoints(endpoints, query), [endpoints, query]);
   const groups = useMemo(() => (doc ? groupByTag(doc, filtered) : []), [doc, filtered]);
   const tagCount = useMemo(() => new Set(endpoints.map(e => e.tag)).size, [endpoints]);
@@ -958,6 +974,18 @@ export function DeveloperCenter() {
           <div className="dev-stat">
             <strong>{doc ? tagCount : '–'}</strong> {t('developerCenter.statTags')}
           </div>
+          {activeEngine && (
+            <span className="dev-engine-chip" title={t('developerCenter.engineChipHint')}>
+              <Cpu size={14} aria-hidden="true" />
+              {t('developerCenter.showingFor', { engine: ENGINE_LABELS[activeEngine] })}
+            </span>
+          )}
+          {activeEngine && hiddenCount > 0 && (
+            <label className="dev-engine-toggle">
+              <input type="checkbox" checked={showAllEngines} onChange={e => setShowAllEngines(e.target.checked)} />
+              {t('developerCenter.showAllEngines', { count: hiddenCount })}
+            </label>
+          )}
         </div>
       </div>
 
@@ -1041,6 +1069,15 @@ export function DeveloperCenter() {
                                 <span className="dev-op-text">
                                   <span className="dev-op-summary">{e.summary || e.path}</span>
                                   <span className="dev-op-path">{e.path.replace(/^\/api/, '')}</span>
+                                  {!endpointRunsOn(e, activeEngine) && (
+                                    <span className="dev-op-engine">
+                                      {t('developerCenter.needsEngine', {
+                                        engine: (operationEngines(e.operation) ?? [])
+                                          .map(id => (isEngineId(id) ? ENGINE_LABELS[id] : id))
+                                          .join(' / '),
+                                      })}
+                                    </span>
+                                  )}
                                 </span>
                               </button>
                             </li>

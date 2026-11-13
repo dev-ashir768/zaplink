@@ -15,6 +15,7 @@ import {
   ENGINE_NOT_READY_409,
   ENGINE_REFUSED_403,
 } from '../../common/openapi/engine-status-responses';
+import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
 
 /** Delete, mute, unsubscribe, demote and transfer refuse a non-channel id up front, before any channel lookup. */
 const CHANNEL_ID_INVALID_404 =
@@ -32,6 +33,7 @@ export class ChannelController {
   constructor(private readonly channelService: ChannelService) {}
 
   @Get()
+  @RequiresEngineCapability('getSubscribedChannels')
   @ApiOperation({ summary: 'Get all subscribed channels/newsletters' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'List of subscribed channels', type: [ChannelDto] })
@@ -74,6 +76,7 @@ export class ChannelController {
   }
 
   @Get(':channelId/messages')
+  @RequiresEngineCapability('getChannelMessages')
   @ApiOperation({ summary: 'Get messages from a channel' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'channelId', description: 'Channel ID' })
@@ -193,6 +196,7 @@ export class ChannelController {
   }
 
   @Post(':channelId/admins/demote')
+  @RequiresEngineCapability('demoteChannelAdmin')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -230,6 +234,7 @@ export class ChannelController {
   }
 
   @Post(':channelId/owner/transfer')
+  @RequiresEngineCapability('transferChannelOwnership')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -276,6 +281,7 @@ export class ChannelController {
   }
 
   @Post('subscribe')
+  @RequiresEngineCapability('subscribeToChannel')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Subscribe to a channel using invite code' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })

@@ -330,12 +330,6 @@ export const CURATED_CAPABILITY_EXCEPTIONS: Record<string, MethodCapability> = {
       '(Socket/socket.js) writes only its own creds and sends one link_code_companion_reg IQ, ' +
       'with no shared page; no side effect was observed there.',
   },
-  sendCatalog: {
-    wwjs: { status: 'not-available', rootCause: 'library-limitation' },
-    baileys: { status: 'not-available', rootCause: 'library-limitation' },
-    evidence:
-      'baileys AnyMessageContent (Types/Message.d.ts) has no catalog key — only {product} single-product + product_catalog_edit/add/delete CRUD (Socket/business.js); wwjs no Client.sendCatalog in index.d.ts (0 hits)',
-  },
   sendProduct: {
     wwjs: { status: 'not-available', rootCause: 'library-limitation' },
     baileys: { status: 'supported' },

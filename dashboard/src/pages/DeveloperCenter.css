@@ -1240,3 +1240,29 @@
     animation: none !important;
   }
 }
+
+/* Active-engine chip and "show all engines" toggle in the toolbar. */
+.dev-page .dev-engine-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+.dev-page .dev-engine-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.dev-page .dev-op-engine {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
