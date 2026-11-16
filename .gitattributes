@@ -1,0 +1,21 @@
+# Normalize line endings in the repo; check out text files with LF everywhere.
+* text=auto eol=lf
+
+# Files that run inside Linux containers or are parsed by strict tools must stay LF:
+# shell scripts, the Dockerfile, unified diffs (git apply/patch reject CRLF) and the
+# ASCII-armored PGDG apt key (apt cannot parse a CRLF armor block).
+*.sh        text eol=lf
+Dockerfile* text eol=lf
+*.patch     text eol=lf
+*.asc       text eol=lf
+
+# Binary assets
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.psd  binary
+*.woff binary
+*.woff2 binary

@@ -1,0 +1,26 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$ZAPLINK_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# Media uploads can be large; the app enforces its own limits.
+	request_body {
+		max_size 100MB
+	}
+
+	reverse_proxy zaplink-api:2785 {
+		# WebSocket events and long-polling need long-lived connections.
+		flush_interval -1
+		transport http {
+			read_timeout 10m
+			write_timeout 10m
+		}
+	}
+}

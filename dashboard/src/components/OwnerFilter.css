@@ -1,0 +1,29 @@
+/* The admin owner filter, the same box on every page that lists or picks sessions: an icon and a borderless
+   CustomSelect inside a bordered pill, like the Status filter on Sessions. */
+.owner-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  min-height: 2.5rem;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.owner-filter > svg {
+  color: var(--text-muted);
+}
+
+.owner-filter .custom-select {
+  flex: 1;
+  min-width: 10rem;
+}
+
+/* Above a session picker in a form, it sits on its own line. */
+.owner-filter.session-owner-filter {
+  display: flex;
+  margin-bottom: 0.5rem;
+}

@@ -1,0 +1,1452 @@
+import { Fragment, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
+import {
+  Database,
+  Server,
+  HardDrive,
+  Save,
+  ExternalLink,
+  Loader2,
+  CheckCircle,
+  Cpu,
+  AlertTriangle,
+  Info,
+  Lock,
+  Download,
+  Upload,
+} from 'lucide-react';
+import { API_BASE_URL, infraApi, type SavedConfig, type SaveConfigPayload } from '../services/api';
+import { useRole } from '../hooks/useRole';
+import { CONTAINER_OF, namesBundledContainer, sameHost } from '../utils/bundledHost';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useInfraStatusQuery, useInfraConfigQuery, useEnginesQuery, useCurrentEngineQuery } from '../hooks/queries';
+import { savedBuiltIn, useInfraConfigForm } from '../hooks/useInfraConfigForm';
+import { useConfigSave } from '../hooks/useConfigSave';
+import { useRestartFlow } from '../hooks/useRestartFlow';
+import { useDataBackup } from '../hooks/useDataBackup';
+import { PageHeader } from '../components/PageHeader';
+import { Modal } from '../components/Modal';
+import { EngineFeatureChips } from '../components/EngineFeatureChips';
+import {
+  CAPABILITY_LABELS,
+  DEFAULT_ENGINE,
+  ENGINE_PROFILES,
+  ENGINE_SPECIFIC_CAPABILITIES,
+  engineDisplayName,
+  isEngineId,
+} from '../utils/engineCapabilities';
+import { useToast } from '../hooks/useToast';
+import './Infrastructure.css';
+
+import folderIcon from '../assets/icons/folder.svg';
+import s3Icon from '../assets/icons/s3.svg';
+
+interface QueueStats {
+  pending: number;
+  completed: number;
+  failed: number;
+}
+
+// The key that holds each managed profile's host.
+const HOST_KEY: Record<string, string> = { postgres: 'DATABASE_HOST', redis: 'REDIS_HOST', minio: 'S3_ENDPOINT' };
+
+// The settings a built-in save writes (or drops) for the bundled container while their fields are hidden; one the
+// environment pins still wins at boot, so its note moves under the Use Built-in toggle.
+const BUILT_IN_DETAIL_KEYS = {
+  postgres: [
+    'DATABASE_PORT',
+    'DATABASE_USERNAME',
+    'DATABASE_PASSWORD',
+    'DATABASE_NAME',
+    'DATABASE_POOL_SIZE',
+    'POSTGRES_SCHEMA',
+    'DATABASE_SSL',
+    'DATABASE_SSL_REJECT_UNAUTHORIZED',
+  ],
+  redis: ['REDIS_PORT', 'REDIS_PASSWORD'],
+  minio: ['S3_BUCKET', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'],
+};
+
+/** The host the next boot dials for a profile, as GET /config reports it: the environment's, else the saved one. */
+const nextBootHost = (profile: string, config: SavedConfig): string =>
+  profile === 'postgres' ? config.database.host : profile === 'redis' ? config.redis.host : config.storage.s3Endpoint;
+
+/**
+ * The host a save wrote for a profile whose host the environment does not pin, taken from what it sent the way the
+ * section writers (src/modules/infra/config-sections.ts) write it, for when the config cannot be read back: the host
+ * sent, or '' where the save drops it. A built-in choice the new configuration uses is in the save's profiles, which
+ * the restart starts rather than stops, so the host sent beside it does not matter.
+ */
+function writtenHost(profile: string, sent: SaveConfigPayload): string | undefined {
+  if (profile === 'postgres') return sent.database?.host;
+  if (profile === 'minio') return sent.storage?.type === 'local' ? '' : sent.storage?.s3Endpoint;
+  // Consumer pins and the retained cache profile decide whether Redis is unused below.
+  return sent.redis?.host;
+}
+
+export function Infrastructure() {
+  const { t } = useTranslation();
+  useDocumentTitle(t('infrastructure.title'));
+  const toast = useToast();
+  const { isAdmin } = useRole();
+  const { data: infraStatus, isLoading: loading } = useInfraStatusQuery();
+  const { data: savedConfig, isLoading: configLoading } = useInfraConfigQuery();
+  const { data: engines = [] } = useEnginesQuery();
+  const { data: currentEngineData } = useCurrentEngineQuery();
+  const currentEngine = currentEngineData?.engineType ?? '';
+  // The engine the operator picked on a card and has not confirmed yet (the QR-rescan dialog is open).
+  const [pendingEngine, setPendingEngine] = useState<string | null>(null);
+  const engineName = (id: string) => engineDisplayName(id, engines.find(e => e.id === id)?.name);
+  // ENGINE_TYPE set in the process env/.env pins the engine: the cards cannot change it then.
+  const enginePinned = Boolean(infraStatus?.envPinned?.includes('ENGINE_TYPE'));
+  const footerRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    const stack = document.querySelector<HTMLElement>('.toast-container');
+    if (!footer || !stack) return;
+    const reserveSpace = () => {
+      const stackRect = stack.getBoundingClientRect();
+      const action = footer.querySelector('button')?.getBoundingClientRect();
+      const overlaps =
+        toast.toasts.length > 0 &&
+        action &&
+        action.bottom > stackRect.top &&
+        action.top < stackRect.bottom &&
+        action.right > stackRect.left &&
+        action.left < stackRect.right;
+      footer.style.setProperty(
+        '--toast-stack-height',
+        toast.toasts.length ? `${window.innerHeight - stackRect.top}px` : '0px',
+      );
+      // Extra scroll space alone would leave an already visible action under a newly added toast.
+      if (overlaps) footer.scrollIntoView({ block: 'end' });
+    };
+    reserveSpace();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserveSpace);
+    observer?.observe(stack);
+    return () => observer?.disconnect();
+  }, [loading, configLoading, infraStatus, savedConfig, toast.toasts.length]);
+
+  const configForm = useInfraConfigForm(infraStatus, savedConfig);
+  // The restart about to run applies a different engine than the one running now.
+  const engineSwitchPending = Boolean(currentEngine) && configForm.engineConfig.type !== currentEngine;
+  const queryClient = useQueryClient();
+  // The saved config as the page first read it. A save refetches the saved config (so the pending-restart
+  // notes see it), but until a restart the database still running is the one read here.
+  const loadedConfig = useRef<SavedConfig | undefined>(undefined);
+  useEffect(() => {
+    if (savedConfig && !loadedConfig.current) loadedConfig.current = savedConfig;
+  }, [savedConfig]);
+  const restartFlow = useRestartFlow();
+  const dataBackup = useDataBackup();
+  const exportButtonRef = useRef<HTMLButtonElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const restartBackupButtonRef = useRef<HTMLButtonElement | null>(null);
+  const backupFocusRef = useRef<'export' | 'import' | 'restart-export' | null>(null);
+  const wasMigratingRef = useRef(false);
+
+  useEffect(() => {
+    const wasMigrating = wasMigratingRef.current;
+    wasMigratingRef.current = dataBackup.migrating;
+    if (!wasMigrating || dataBackup.migrating) return;
+    const target = backupFocusRef.current;
+    backupFocusRef.current = null;
+    if (document.activeElement !== null && document.activeElement !== document.body) return;
+    const el =
+      target === 'export'
+        ? exportButtonRef.current
+        : target === 'import'
+          ? importInputRef.current
+          : target === 'restart-export'
+            ? restartBackupButtonRef.current
+            : null;
+    // The page may have been scrolled elsewhere while the backup ran; restoring focus must not pull it back.
+    el?.focus({ preventScroll: true });
+  }, [dataBackup.migrating]);
+
+  // Reads dbConfig/storageConfig (from configForm) plus infraStatus/savedConfig to decide whether the
+  // just-saved config crosses to a different backend, then hands the restart flow everything it needs
+  // to open — the one-way edge between the save and restart hooks.
+  const configSave = useConfigSave({
+    buildPayload: configForm.buildSavePayload,
+    onSaved: async (profiles, sent) => {
+      // Flag a backend switch so the restart modal can warn about the empty-database / orphaned-media data
+      // move before it happens. A switch is a next boot that connects somewhere else than the server does
+      // now: another type, host, port or database name, or another S3 endpoint or bucket. The next boot
+      // connects to a value the environment pins whatever the form says, and to the bundled container for
+      // a built-in choice; two spellings of that container are one host. Whether it runs right now is no part
+      // of it: a stopped one is started again on the same volume. /status reports the type, host, endpoint and
+      // bucket in use; the port and the database name are not on it, so those compare with the saved config as
+      // the page loaded it. A key with nothing saved reads '', and runs on the same fallback the form was seeded
+      // with. A new local path is no switch.
+      const loaded = loadedConfig.current;
+      const pinned = (key: string) => (infraStatus?.envPinned?.includes(key) ? loaded : undefined);
+      const db = configForm.dbConfig;
+      const dbType = pinned('DATABASE_TYPE')?.database.type ?? db.type;
+      const dbHost =
+        (pinned('DATABASE_HOST')?.database.host ?? (db.builtIn ? 'postgres' : db.host.trim())) || 'localhost';
+      // The database name the save writes: the form's for an external server; for a built-in one the name the server
+      // keeps, the saved config's where its host already reaches the bundled container, else the one the bundled
+      // container serves now (the page loaded it), else zaplink.
+      const dbName = db.builtIn
+        ? (namesBundledContainer('postgres', savedConfig?.database.host) && savedConfig?.database.type === 'postgres'
+            ? savedConfig.database.database
+            : infraStatus?.database.type === 'postgres' && namesBundledContainer('postgres', infraStatus.database.host)
+              ? loaded?.database.database
+              : '') || 'zaplink'
+        : db.database;
+      const dbRetarget =
+        !!loaded &&
+        ((!db.builtIn && !pinned('DATABASE_PORT') && db.port !== (loaded.database.port || '5432')) ||
+          (!pinned('DATABASE_NAME') && dbName !== (loaded.database.database || 'zaplink')));
+      const dbSwitch =
+        !!infraStatus &&
+        (dbType !== infraStatus.database.type ||
+          (dbType === 'postgres' && (!sameHost('postgres', dbHost, infraStatus.database.host) || dbRetarget)));
+      const storage = configForm.storageConfig;
+      const storageType = pinned('STORAGE_TYPE')?.storage.type ?? storage.type;
+      // The storage section takes the bundled bucket for a flag sent as true only: beside a pinned endpoint an untouched
+      // toggle is left out of the save, and the stored bucket stays. It stays under the flag too when the saved config
+      // (the file this save replaced) already reaches the bundled MinIO, which then serves that bucket, and else the
+      // bucket the bundled MinIO serves now does.
+      const storageBuiltIn = sent.storage?.builtIn === true;
+      const keepsBucket = namesBundledContainer('minio', savedConfig?.storage.s3Endpoint);
+      const servesBucket =
+        infraStatus?.storage.type === 's3' && namesBundledContainer('minio', infraStatus.storage.endpoint);
+      const endpoint =
+        pinned('S3_ENDPOINT')?.storage.s3Endpoint ?? (storageBuiltIn ? 'http://minio:9000' : storage.s3Endpoint);
+      const bucket =
+        (pinned('S3_BUCKET')?.storage.s3Bucket ??
+          (storageBuiltIn
+            ? keepsBucket
+              ? savedConfig?.storage.s3Bucket
+              : servesBucket
+                ? infraStatus?.storage.bucket
+                : 'zaplink'
+            : storage.s3Bucket)) ||
+        'zaplink';
+      const storageSwitch =
+        !!infraStatus &&
+        (storageType !== infraStatus.storage.type ||
+          (storageType === 's3' &&
+            (!sameHost('minio', endpoint, infraStatus.storage.endpoint ?? '') ||
+              bucket !== (infraStatus.storage.bucket || 'zaplink'))));
+      // The built-in containers running now, so the restart stops each one the new config dropped. With no
+      // status read there is nothing to go on, and nothing is stopped.
+      const running = [
+        infraStatus?.database.type === 'postgres' && infraStatus.database.builtIn && 'postgres',
+        infraStatus?.redis.builtIn && 'redis',
+        infraStatus?.storage.type === 's3' && infraStatus.storage.builtIn && 'minio',
+      ].filter((p): p is string => typeof p === 'string');
+      // A bundled container ZapLink created that no boot uses while the environment pins its host elsewhere: the
+      // restart stops it. The server starts nothing for that host whatever the save asked, so it is no start either.
+      const pinnedAway = (
+        [
+          ['postgres', infraStatus?.database.running, pinned('DATABASE_HOST')?.database.host],
+          ['redis', infraStatus?.redis.running, pinned('REDIS_HOST')?.redis.host],
+          ['minio', infraStatus?.storage.running, pinned('S3_ENDPOINT')?.storage.s3Endpoint],
+        ] as const
+      )
+        .filter(([profile, up, host]) => up && host !== undefined && !namesBundledContainer(profile, host))
+        .map(([profile]): string => profile);
+      // The server keeps a container only while the next boot both uses its datastore and dials its host: the host the
+      // environment pins, else the one in the file this save wrote. A pinned host is the one the page loaded; the saved
+      // one the page reads back, or takes from what the save sent when that read fails. It asks for (and names) the
+      // containers whose datastore is switched off, then those neither host reaches, and none whose host it cannot
+      // tell, so the dialog lists what the server stops. The form is seeded once, so the refetch keeps any edit in
+      // progress.
+      const saved = await queryClient
+        .fetchQuery({ queryKey: ['infra', 'config'], queryFn: infraApi.getConfig, staleTime: 0 })
+        .catch(() => undefined);
+      const redisEnabled = infraStatus?.envPinned?.includes('REDIS_ENABLED')
+        ? infraStatus.redis.enabled
+        : (saved?.redis.enabled ?? sent.redis?.enabled);
+      const queueEnabled = infraStatus?.envPinned?.includes('QUEUE_ENABLED')
+        ? infraStatus.queue.enabled
+        : (saved?.queue.enabled ?? sent.queue?.enabled);
+      const toStop = [...running, ...pinnedAway].filter(profile => {
+        // An inactive datastore never dials its pinned host. A retained Redis profile may still serve the cache.
+        const unused =
+          profile === 'postgres'
+            ? dbType !== 'postgres'
+            : profile === 'minio'
+              ? storageType !== 's3'
+              : sent.redis?.builtIn === true &&
+                redisEnabled === false &&
+                queueEnabled === false &&
+                !profiles.includes('redis');
+        if (unused) return true;
+        const config = pinned(HOST_KEY[profile]) ?? saved;
+        const host = config ? nextBootHost(profile, config) : writtenHost(profile, sent);
+        return host !== undefined && !namesBundledContainer(profile, host);
+      });
+      restartFlow.open({
+        profiles: profiles.filter(p => !pinnedAway.includes(p)),
+        running: toStop,
+        dbSwitch,
+        storageSwitch,
+      });
+    },
+  });
+
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreSaveFocus = useRef(false);
+  useEffect(() => {
+    if (configSave.saving || restartFlow.showRestartModal || !restoreSaveFocus.current) return;
+    restoreSaveFocus.current = false;
+    if (document.activeElement === null || document.activeElement === document.body) {
+      saveButtonRef.current?.focus({ preventScroll: true });
+    }
+  }, [configSave.saving, restartFlow.showRestartModal]);
+
+  const [queueStats, setQueueStats] = useState({
+    webhooks: { pending: 0, completed: 0, failed: 0 } as QueueStats,
+  });
+
+  // LIVE indicators (not editable) — always reflect the running process, every refetch.
+  useEffect(() => {
+    if (!infraStatus) return;
+    configForm.setRedisConnected(infraStatus.redis.connected);
+    setQueueStats({ webhooks: infraStatus.queue.webhooks });
+    // configForm is a fresh object every render; only infraStatus identity should re-arm this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [infraStatus]);
+
+  // Data backup / restore, used to carry data across a database switch (#488). It reads and writes the
+  // running database only, so it is offered even when the saved config could not be read.
+  const dataBackupRow = (
+    <div className="data-migration-row">
+      <div>
+        <strong>{t('infrastructure.migration.backupTitle')}</strong>
+        <small>{t('infrastructure.migration.backupHint')}</small>
+      </div>
+      <div className="data-migration-actions">
+        <button
+          ref={exportButtonRef}
+          className="btn-secondary btn-sm"
+          onClick={() => {
+            backupFocusRef.current = 'export';
+            void dataBackup.exportBackup();
+          }}
+          disabled={dataBackup.migrating}
+        >
+          {dataBackup.migrating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {t('infrastructure.migration.export')}
+        </button>
+        <label className="btn-secondary btn-sm" style={{ cursor: dataBackup.migrating ? 'default' : 'pointer' }}>
+          <Upload size={14} />
+          {t('infrastructure.migration.import')}
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden-file-input"
+            disabled={dataBackup.migrating}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                backupFocusRef.current = 'import';
+                void dataBackup.importBackup(file);
+              }
+              e.target.value = '';
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+
+  if (loading || configLoading) {
+    return (
+      <div className="infrastructure-page infra-loading">
+        <Loader2 className="animate-spin" size={32} />
+      </div>
+    );
+  }
+
+  // If the live infrastructure status can't be loaded, do NOT render the editable form: it would seed
+  // from component defaults (sqlite/local/built-in:false) and a Save could flip a running backend to
+  // external+empty. Show an error + retry instead. (#488)
+  // Likewise without the saved config: the database, storage and engine detail fields hydrate only
+  // from it, and a Save sends every one of them.
+  // Keyed on missing data, not on the query's error flag: a failed background refetch keeps the last
+  // good data, and replacing the page then would unmount the form and a restart already in progress.
+  if (!infraStatus || !savedConfig) {
+    const configOnly = !!infraStatus;
+    return (
+      <div className="infrastructure-page">
+        <PageHeader title={t('infrastructure.title')} subtitle={t('infrastructure.subtitle')} />
+        <div className="infra-card status-error-card">
+          <AlertTriangle size={32} className="status-error-icon" />
+          <p className="status-error-text">
+            {t(configOnly ? 'infrastructure.configLoadError' : 'infrastructure.statusLoadError')}
+          </p>
+          <button className="btn-secondary status-error-retry" onClick={() => window.location.reload()}>
+            {t('common.retry')}
+          </button>
+        </div>
+        {configOnly && <section className="infra-card">{dataBackupRow}</section>}
+      </div>
+    );
+  }
+
+  // A control here can be ineffective for two different reasons, and they need OPPOSITE advice:
+  //   - an environment variable (or a project .env) supplies the value, so it outranks anything saved
+  //     here until the deployment changes — the gateway reports this in `envPinned`;
+  //   - the value WAS saved and the server has not been restarted yet — a restart applies it.
+  // Both look identical as "running differs from saved", which is why drift alone used to be reported
+  // as an environment pin even on a stock stack with no variable set anywhere (#1082).
+  // Pin-only: PUPPETEER_ARGS cannot go through settingNote, because the running list is re-tokenized and
+  // gains the pinned `--lang` flag, so it never string-compares equal to the saved value. The headless
+  // flag and the two paths do have a running and a saved value, but show only a reported pin as well, and so
+  // do the three datastore hosts, under the Use Built-in toggle a pinned host overrides, and every other setting a
+  // save writes, after the row that holds its field (a note inside a narrow port field would not fit), or under the
+  // Use Built-in toggle while it hides that field.
+  // Each pinned setting gets a small lock chip naming its variable, with the full explanation as its tooltip; the
+  // card's single banner (pinBanner) says once that these values come from the server configuration.
+  const isPinned = (envKey: string) => !!infraStatus?.envPinned?.includes(envKey);
+  const pinNote = (envKey: string, note = 'infrastructure.envPinNote') => {
+    if (!isPinned(envKey)) return null;
+    const text = t(note, { name: envKey });
+    return (
+      <span className="env-pin-note" data-env-var={envKey} title={text} aria-label={text}>
+        <Lock size={12} aria-hidden="true" />
+        <code>{envKey}</code>
+      </span>
+    );
+  };
+  // One calm banner per card listing the variables the environment pins for it, instead of a warning per field.
+  const dbBuiltInLocked = isPinned('POSTGRES_BUILTIN') && isPinned('DATABASE_HOST');
+  const pinBanner = (prefixes: readonly string[]) => {
+    const keys = (infraStatus?.envPinned ?? []).filter(key => prefixes.some(prefix => key.startsWith(prefix)));
+    if (keys.length === 0) return null;
+    return (
+      <div className="env-pin-banner" role="note">
+        <Info size={16} aria-hidden="true" />
+        <div>
+          <p>{t('infrastructure.envPinBanner')}</p>
+          <details>
+            <summary>{t('infrastructure.envPinWhich', { count: keys.length })}</summary>
+            <ul className="env-pin-chips">
+              {keys.map(key => (
+                <li key={key}>
+                  <code>{key}</code>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      </div>
+    );
+  };
+  const builtInDetailNotes = (profile: keyof typeof BUILT_IN_DETAIL_KEYS) =>
+    BUILT_IN_DETAIL_KEYS[profile].map(key => <Fragment key={key}>{pinNote(key)}</Fragment>);
+  // A pinned *_BUILTIN flag decides only whether the boot starts the bundled container, at every boot while it is
+  // true; whether the service uses it follows its host. Beside a host pinned elsewhere the boot starts nothing.
+  const flagPinNote = (flagKey: string, profile: string) =>
+    pinNote(
+      flagKey,
+      infraStatus.envPinned?.includes(HOST_KEY[profile]) &&
+        !namesBundledContainer(profile, nextBootHost(profile, savedConfig))
+        ? 'infrastructure.envPinNote'
+        : 'infrastructure.envPinFlagNote',
+    );
+  const settingNote = (envKey: string, running: unknown, saved: unknown) => {
+    if (infraStatus?.envPinned?.includes(envKey)) return pinNote(envKey);
+    // Hidden only while the save request is in flight (`configSave.saving`).
+    const pendingRestart = !configSave.saving && !!infraStatus && !!savedConfig && running !== saved;
+    return pendingRestart ? (
+      <p className="env-pin-note restart-note">
+        <AlertTriangle size={14} /> {t('infrastructure.pendingRestartNote')}
+      </p>
+    ) : null;
+  };
+
+  // A switch between a bundled container and an external service that was saved and not restarted for. The
+  // toggle shows what was saved, so the note names what runs. It needs the same service running and saved: a
+  // pending type change has its own note, and a flag says nothing about a service that is not running. A saved
+  // built-in choice switches nothing while the server already dials the bundled host: its container is only
+  // stopped, and the restart starts it again.
+  const builtInNote = (sameService: boolean, running: boolean, saved: boolean, dialsBundled: boolean) =>
+    sameService && !configSave.saving && running !== saved && !(saved && dialsBundled) ? (
+      <p className="env-pin-note restart-note">
+        <AlertTriangle size={14} />{' '}
+        {t(saved ? 'infrastructure.pendingBuiltInNote' : 'infrastructure.pendingExternalNote')}
+      </p>
+    ) : null;
+
+  // Built-in services the restart failed to start or stop. Shown whether or not the server came back:
+  // a service that failed to start is the likeliest reason it did not.
+  const restartWarningBox = restartFlow.restartWarnings.length > 0 && (
+    <div className="migration-warning" role="alert">
+      <AlertTriangle size={18} />
+      <div>
+        {restartFlow.restartWarnings.map((warning, index) => (
+          <p key={index}>{warning}</p>
+        ))}
+      </div>
+    </div>
+  );
+
+  const queueStatsBlock = (
+    <div className="queue-stats">
+      <h3>{t('infrastructure.redis.statsTitle')}</h3>
+      <div className="stats-row">
+        <div className="queue-stat-card">
+          <h4>{t('infrastructure.redis.webhookQueue')}</h4>
+          <div className="stat-values">
+            <div className="stat-item pending">
+              <span className="value">{queueStats.webhooks.pending}</span>
+              <span className="label">{t('infrastructure.redis.pending')}</span>
+            </div>
+            <div className="stat-item completed">
+              <span className="value">{queueStats.webhooks.completed.toLocaleString()}</span>
+              <span className="label">{t('infrastructure.redis.completed')}</span>
+            </div>
+            <div className="stat-item failed">
+              <span className="value">{queueStats.webhooks.failed}</span>
+              <span className="label">{t('infrastructure.redis.failed')}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* The board needs Redis and the queue running, and an admin: the button opens it in a new tab after
+          trading the dashboard's key for a short-lived HttpOnly board cookie (POST /admin/queues/session). */}
+      {isAdmin && infraStatus.queue.enabled && infraStatus.redis.enabled && (
+        <div className="queue-actions">
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => {
+              infraApi
+                .openQueueBoardSession()
+                .then(() => window.open(`${API_BASE_URL}/admin/queues`, '_blank', 'noopener'))
+                .catch((error: unknown) =>
+                  toast.error(
+                    t('infrastructure.redis.bullMqOpenFailed'),
+                    error instanceof Error ? error.message : undefined,
+                  ),
+                );
+            }}
+          >
+            <ExternalLink size={16} />
+            {t('infrastructure.redis.viewBullMq')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // docker-compose pins Redis on, its host and the queue: the card is a read-only summary then.
+  const redisManaged = isPinned('REDIS_ENABLED') && isPinned('REDIS_HOST') && isPinned('QUEUE_ENABLED');
+
+  return (
+    <div className="infrastructure-page">
+      <PageHeader title={t('infrastructure.title')} subtitle={t('infrastructure.subtitle')} />
+
+      <div className="infra-sections">
+        {/* Database */}
+        <section className="infra-card">
+          <div className="card-header">
+            <div className="header-left">
+              <Database size={20} />
+              <h2>{t('infrastructure.database.title')}</h2>
+            </div>
+            <span className="status-indicator connected">● PostgreSQL</span>
+          </div>
+          {pinBanner(['DATABASE_', 'POSTGRES_'])}
+          {settingNote('DATABASE_TYPE', infraStatus.database.type, savedConfig?.database.type)}
+
+          <>
+            {/* docker-compose pins both the flag and the host, so the toggle can change nothing: a status row. */}
+            {dbBuiltInLocked ? (
+              <div className="toggle-row toggle-row-spaced readonly-status-row">
+                <div className="toggle-info">
+                  <span id="status-db-builtin">{t('infrastructure.database.builtInStatus')}</span>
+                </div>
+                <span className="readonly-status">
+                  <Lock size={12} aria-hidden="true" />
+                  {configForm.dbConfig.builtIn ? t('infrastructure.statusOn') : t('infrastructure.statusOff')}
+                  <input
+                    type="checkbox"
+                    className="visually-hidden-input"
+                    aria-labelledby="status-db-builtin"
+                    checked={configForm.dbConfig.builtIn}
+                    disabled
+                    readOnly
+                  />
+                </span>
+              </div>
+            ) : (
+              <div className="toggle-row toggle-row-spaced">
+                <div className="toggle-info">
+                  <span id="toggle-db-builtin">{t('infrastructure.database.useBuiltIn')}</span>
+                  <small>{t('infrastructure.database.builtInDesc')}</small>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    aria-labelledby="toggle-db-builtin"
+                    checked={configForm.dbConfig.builtIn}
+                    onChange={e => configForm.updateDbConfig('builtIn', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+            )}
+
+            {builtInNote(
+              infraStatus.database.type === 'postgres' && savedConfig.database.type === 'postgres',
+              infraStatus.database.builtIn,
+              savedBuiltIn(savedConfig.database, infraStatus.database.builtIn),
+              namesBundledContainer('postgres', infraStatus.database.host),
+            )}
+            {pinNote('DATABASE_HOST')}
+            {flagPinNote('POSTGRES_BUILTIN', 'postgres')}
+            {configForm.dbConfig.builtIn && builtInDetailNotes('postgres')}
+
+            {!configForm.dbConfig.builtIn && (
+              <div className="config-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-1">{t('common.host')}</label>
+                    <input
+                      id="infra-1"
+                      readOnly={isPinned('DATABASE_HOST')}
+                      type="text"
+                      value={configForm.dbConfig.host}
+                      onChange={e => configForm.updateDbConfig('host', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group small">
+                    <label htmlFor="infra-2">{t('common.port')}</label>
+                    <input
+                      id="infra-2"
+                      readOnly={isPinned('DATABASE_PORT')}
+                      type="text"
+                      value={configForm.dbConfig.port}
+                      onChange={e => configForm.updateDbConfig('port', e.target.value)}
+                    />
+                  </div>
+                </div>
+                {pinNote('DATABASE_PORT')}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-3">{t('common.username')}</label>
+                    <input
+                      id="infra-3"
+                      readOnly={isPinned('DATABASE_USERNAME')}
+                      type="text"
+                      value={configForm.dbConfig.username}
+                      onChange={e => configForm.updateDbConfig('username', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="infra-4">{t('common.password')}</label>
+                    <input
+                      id="infra-4"
+                      readOnly={isPinned('DATABASE_PASSWORD')}
+                      type="password"
+                      autoComplete="new-password"
+                      value={configForm.dbConfig.password}
+                      onChange={e => configForm.updateDbConfig('password', e.target.value)}
+                    />
+                  </div>
+                </div>
+                {pinNote('DATABASE_USERNAME')}
+                {pinNote('DATABASE_PASSWORD')}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-5">{t('infrastructure.database.dbName')}</label>
+                    <input
+                      id="infra-5"
+                      readOnly={isPinned('DATABASE_NAME')}
+                      type="text"
+                      value={configForm.dbConfig.database}
+                      onChange={e => configForm.updateDbConfig('database', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group small">
+                    <label htmlFor="infra-6">{t('infrastructure.database.poolSize')}</label>
+                    <input
+                      id="infra-6"
+                      readOnly={isPinned('DATABASE_POOL_SIZE')}
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={Number.isNaN(configForm.dbConfig.poolSize) ? '' : configForm.dbConfig.poolSize}
+                      onChange={e => {
+                        // An emptied field stays NaN and is left out of the save; a typed size is kept
+                        // inside the range the field offers.
+                        const size = parseInt(e.target.value);
+                        configForm.updateDbConfig(
+                          'poolSize',
+                          Number.isNaN(size) ? size : Math.min(50, Math.max(1, size)),
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+                {pinNote('DATABASE_NAME')}
+                {pinNote('DATABASE_POOL_SIZE')}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="infra-7">{t('infrastructure.database.schema')}</label>
+                    <input
+                      id="infra-7"
+                      readOnly={isPinned('POSTGRES_SCHEMA')}
+                      type="text"
+                      value={configForm.dbConfig.schema}
+                      onChange={e => configForm.updateDbConfig('schema', e.target.value)}
+                      placeholder="public"
+                    />
+                    <small>{t('infrastructure.database.schemaDesc')}</small>
+                  </div>
+                </div>
+                {pinNote('POSTGRES_SCHEMA')}
+                <div className="toggle-row">
+                  <div className="toggle-info">
+                    <span id="toggle-db-ssl">{t('infrastructure.database.ssl')}</span>
+                    <small>{t('infrastructure.database.sslDesc')}</small>
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      aria-labelledby="toggle-db-ssl"
+                      checked={configForm.dbConfig.sslEnabled}
+                      onChange={e => configForm.updateDbConfig('sslEnabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                {pinNote('DATABASE_SSL')}
+                {configForm.dbConfig.sslEnabled && (
+                  <div className="toggle-row">
+                    <div className="toggle-info">
+                      <span id="toggle-db-ssl-reject">{t('infrastructure.database.sslRejectUnauthorized')}</span>
+                      <small>{t('infrastructure.database.sslRejectUnauthorizedDesc')}</small>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        aria-labelledby="toggle-db-ssl-reject"
+                        checked={configForm.dbConfig.sslRejectUnauthorized}
+                        onChange={e => configForm.updateDbConfig('sslRejectUnauthorized', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                )}
+                {configForm.dbConfig.sslEnabled && pinNote('DATABASE_SSL_REJECT_UNAUTHORIZED')}
+              </div>
+            )}
+          </>
+
+          <div className="empty-state-card">
+            <Database size={32} className="empty-state-icon success" />
+            <p className="empty-state-title">{t('infrastructure.database.migrationsTitle')}</p>
+            <p className="migrations-status">
+              <CheckCircle size={16} />
+              {t('infrastructure.database.migrationsStatus')}
+            </p>
+            <p className="muted-hint">{t('infrastructure.database.migrationsHint')}</p>
+          </div>
+
+          {dataBackupRow}
+        </section>
+
+        {/* Engine */}
+        <section className="infra-card">
+          <div className="card-header">
+            <div className="header-left">
+              <Cpu size={20} />
+              <h2>{t('infrastructure.engine.title')}</h2>
+            </div>
+            <span className="status-indicator connected">
+              ● {engineName(currentEngine || configForm.engineConfig.type)}
+            </span>
+          </div>
+          {/* The radio re-seeds from the RUNNING engine, so without this a pinned engine silently
+              snapped back after a restart and read as "the save did nothing" (#1082). */}
+          {pinBanner(['ENGINE_', 'PUPPETEER_', 'SESSION_DATA_PATH', 'WWEBJS_'])}
+          {settingNote('ENGINE_TYPE', infraStatus.engine.type, savedConfig?.engine.type)}
+
+          {/* Two engine cards. Picking the engine that is not running asks first: WhatsApp links are
+              engine-specific, so every number has to scan its QR again after the switch. */}
+          <div className="radio-group engine-cards">
+            {engines.map(engine => {
+              const profile = isEngineId(engine.id) ? ENGINE_PROFILES[engine.id] : undefined;
+              const running = engine.id === currentEngine;
+              const selected = configForm.engineConfig.type === engine.id;
+              return (
+                <label
+                  key={engine.id}
+                  className={`radio-option engine-card ${selected ? 'selected' : ''} ${enginePinned ? 'disabled' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="engineType"
+                    checked={selected}
+                    disabled={enginePinned}
+                    onChange={() => {
+                      if (currentEngine && engine.id !== currentEngine) setPendingEngine(engine.id);
+                      else configForm.updateEngineConfig('type', engine.id);
+                    }}
+                  />
+                  <span className="engine-card-title">
+                    <Cpu size={16} aria-hidden="true" className="engine-card-icon" />
+                    {engineName(engine.id)}
+                    {running && <em className="engine-badge active">{t('infrastructure.engine.active')}</em>}
+                    {engine.id === DEFAULT_ENGINE && (
+                      <em className="engine-badge">{t('infrastructure.engine.default')}</em>
+                    )}
+                  </span>
+                  <small>
+                    {engine.library
+                      ? `${engine.library.name} ${engine.library.version}`
+                      : t('infrastructure.engine.builtIn')}
+                  </small>
+                  {profile && (
+                    <span className="engine-card-body">
+                      <span className="engine-card-summary">
+                        {t(`infrastructure.engine.profiles.${engine.id === 'baileys' ? 'baileys' : 'wwjs'}.summary`)}
+                      </span>
+                      <span className="engine-card-facts">
+                        <span className="engine-fact-key">{t('infrastructure.engine.ramPerNumber')}</span>
+                        <span className="engine-fact-value">{profile.ramPerNumber}</span>
+                        <span className="engine-fact-key">{t('infrastructure.engine.recommendedFor')}</span>
+                        <span className="engine-fact-value">
+                          {t(
+                            `infrastructure.engine.profiles.${engine.id === 'baileys' ? 'baileys' : 'wwjs'}.recommendedFor`,
+                          )}
+                        </span>
+                      </span>
+                      <EngineFeatureChips
+                        label={t('infrastructure.engine.onlyHere')}
+                        features={Object.entries(ENGINE_SPECIFIC_CAPABILITIES)
+                          .filter(([, by]) => by.includes(profile.id))
+                          .map(([cap]) => CAPABILITY_LABELS[cap] ?? cap)}
+                      />
+                    </span>
+                  )}
+                  <span className={`engine-card-action ${running ? 'active' : ''}`}>
+                    {running
+                      ? t('infrastructure.engine.active')
+                      : selected
+                        ? t('infrastructure.engine.selected')
+                        : t('infrastructure.engine.switchToThis')}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {/* One note: the QR re-scan first, then when a switch applies, and the browser-less hint for Baileys. */}
+          <div className="engine-note" role="note">
+            <AlertTriangle size={16} aria-hidden="true" />
+            <p>
+              {t('infrastructure.engine.rescanNote')} {t('infrastructure.engine.restartNote')}
+              {configForm.engineConfig.type !== 'whatsapp-web.js' && <> {t('infrastructure.engine.noBrowser')}</>}
+            </p>
+          </div>
+
+          {/* The WhatsApp Web build the gateway resolves for sessions to pin, distinct from the library version above
+              (#488). A session whose pinned page cannot be downloaded or written starts unpinned, and a page can
+              still run another build; each session logs the one it runs at ready. */}
+          {infraStatus?.engine.webVersion !== undefined && (
+            <p className="engine-web-version">
+              {t('infrastructure.engine.webVersion')}:{' '}
+              <code>{infraStatus.engine.webVersion ?? t('infrastructure.engine.webVersionNative')}</code>
+              {infraStatus.engine.webVersionSource && (
+                <span className="muted">
+                  {' '}
+                  ({t(`infrastructure.engine.webVersionSource.${infraStatus.engine.webVersionSource}`)})
+                </span>
+              )}
+            </p>
+          )}
+
+          {configForm.engineConfig.type === 'whatsapp-web.js' ? (
+            <div className="config-form">
+              <div className="toggle-row">
+                <div className="toggle-info">
+                  <span id="toggle-engine-headless">{t('infrastructure.engine.headless')}</span>
+                  <small>{t('infrastructure.engine.headlessDesc')}</small>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    aria-labelledby="toggle-engine-headless"
+                    checked={configForm.engineConfig.headless}
+                    onChange={e => configForm.updateEngineConfig('headless', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+              {pinNote('PUPPETEER_HEADLESS')}
+              <div className="form-group">
+                <label htmlFor="infra-8">{t('infrastructure.engine.sessionDataPath')}</label>
+                <input
+                  id="infra-8"
+                  readOnly={isPinned('SESSION_DATA_PATH')}
+                  type="text"
+                  value={configForm.engineConfig.sessionDataPath}
+                  onChange={e => configForm.updateEngineConfig('sessionDataPath', e.target.value)}
+                />
+                {pinNote('SESSION_DATA_PATH')}
+              </div>
+              <div className="form-group">
+                <label htmlFor="infra-9">{t('infrastructure.engine.browserArgs')}</label>
+                <input
+                  id="infra-9"
+                  readOnly={isPinned('PUPPETEER_ARGS')}
+                  type="text"
+                  value={configForm.engineConfig.browserArgs}
+                  onChange={e => configForm.updateEngineConfig('browserArgs', e.target.value)}
+                  placeholder="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu"
+                />
+                {pinNote('PUPPETEER_ARGS')}
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        {/* Redis */}
+        <section className="infra-card">
+          <div className="card-header">
+            <div className="header-left">
+              <Server size={20} />
+              <h2>{t('infrastructure.redis.title')}</h2>
+            </div>
+            {/* What runs now: connected, enabled but not connected, or off. A saved switch the server has not
+                restarted for says so, so the badge never contradicts the toggles below. */}
+            <span
+              className={`status-indicator ${
+                infraStatus.redis.enabled && infraStatus.redis.connected ? 'connected' : 'disconnected'
+              }`}
+            >
+              ●{' '}
+              {infraStatus.redis.enabled
+                ? infraStatus.redis.connected
+                  ? t('infrastructure.statusLabels.connected')
+                  : t('infrastructure.statusLabels.notConnected')
+                : t('infrastructure.statusLabels.disabled')}
+              {configForm.redisEnabled !== infraStatus.redis.enabled &&
+                ` · ${t('infrastructure.statusLabels.restartToApply')}`}
+            </span>
+          </div>
+          {pinBanner(['REDIS_', 'QUEUE_'])}
+          {!redisManaged && settingNote('REDIS_ENABLED', infraStatus.redis.enabled, savedConfig?.redis.enabled)}
+
+          {redisManaged ? (
+            <>
+              <div className="toggle-row readonly-status-row redis-managed-summary">
+                <div className="toggle-info">
+                  <span>{t('infrastructure.redis.managedTitle')}</span>
+                </div>
+                <span className="readonly-status">
+                  <Lock size={12} aria-hidden="true" />
+                  {[
+                    `${t('infrastructure.redis.short')}: ${configForm.redisEnabled ? t('infrastructure.statusOn') : t('infrastructure.statusOff')}`,
+                    configForm.redisConfig.builtIn
+                      ? t('infrastructure.redis.builtInContainer')
+                      : t('infrastructure.redis.externalServer', { host: configForm.redisConfig.host }),
+                    `${t('infrastructure.redis.queueShort')}: ${configForm.queueEnabled ? t('infrastructure.statusOn') : t('infrastructure.statusOff')}`,
+                  ].join(' · ')}
+                </span>
+              </div>
+              {configForm.queueEnabled && queueStatsBlock}
+            </>
+          ) : (
+            <>
+              <div
+                className="toggle-row"
+                style={{
+                  borderBottom: configForm.redisEnabled ? '1px solid var(--border)' : 'none',
+                  marginBottom: configForm.redisEnabled ? '1.5rem' : 0,
+                  paddingBottom: configForm.redisEnabled ? '1.25rem' : 0,
+                }}
+              >
+                <div className="toggle-info">
+                  <span id="toggle-redis-enable">{t('infrastructure.redis.enable')}</span>
+                  <small>{t('infrastructure.redis.enableDesc')}</small>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    aria-labelledby="toggle-redis-enable"
+                    checked={configForm.redisEnabled}
+                    onChange={e => configForm.setRedisEnabled(e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              {configForm.redisEnabled ? (
+                <>
+                  <div className="toggle-row toggle-row-spaced-bottom">
+                    <div className="toggle-info">
+                      <span id="toggle-redis-builtin">{t('infrastructure.redis.useBuiltIn')}</span>
+                      <small>{t('infrastructure.redis.builtInDesc')}</small>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        aria-labelledby="toggle-redis-builtin"
+                        checked={configForm.redisConfig.builtIn}
+                        onChange={e => configForm.updateRedisConfig('builtIn', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {builtInNote(
+                    infraStatus.redis.enabled && savedConfig.redis.enabled,
+                    infraStatus.redis.builtIn,
+                    savedBuiltIn(savedConfig.redis, infraStatus.redis.builtIn),
+                    namesBundledContainer('redis', infraStatus.redis.host),
+                  )}
+                  {pinNote('REDIS_HOST')}
+                  {flagPinNote('REDIS_BUILTIN', 'redis')}
+                  {pinNote('REDIS_TLS')}
+                  {pinNote('REDIS_USERNAME')}
+                  {configForm.redisConfig.builtIn && builtInDetailNotes('redis')}
+
+                  {!configForm.redisConfig.builtIn && (
+                    <div className="config-form">
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label htmlFor="infra-10">{t('common.host')}</label>
+                          <input
+                            id="infra-10"
+                            readOnly={isPinned('REDIS_HOST')}
+                            type="text"
+                            value={configForm.redisConfig.host}
+                            onChange={e => configForm.updateRedisConfig('host', e.target.value)}
+                          />
+                        </div>
+                        <div className="form-group small">
+                          <label htmlFor="infra-11">{t('common.port')}</label>
+                          <input
+                            id="infra-11"
+                            readOnly={isPinned('REDIS_PORT')}
+                            type="text"
+                            value={configForm.redisConfig.port}
+                            onChange={e => configForm.updateRedisConfig('port', e.target.value)}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="infra-12">{t('common.password')}</label>
+                          <input
+                            id="infra-12"
+                            readOnly={isPinned('REDIS_PASSWORD')}
+                            type="password"
+                            autoComplete="new-password"
+                            value={configForm.redisConfig.password}
+                            onChange={e => configForm.updateRedisConfig('password', e.target.value)}
+                            placeholder={t('infrastructure.redis.passwordOptional')}
+                          />
+                        </div>
+                      </div>
+                      {pinNote('REDIS_PORT')}
+                      {pinNote('REDIS_PASSWORD')}
+                    </div>
+                  )}
+
+                  <div className="toggle-row queue-toggle-row">
+                    <div className="toggle-info">
+                      <span id="toggle-queue-enable">{t('infrastructure.redis.queueTitle')}</span>
+                      <small>{t('infrastructure.redis.queueDesc')}</small>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        aria-labelledby="toggle-queue-enable"
+                        checked={configForm.queueEnabled}
+                        onChange={e => configForm.setQueueEnabled(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  {settingNote('QUEUE_ENABLED', infraStatus.queue.enabled, savedConfig.queue.enabled)}
+
+                  {configForm.queueEnabled && queueStatsBlock}
+                </>
+              ) : (
+                <div className="empty-state-card">
+                  <Server size={32} className="empty-state-icon muted" />
+                  <p className="empty-state-title">{t('infrastructure.redis.disabledTitle')}</p>
+                  <p className="muted-hint">{t('infrastructure.redis.disabledDesc')}</p>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* Storage */}
+        <section className="infra-card">
+          <div className="card-header">
+            <div className="header-left">
+              <HardDrive size={20} />
+              <h2>{t('infrastructure.storage.title')}</h2>
+            </div>
+            {(() => {
+              // S3 running but the backend isn't reachable → warn instead of a misleading green.
+              const s3Unreachable = infraStatus.storage.type === 's3' && infraStatus.storage.s3Available === false;
+              const cls = infraStatus.storage.type !== 's3' ? 'neutral' : s3Unreachable ? 'disconnected' : 'connected';
+              return (
+                <span className={`status-indicator ${cls}`}>
+                  ●{' '}
+                  {infraStatus.storage.type === 's3'
+                    ? s3Unreachable
+                      ? t('infrastructure.storage.s3Unreachable')
+                      : 'S3'
+                    : t('infrastructure.storage.local')}
+                </span>
+              );
+            })()}
+          </div>
+          {pinBanner(['STORAGE_', 'S3_', 'MINIO_'])}
+          {settingNote('STORAGE_TYPE', infraStatus.storage.type, savedConfig?.storage.type)}
+
+          <div className="radio-group">
+            <label className={`radio-option ${configForm.storageConfig.type === 'local' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                name="storageType"
+                checked={configForm.storageConfig.type === 'local'}
+                onChange={() => configForm.updateStorageConfig('type', 'local')}
+              />
+              <span className="option-title">
+                <img src={folderIcon} alt="" className="option-icon" />
+                {t('infrastructure.storage.local')}
+              </span>
+              <small>{t('infrastructure.storage.localDesc')}</small>
+            </label>
+            <label className={`radio-option ${configForm.storageConfig.type === 's3' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                name="storageType"
+                checked={configForm.storageConfig.type === 's3'}
+                onChange={() => configForm.updateStorageConfig('type', 's3')}
+              />
+              <span className="option-title">
+                <img src={s3Icon} alt="" className="option-icon" />
+                {t('infrastructure.storage.s3')}
+              </span>
+              <small>{t('infrastructure.storage.s3Desc')}</small>
+            </label>
+          </div>
+
+          <div className="config-form">
+            {configForm.storageConfig.type === 'local' && (
+              <div className="form-group">
+                <label htmlFor="infra-13">{t('infrastructure.storage.storagePath')}</label>
+                <input
+                  id="infra-13"
+                  readOnly={isPinned('STORAGE_LOCAL_PATH')}
+                  type="text"
+                  value={configForm.storageConfig.localPath}
+                  onChange={e => configForm.updateStorageConfig('localPath', e.target.value)}
+                />
+                {pinNote('STORAGE_LOCAL_PATH')}
+              </div>
+            )}
+
+            {configForm.storageConfig.type === 's3' && (
+              <>
+                <div className="toggle-row toggle-row-spaced">
+                  <div className="toggle-info">
+                    <span id="toggle-storage-builtin">{t('infrastructure.storage.useBuiltIn')}</span>
+                    <small>{t('infrastructure.storage.builtInDesc')}</small>
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      aria-labelledby="toggle-storage-builtin"
+                      checked={configForm.storageConfig.builtIn}
+                      onChange={e => configForm.updateStorageConfig('builtIn', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+
+                {builtInNote(
+                  infraStatus.storage.type === 's3' && savedConfig.storage.type === 's3',
+                  infraStatus.storage.builtIn,
+                  savedBuiltIn(savedConfig.storage, infraStatus.storage.builtIn),
+                  namesBundledContainer('minio', infraStatus.storage.endpoint),
+                )}
+                {pinNote('S3_ENDPOINT')}
+                {flagPinNote('MINIO_BUILTIN', 'minio')}
+                {configForm.storageConfig.builtIn && builtInDetailNotes('minio')}
+
+                {!configForm.storageConfig.builtIn && (
+                  <>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label htmlFor="infra-14">{t('infrastructure.storage.bucket')}</label>
+                        <input
+                          id="infra-14"
+                          readOnly={isPinned('S3_BUCKET')}
+                          type="text"
+                          value={configForm.storageConfig.s3Bucket}
+                          onChange={e => configForm.updateStorageConfig('s3Bucket', e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="infra-15">{t('infrastructure.storage.region')}</label>
+                        <input
+                          id="infra-15"
+                          readOnly={isPinned('S3_REGION')}
+                          type="text"
+                          value={configForm.storageConfig.s3Region}
+                          onChange={e => configForm.updateStorageConfig('s3Region', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {pinNote('S3_BUCKET')}
+                    {pinNote('S3_REGION')}
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label htmlFor="infra-16">{t('infrastructure.storage.accessKey')}</label>
+                        <input
+                          id="infra-16"
+                          readOnly={isPinned('S3_ACCESS_KEY_ID')}
+                          type="text"
+                          value={configForm.storageConfig.s3AccessKey}
+                          onChange={e => configForm.updateStorageConfig('s3AccessKey', e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="infra-17">{t('infrastructure.storage.secretKey')}</label>
+                        <input
+                          id="infra-17"
+                          readOnly={isPinned('S3_SECRET_ACCESS_KEY')}
+                          type="password"
+                          autoComplete="new-password"
+                          value={configForm.storageConfig.s3SecretKey}
+                          onChange={e => configForm.updateStorageConfig('s3SecretKey', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {pinNote('S3_ACCESS_KEY_ID')}
+                    {pinNote('S3_SECRET_ACCESS_KEY')}
+                    <div className="form-group">
+                      <label htmlFor="infra-18">{t('infrastructure.storage.endpoint')}</label>
+                      <input
+                        id="infra-18"
+                        readOnly={isPinned('S3_ENDPOINT')}
+                        type="text"
+                        value={configForm.storageConfig.s3Endpoint}
+                        onChange={e => configForm.updateStorageConfig('s3Endpoint', e.target.value)}
+                        placeholder={t('infrastructure.storage.endpointHint')}
+                      />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {pendingEngine && (
+        <Modal
+          open
+          onClose={() => setPendingEngine(null)}
+          title={t('infrastructure.engine.switchTitle', { engine: engineName(pendingEngine) })}
+          className="engine-switch-modal"
+          closeLabel={t('common.close')}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setPendingEngine(null)}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  configForm.updateEngineConfig('type', pendingEngine);
+                  setPendingEngine(null);
+                }}
+              >
+                {t('infrastructure.engine.switchConfirm', { engine: engineName(pendingEngine) })}
+              </button>
+            </>
+          }
+        >
+          <div className="migration-warning">
+            <AlertTriangle size={18} />
+            <div>
+              <p>{t('infrastructure.engine.switchWarning')}</p>
+              <p>{t('infrastructure.engine.switchApply')}</p>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {restartFlow.showRestartModal && (
+        <Modal
+          open
+          onClose={restartFlow.close}
+          title={
+            <>
+              {restartFlow.restartStatus === 'idle' && t('infrastructure.restart.idleTitle')}
+              {restartFlow.restartStatus === 'restarting' && t('infrastructure.restart.restartingTitle')}
+              {(restartFlow.restartStatus === 'waiting' || restartFlow.restartStatus === 'unknown') &&
+                t('infrastructure.restart.waitingTitle')}
+              {restartFlow.restartStatus === 'success' && t('infrastructure.restart.successTitle')}
+              {restartFlow.restartStatus === 'error' && t('infrastructure.restart.errorTitle')}
+            </>
+          }
+          className="restart-modal"
+          closeLabel={t('common.close')}
+          hideCloseButton
+        >
+          {restartFlow.restartStatus === 'idle' && (
+            <>
+              <p className="restart-idle-desc">
+                <Trans i18nKey="infrastructure.restart.idleDesc" components={{ code: <code />, br: <br /> }} />
+              </p>
+              {/* Without `running` Docker did not answer the status, and the server stops nothing then. */}
+              {infraStatus.database.running !== undefined && restartFlow.profilesToRemove.length > 0 && (
+                <p className="restart-idle-desc">
+                  {t('infrastructure.restart.stopsContainers')}
+                  {/* One left-to-right chip per container, kept whole: a name is what the operator types into docker. */}
+                  {restartFlow.profilesToRemove.map(p => (
+                    <Fragment key={p}>
+                      {' '}
+                      <code dir="ltr" className="restart-stop-name">
+                        {CONTAINER_OF[p] ?? p}
+                      </code>
+                    </Fragment>
+                  ))}
+                </p>
+              )}
+              {engineSwitchPending && (
+                <div className="migration-warning">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>
+                      {t('infrastructure.engine.switchTitle', { engine: engineName(configForm.engineConfig.type) })}
+                    </strong>
+                    <p>{t('infrastructure.engine.switchWarning')}</p>
+                  </div>
+                </div>
+              )}
+              {(restartFlow.dbSwitch || restartFlow.storageSwitch) && (
+                <div className="migration-warning">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>{t('infrastructure.migration.title')}</strong>
+                    {restartFlow.dbSwitch && <p>{t('infrastructure.migration.dbWarning')}</p>}
+                    {restartFlow.storageSwitch && <p>{t('infrastructure.migration.storageWarning')}</p>}
+                    {restartFlow.dbSwitch && (
+                      <button
+                        ref={restartBackupButtonRef}
+                        className="btn-secondary btn-sm"
+                        onClick={() => {
+                          backupFocusRef.current = 'restart-export';
+                          void dataBackup.exportBackup();
+                        }}
+                        disabled={dataBackup.migrating}
+                      >
+                        {dataBackup.migrating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        {t('infrastructure.migration.downloadBackup')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="restart-actions">
+                <button className="btn-secondary" onClick={restartFlow.close}>
+                  {t('infrastructure.restart.later')}
+                </button>
+                {/* A restart closes the database and drops open connections, so it would cut a backup in flight. */}
+                <button className="btn-primary" onClick={restartFlow.start} disabled={dataBackup.migrating}>
+                  {t('infrastructure.restart.now')}
+                </button>
+              </div>
+            </>
+          )}
+
+          {(restartFlow.restartStatus === 'restarting' || restartFlow.restartStatus === 'waiting') && (
+            <>
+              <div className="restart-countdown">
+                <Loader2 className="animate-spin restart-status-icon" size={48} />
+                <p className="restart-countdown-msg">
+                  {restartFlow.restartCountdown > 0
+                    ? t('infrastructure.restart.restartingMsg', { count: restartFlow.restartCountdown })
+                    : t('infrastructure.restart.checking')}
+                </p>
+              </div>
+              <div className="restart-progress-track">
+                <div
+                  className="restart-progress-fill"
+                  style={{
+                    width:
+                      restartFlow.restartCountdown > 0
+                        ? `${((restartFlow.restartTotal - restartFlow.restartCountdown) / restartFlow.restartTotal) * 100}%`
+                        : '100%',
+                  }}
+                />
+              </div>
+              <p className="restart-dont-close">{t('infrastructure.restart.dontClose')}</p>
+            </>
+          )}
+
+          {restartFlow.restartStatus === 'success' && (
+            <>
+              <CheckCircle size={48} className="restart-status-icon" />
+              {restartFlow.restartWarnings.length === 0 ? (
+                <p className="restart-success-msg">{t('infrastructure.restart.successMsg')}</p>
+              ) : (
+                <>
+                  {restartWarningBox}
+                  <button className="btn-primary" onClick={() => window.location.reload()}>
+                    {t('infrastructure.restart.reload')}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
+          {restartFlow.restartStatus === 'unknown' && (
+            <>
+              <p className="restart-error-msg">{t('infrastructure.restart.outcomeUnknown')}</p>
+              <button className="btn-primary" onClick={() => window.location.reload()}>
+                {t('infrastructure.restart.reload')}
+              </button>
+            </>
+          )}
+
+          {restartFlow.restartStatus === 'error' && (
+            <>
+              <p className="restart-error-msg">{restartFlow.restartError ?? t('infrastructure.restart.errorMsg')}</p>
+              {restartWarningBox}
+              <button className="btn-primary" onClick={() => window.location.reload()}>
+                {t('infrastructure.restart.reload')}
+              </button>
+            </>
+          )}
+        </Modal>
+      )}
+
+      <footer ref={footerRef} className="page-footer">
+        <button
+          ref={saveButtonRef}
+          className="btn-primary large"
+          onClick={event => {
+            restoreSaveFocus.current = document.activeElement === event.currentTarget;
+            void configSave.saveConfig();
+          }}
+          disabled={configSave.saving}
+        >
+          {configSave.saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+          {configSave.saving ? t('infrastructure.saving') : t('infrastructure.saveConfig')}
+        </button>
+      </footer>
+    </div>
+  );
+}

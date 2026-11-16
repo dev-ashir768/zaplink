@@ -1,0 +1,6 @@
+# Prettier already skips what .gitignore lists (node_modules/, dist/, coverage/, data/).
+# Generated files are not hand-formatted:
+openapi.json
+dashboard/dist/
+package-lock.json
+dashboard/package-lock.json

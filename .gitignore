@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Tests
+coverage/
+
+# Environment (keep secrets out of git; .env.example is the template)
+.env
+.env.*
+!.env.example
+!.env.reference
+!deploy/.env.production.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data: sessions, media, generated config and API key (see README "Data folder")
+data/
+uploads/
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Backups made by scripts/backup.sh and restore safety snapshots
+/backups/
+*.pre-restore-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Local tooling
+.claude/
+.worktrees/

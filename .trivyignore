@@ -1,0 +1,8 @@
+# Vulnerability IDs accepted for a Trivy image scan, one per line, each with a comment saying why it is
+# accepted and when to review it again. Nothing is accepted at the moment.
+#
+# Scan the built image with:
+#   trivy image --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore zaplink-api:latest
+#
+# Note: on amd64 the image downloads a Chrome for Testing binary into /opt/puppeteer that no package
+# manager owns, so Trivy cannot see the browser; its version is the pin in the Dockerfile.

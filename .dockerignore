@@ -1,0 +1,45 @@
+# Dependencies — reinstalled inside the image via npm ci (any depth: Docker anchors a bare name at the root)
+node_modules/
+**/node_modules/
+
+# Build output — rebuilt inside the image; a stale tsbuildinfo in `COPY . .` can poison the build
+dist/
+dashboard/dist/
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Test coverage
+coverage/
+**/coverage/
+
+# Environment files — secrets, never a build input (every variant, any depth)
+.env*
+**/.env*
+
+# Runtime data — sessions, media, generated config, API keys; never part of the build context
+data/
+uploads/
+backups/
+**/*.pre-restore-*
+.wwebjs_auth/
+.wwebjs_cache/
+
+# VCS metadata
+.git/
+
+# Local tooling and editors
+.claude/
+.worktrees/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+logs/
+*.log
+npm-debug.log*
+tmp/
+temp/
+.docker/
