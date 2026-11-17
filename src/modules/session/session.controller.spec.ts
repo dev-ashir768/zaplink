@@ -869,3 +869,56 @@ describe('SessionController.getPresence() OpenAPI response', () => {
     expect(responses['200'].schema?.nullable).toBe(true);
   });
 });
+
+// A duplicate name answers 409 with the existing session's id, so the caller can carry on with it, but
+// never hands an operator the id of a session outside its fence.
+describe('SessionController — create() duplicate name names the existing session', () => {
+  const build = (visible: string[] | null) => {
+    const sessionService = {
+      create: jest.fn().mockRejectedValue(new ConflictException("Session with name 'sales-1' already exists")),
+      findIdByName: jest.fn().mockResolvedValue('existing-id'),
+    };
+    const sessionAccess = { effectiveSessions: jest.fn().mockResolvedValue(visible) };
+    const controller = new SessionControllerClass(
+      sessionService as unknown as SessionService,
+      { logInfo: jest.fn() } as unknown as AuditService,
+      new ChatScopeService(),
+      undefined,
+      sessionAccess as never,
+    );
+    return { controller, sessionService };
+  };
+  const operator = { id: 'op-1', role: ApiKeyRole.OPERATOR } as ApiKey;
+
+  const bodyOf = async (p: Promise<unknown>) => {
+    const err = await p.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(ConflictException);
+    return (err as ConflictException).getResponse() as Record<string, unknown>;
+  };
+
+  it('includes sessionId for a key that can see the session', async () => {
+    const { controller } = build(null);
+    const body = await bodyOf(controller.create({ name: 'sales-1' }, { id: 'a', role: ApiKeyRole.ADMIN } as ApiKey));
+    expect(body).toEqual({
+      statusCode: 409,
+      error: 'Conflict',
+      message: "Session with name 'sales-1' already exists",
+      sessionId: 'existing-id',
+    });
+  });
+
+  it("includes sessionId when the operator's fence holds the session", async () => {
+    const { controller } = build(['existing-id']);
+    expect((await bodyOf(controller.create({ name: 'sales-1' }, operator))).sessionId).toBe('existing-id');
+  });
+
+  it("leaves sessionId out when the session is another operator's", async () => {
+    const { controller } = build(['other-id']);
+    const body = await bodyOf(controller.create({ name: 'sales-1' }, operator));
+    expect(body).not.toHaveProperty('sessionId');
+    expect(body.message).toBe("Session with name 'sales-1' already exists");
+  });
+});

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Controller,
   Get,
   Post,
@@ -134,7 +135,11 @@ export class SessionController {
       'Validation failed, the body carries a field the DTO does not declare, or `config` is over ' +
       `${MAX_SESSION_CONFIG_BYTES} bytes serialised as JSON.`,
   })
-  @ApiResponse({ status: 409, description: 'Session name already exists' })
+  @ApiResponse({
+    status: 409,
+    description:
+      "Session name already exists. The body carries `sessionId`, the existing session's id, when this key can access that session.",
+  })
   async create(@Body() dto: CreateSessionDto, @CurrentApiKey() apiKey?: ApiKey): Promise<SessionResponseDto> {
     // A session proxy carries the session's egress, including the gateway's fetches of caller-supplied
     // URLs, so choosing one is a deployment decision: ADMIN only, like PATCH :sessionId/proxy. The
@@ -147,12 +152,35 @@ export class SessionController {
       throw new ForbiddenException('Session-scoped API keys are not permitted on this route');
     }
     // Admin keys (the master key included) create admin-owned sessions; anything else owns what it creates.
-    const session = await this.sessionService.create(dto, isAdmin || !apiKey ? null : apiKey.id);
+    let session: Session;
+    try {
+      session = await this.sessionService.create(dto, isAdmin || !apiKey ? null : apiKey.id);
+    } catch (err) {
+      throw await this.withExistingSessionId(err, dto.name, apiKey);
+    }
     await this.auditService.logInfo(AuditAction.SESSION_CREATED, {
       sessionId: session.id,
       sessionName: session.name,
     });
     return this.presentOne(session);
+  }
+
+  /**
+   * A duplicate-name 409 names the existing session's id, so the caller can carry on with it, but only
+   * when the caller may see that session: an operator never learns the id of another operator's session.
+   */
+  private async withExistingSessionId(err: unknown, name: string, apiKey?: ApiKey): Promise<unknown> {
+    if (!(err instanceof ConflictException)) return err;
+    const sessionId = await this.sessionService.findIdByName(name).catch(() => null);
+    if (!sessionId) return err;
+    const visible = this.sessionAccess ? await this.sessionAccess.effectiveSessions(apiKey) : null;
+    if (visible && !visible.includes(sessionId)) return err;
+    return new ConflictException({
+      statusCode: 409,
+      error: 'Conflict',
+      message: `Session with name '${name}' already exists`,
+      sessionId,
+    });
   }
 
   @Get()

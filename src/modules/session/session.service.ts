@@ -525,6 +525,12 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     return sessions.map(session => this.attachRuntimeState(session));
   }
 
+  /** The id of the session with this exact name, or null. */
+  async findIdByName(name: string): Promise<string | null> {
+    const row = await this.sessionRepository.findOne({ where: { name }, select: { id: true } });
+    return row?.id ?? null;
+  }
+
   async findOne(id: string): Promise<Session> {
     const session = await this.sessionRepository.findOne({ where: { id } });
     if (!session) {

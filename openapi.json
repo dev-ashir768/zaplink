@@ -656,7 +656,7 @@
             }
           },
           "409": {
-            "description": "Session name already exists",
+            "description": "Session name already exists. The body carries `sessionId`, the existing session's id, when this key can access that session.",
             "content": {
               "application/json": {
                 "schema": {
