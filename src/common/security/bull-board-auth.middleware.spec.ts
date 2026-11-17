@@ -717,3 +717,66 @@ describe('BullBoardAuthMiddleware board session cookie', () => {
     expect(audit.logInfo).not.toHaveBeenCalledWith(AuditAction.QUEUE_BOARD_SESSION_ISSUED, expect.anything());
   });
 });
+
+describe('BullBoardAuthMiddleware username/password login', () => {
+  const basic = (user: string, pass: string) => `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`;
+  const makeMw = (settings: Record<string, string | undefined>) => {
+    const configService = { get: jest.fn((key: string) => settings[key]) };
+    const authService = { validateApiKey: jest.fn(), hasPermission: jest.fn(), findOne: jest.fn() };
+    return {
+      authService,
+      mw: new BullBoardAuthMiddleware(authService as unknown as AuthService, configService as unknown as ConfigService),
+    };
+  };
+  const call = async (mw: BullBoardAuthMiddleware, headers: Record<string, unknown>, method = 'GET') => {
+    const setHeader = jest.fn();
+    const next = jest.fn();
+    const req = {
+      headers,
+      query: {},
+      method,
+      ip: '10.0.0.1',
+      socket: { remoteAddress: '10.0.0.1' },
+    } as unknown as Request;
+    await mw.use(req, { setHeader } as unknown as Response, next);
+    return { next, setHeader };
+  };
+
+  it('lets the right username and password through without an API key', async () => {
+    const { mw, authService } = makeMw({ BULL_BOARD_USERNAME: 'ops', BULL_BOARD_PASSWORD: 's3cret-pass' });
+    const { next } = await call(mw, { authorization: basic('ops', 's3cret-pass') });
+    expect(next).toHaveBeenCalledWith();
+    expect(authService.validateApiKey).not.toHaveBeenCalled();
+  });
+
+  it('defaults the username to admin', async () => {
+    const { mw } = makeMw({ BULL_BOARD_PASSWORD: 's3cret-pass' });
+    const { next } = await call(mw, { authorization: basic('admin', 's3cret-pass') });
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it.each([
+    ['wrong password', basic('ops', 'nope')],
+    ['wrong username', basic('other', 's3cret-pass')],
+    ['no colon', `Basic ${Buffer.from('ops').toString('base64')}`],
+  ])('rejects a %s and asks the browser for a login', async (_label, header) => {
+    const { mw } = makeMw({ BULL_BOARD_USERNAME: 'ops', BULL_BOARD_PASSWORD: 's3cret-pass' });
+    const { next, setHeader } = await call(mw, { authorization: header });
+    expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+    expect(setHeader).toHaveBeenCalledWith('WWW-Authenticate', expect.stringContaining('Basic'));
+  });
+
+  it('asks for a login when no credential is sent', async () => {
+    const { mw } = makeMw({ BULL_BOARD_PASSWORD: 's3cret-pass' });
+    const { next, setHeader } = await call(mw, {});
+    expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+    expect(setHeader).toHaveBeenCalledWith('WWW-Authenticate', expect.stringContaining('Basic'));
+  });
+
+  it('is off when no password is configured: no prompt, Basic credentials refused', async () => {
+    const { mw } = makeMw({ BULL_BOARD_USERNAME: 'admin', BULL_BOARD_PASSWORD: '  ' });
+    const { next, setHeader } = await call(mw, { authorization: basic('admin', '') });
+    expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+    expect(setHeader).not.toHaveBeenCalled();
+  });
+});

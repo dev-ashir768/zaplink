@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { AuthService, UnresolvedApiKeyException } from '../../modules/auth/auth.service';
 import { ApiKey, ApiKeyRole } from '../../modules/auth/entities/api-key.entity';
@@ -86,6 +86,23 @@ export class BullBoardAuthMiddleware implements NestMiddleware {
       } else {
         const fromCookie = await this.keyFromSessionCookie(req, clientIp);
         if (!fromCookie) {
+          // Username/password login (BULL_BOARD_USERNAME / BULL_BOARD_PASSWORD): the browser asks for
+          // them, so the board opens from a plain link. Off when no password is configured.
+          const login = this.boardLogin();
+          if (login && this.basicAuthMatches(req, login)) {
+            setRequestActor({ apiKeyName: `board login: ${login.username}`, ipAddress: clientIp });
+            if (req.method !== 'GET' && req.method !== 'HEAD') {
+              void this.auditService?.logInfo(AuditAction.QUEUE_BOARD_MUTATED, {
+                ipAddress: clientIp,
+                method: req.method,
+                path: this.auditPath(req),
+                metadata: { boardLogin: login.username },
+              });
+            }
+            next();
+            return;
+          }
+          if (login) res.setHeader('WWW-Authenticate', 'Basic realm="ZapLink queues", charset="UTF-8"');
           throw new UnresolvedApiKeyException('API key is required to access the queue dashboard');
         }
         apiKey = fromCookie;
@@ -226,6 +243,30 @@ export class BullBoardAuthMiddleware implements NestMiddleware {
     const key = await this.authService.findOne(claims.k).catch(() => undefined);
     if (!key || !key.isActive || (key.expiresAt && key.expiresAt <= new Date())) return undefined;
     return key;
+  }
+
+  /** The configured board login, or undefined when BULL_BOARD_PASSWORD is not set. */
+  private boardLogin(): { username: string; password: string } | undefined {
+    const password = this.configService.get<string>('BULL_BOARD_PASSWORD')?.trim();
+    if (!password) return undefined;
+    const username = this.configService.get<string>('BULL_BOARD_USERNAME')?.trim() || 'admin';
+    return { username, password };
+  }
+
+  /** True when the request carries `Authorization: Basic` credentials equal to the board login. */
+  private basicAuthMatches(req: Request, login: { username: string; password: string }): boolean {
+    const header = req.headers.authorization;
+    const encoded = header ? /^basic\s+(\S+)\s*$/i.exec(header)?.[1] : undefined;
+    if (!encoded) return false;
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const colon = decoded.indexOf(':');
+    if (colon < 0) return false;
+    // Compare fixed-length digests so neither the length nor the content leaks through timing.
+    const same = (a: string, b: string) =>
+      timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());
+    const userOk = same(decoded.slice(0, colon), login.username);
+    const passOk = same(decoded.slice(colon + 1), login.password);
+    return userOk && passOk;
   }
 
   private extractKey(req: Request): string | undefined {

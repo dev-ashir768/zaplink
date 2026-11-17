@@ -63,6 +63,7 @@ if [ ! -f .env ]; then
   sed -i "s|^ACME_EMAIL=.*|ACME_EMAIL=$EMAIL|" .env
   sed -i "s|^DATABASE_PASSWORD=.*|DATABASE_PASSWORD=$(openssl rand -hex 24)|" .env
   sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -hex 24)|" .env
+  sed -i "s|^BULL_BOARD_PASSWORD=.*|BULL_BOARD_PASSWORD=$(openssl rand -hex 12)|" .env
   chmod 600 .env
 else
   echo "Keeping the existing .env"

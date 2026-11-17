@@ -345,6 +345,9 @@ services:
       - MAIN_DATABASE_NAME=${MAIN_DATABASE_NAME:-}
       - REDIS_USERNAME=${REDIS_USERNAME:-}
       - REDIS_PASSWORD=${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+      # Username/password the browser asks for on /api/admin/queues (blank password = login off)
+      - BULL_BOARD_USERNAME=${BULL_BOARD_USERNAME:-admin}
+      - BULL_BOARD_PASSWORD=${BULL_BOARD_PASSWORD:-}
       - REDIS_CONNECT_TIMEOUT_MS=${REDIS_CONNECT_TIMEOUT_MS:-}
       - REDIS_TLS=${REDIS_TLS:-}
       - REDIS_CACHE_DB=${REDIS_CACHE_DB:-}
