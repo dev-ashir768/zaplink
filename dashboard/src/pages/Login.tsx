@@ -8,7 +8,7 @@ import { API_BASE_URL } from '../services/api';
 import './Login.css';
 
 interface LoginProps {
-  onLogin: (apiKey: string, role?: string, engineType?: string, scoped?: boolean) => void;
+  onLogin: (apiKey: string, role?: string, engineType?: string, scoped?: boolean, name?: string) => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
@@ -46,9 +46,8 @@ export function Login({ onLogin }: LoginProps) {
       if (response.ok) {
         // The validate body already carries the key's role — hand it up so the app can set it
         // directly instead of re-validating the same key a second time.
-        const data: { valid?: unknown; role?: string; engineType?: string; scoped?: unknown } = await response
-          .json()
-          .catch(() => ({}));
+        const data: { valid?: unknown; role?: string; engineType?: string; scoped?: unknown; name?: unknown } =
+          await response.json().catch(() => ({}));
         // A 200 is the gateway's answer only if it says the key is valid, as the startup check requires: a reverse proxy
         // serving the app's HTML for a misrouted /api would otherwise sign any typed text in as a viewer.
         if (data.valid !== true) {
@@ -60,6 +59,7 @@ export function Login({ onLogin }: LoginProps) {
           data.role,
           typeof data.engineType === 'string' ? data.engineType : undefined,
           data.scoped === true,
+          typeof data.name === 'string' && data.name ? data.name : undefined,
         );
       } else {
         // A 5xx, or a body that is not the gateway's JSON (a proxy error page while it restarts), says

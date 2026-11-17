@@ -84,7 +84,13 @@
     "messageTester": "Message Tester",
     "infrastructure": "Infrastructure",
     "plugins": "Plugins",
-    "logs": "Logs"
+    "logs": "Logs",
+    "signedInAs": "Signed in as {{name}}, {{role}}",
+    "roles": {
+      "admin": "Admin",
+      "operator": "Operator",
+      "viewer": "Viewer"
+    }
   },
   "chats": {
     "edited": "Edited",

@@ -16911,6 +16911,11 @@
             "description": "Whether the presented API key is valid.",
             "example": true
           },
+          "name": {
+            "type": "string",
+            "description": "The key's name; present only when valid.",
+            "example": "Production key"
+          },
           "role": {
             "type": "string",
             "enum": [

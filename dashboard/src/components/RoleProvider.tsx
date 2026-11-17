@@ -53,6 +53,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // The key's name, shown in the sidebar so the user can tell which key this tab is signed in with.
+  const [keyName, setKeyNameState] = useState<string | null>(() => sessionStorage.getItem('zaplink_key_name'));
+
+  const setKeyName = useCallback((newKeyName: string | null) => {
+    setKeyNameState(newKeyName);
+    if (newKeyName) {
+      sessionStorage.setItem('zaplink_key_name', newKeyName);
+    } else {
+      sessionStorage.removeItem('zaplink_key_name');
+    }
+  }, []);
+
   const value: RoleContextType = {
     role,
     setRole,
@@ -64,6 +76,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setEngineType,
     scoped,
     setScoped,
+    keyName,
+    setKeyName,
   };
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;

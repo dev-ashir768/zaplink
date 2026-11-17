@@ -44,6 +44,8 @@ function renderSidebar(): HTMLElement {
     setEngineType: () => undefined,
     scoped: false,
     setScoped: () => undefined,
+    keyName: null,
+    setKeyName: () => undefined,
   };
   return rtl.render(
     createElement(

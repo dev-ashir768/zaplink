@@ -40,6 +40,7 @@ function resizeTo(width: number): void {
 function renderLayout(
   scoped = false,
   userRole: 'admin' | 'operator' | 'viewer' = 'admin',
+  keyName: string | null = null,
 ): ReturnType<typeof import('@testing-library/react').render> {
   const role = {
     role: 'admin' as const,
@@ -52,6 +53,8 @@ function renderLayout(
     setEngineType: () => undefined,
     scoped,
     setScoped: () => undefined,
+    keyName,
+    setKeyName: () => undefined,
   };
   return rtl.render(
     createElement(
@@ -396,3 +399,43 @@ for (const userRole of ['admin', 'operator', 'viewer'] as const) {
     assert.equal(rtl.screen.getByRole('link', { name: 'Number Checker' }).getAttribute('href'), '/number-checker');
   });
 }
+
+test('the sidebar names the signed-in key and its role, and keeps only the avatar when collapsed', () => {
+  resizeTo(1024);
+  const view = renderLayout(false, 'operator', 'Jane Doe');
+  const block = view.getByTestId('user-block');
+  assert.equal(block.getAttribute('aria-label'), 'Signed in as Jane Doe, Operator');
+  assert.equal(block.getAttribute('title'), 'Signed in as Jane Doe, Operator');
+  assert.equal(block.querySelector('.user-avatar')?.textContent, 'JD');
+  assert.equal(block.querySelector('.user-name')?.textContent, 'Jane Doe');
+  const pill = block.querySelector('.user-role');
+  assert.equal(pill?.textContent, 'Operator');
+  assert.ok(pill?.classList.contains('role-operator'));
+
+  rtl.fireEvent.click(view.getByRole('button', { name: 'Collapse' }));
+  const collapsed = view.getByTestId('user-block');
+  assert.ok(collapsed.querySelector('.user-avatar'));
+  assert.equal(collapsed.querySelector('.user-name'), null);
+  assert.equal(collapsed.querySelector('.user-role'), null);
+  assert.equal(collapsed.getAttribute('aria-label'), 'Signed in as Jane Doe, Operator');
+});
+
+test('without a stored name the sidebar shows the role alone', () => {
+  resizeTo(1024);
+  const view = renderLayout(false, 'viewer', null);
+  const block = view.getByTestId('user-block');
+  assert.equal(block.getAttribute('aria-label'), 'Viewer');
+  assert.equal(block.querySelector('.user-name'), null);
+  assert.equal(block.querySelector('.user-avatar'), null);
+  assert.equal(block.querySelector('.user-role')?.textContent, 'Viewer');
+});
+
+test('the phone drawer shows the signed-in key too', () => {
+  resizeTo(375);
+  const view = renderLayout(false, 'admin', 'Ops');
+  rtl.fireEvent.click(view.getByRole('button', { name: 'Expand' }));
+  const block = view.getByTestId('user-block');
+  assert.equal(block.querySelector('.user-name')?.textContent, 'Ops');
+  assert.equal(block.querySelector('.user-avatar')?.textContent, 'OP');
+  resizeTo(1024);
+});

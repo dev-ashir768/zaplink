@@ -64,6 +64,8 @@ before(async () => {
     setEngineType: () => undefined,
     scoped: false,
     setScoped: () => undefined,
+    keyName: null,
+    setKeyName: () => undefined,
   };
   wrap = children =>
     createElement(

@@ -24,6 +24,7 @@ export class AuthValidateController {
   })
   validate(@CurrentApiKey() apiKey?: ApiKey): {
     valid: boolean;
+    name?: string;
     role?: string;
     engineType?: string;
     scoped?: boolean;
@@ -43,6 +44,8 @@ export class AuthValidateController {
     // refuse a session-scoped key (@RequireUnscopedKey) instead of sending reads the guard rejects.
     return {
       valid: true,
+      // The key's label, so the dashboard can show who is signed in.
+      name: apiKey.name,
       role: apiKey.role,
       engineType: this.engineFactory.getCurrentEngine(),
       // The row's own allowlist: an operator's ownership fence does not lock it out of unscoped routes.

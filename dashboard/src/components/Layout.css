@@ -195,6 +195,96 @@
   padding: 0.75rem 0.5rem;
 }
 
+/* Who is signed in: an initials avatar, the key's name and a role pill. Colours come from the theme tokens, so the
+   block follows the light and dark themes; spacing is logical, so it mirrors in a right-to-left layout. */
+.user-block {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  padding-block-end: 0.75rem;
+  margin-block-end: 0.25rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.sidebar.collapsed .user-block {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.user-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.user-role {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Admin carries the brand green, operator the info blue, viewer a neutral grey. */
+.user-avatar.role-admin,
+.user-role.role-admin {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  border-color: color-mix(in srgb, var(--primary-text) 25%, transparent);
+}
+
+.user-avatar.role-operator,
+.user-role.role-operator {
+  background: color-mix(in srgb, var(--info) 14%, transparent);
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 25%, transparent);
+}
+
+.user-avatar.role-viewer,
+.user-role.role-viewer {
+  background: var(--bg-light);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
 .theme-toggle-btn {
   display: flex;
   align-items: center;

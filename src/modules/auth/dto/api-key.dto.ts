@@ -163,6 +163,9 @@ export class ValidateApiKeyResponseDto {
   @ApiProperty({ description: 'Whether the presented API key is valid.', example: true })
   valid!: boolean;
 
+  @ApiPropertyOptional({ description: "The key's name; present only when valid.", example: 'Production key' })
+  name?: string;
+
   @ApiPropertyOptional({ enum: ApiKeyRole, description: "The key's role; present only when valid." })
   role?: ApiKeyRole;
 

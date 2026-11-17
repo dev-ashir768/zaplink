@@ -44,9 +44,9 @@ function AppContent() {
   const [savedKey] = useState(() => sessionStorage.getItem('zaplink_api_key'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!savedKey);
   const [, setApiKey] = useState(savedKey || '');
-  const { setRole, role, setEngineType, setScoped, scoped } = useRole();
+  const { setRole, role, setEngineType, setScoped, scoped, setKeyName } = useRole();
 
-  const handleLogin = (key: string, validatedRole?: string, engineType?: string, scoped = false) => {
+  const handleLogin = (key: string, validatedRole?: string, engineType?: string, scoped = false, keyName?: string) => {
     setApiKey(key);
     sessionStorage.setItem('zaplink_api_key', key);
 
@@ -56,6 +56,7 @@ function AppContent() {
     setRole(isUserRole(validatedRole) ? validatedRole : 'viewer');
     setEngineType(engineType ?? null);
     setScoped(scoped);
+    setKeyName(keyName ?? null);
 
     setIsAuthenticated(true);
   };
@@ -66,12 +67,13 @@ function AppContent() {
     setRole(null);
     setEngineType(null);
     setScoped(false);
+    setKeyName(null);
     sessionStorage.removeItem('zaplink_api_key');
     // Wipe the React Query cache too: it is keyed by resource, not actor, so without a full
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
     clearActorState(queryClient);
-  }, [setRole, setEngineType, setScoped]);
+  }, [setRole, setEngineType, setScoped, setKeyName]);
 
   // Re-validate and refresh the role on mount if already authenticated
   useEffect(() => {
@@ -93,13 +95,14 @@ function AppContent() {
           setRole(decision.role);
           setScoped(decision.scoped);
           if (decision.engineType) setEngineType(decision.engineType);
+          if (decision.name) setKeyName(decision.name);
         }
       })
       .catch(() => {
         // Network failure (API unreachable): keep the cached role so a transient outage at
         // page load doesn't eject the user — an explicit 401/403 above still logs out.
       });
-  }, [savedKey, setRole, setEngineType, setScoped, handleLogout]);
+  }, [savedKey, setRole, setEngineType, setScoped, setKeyName, handleLogout]);
 
   const loadingFallback = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>

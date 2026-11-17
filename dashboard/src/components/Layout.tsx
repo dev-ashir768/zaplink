@@ -31,6 +31,7 @@ import { useRole, type UserRole } from '../hooks/useRole';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { healthApi, infraApi } from '../services/api';
 import { isComposingKey } from '../utils/composition';
+import { userInitials } from '../utils/userInitials';
 import './Layout.css';
 
 interface LayoutProps {
@@ -88,7 +89,11 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     }),
   });
 
-  const { scoped } = useRole();
+  const { scoped, keyName } = useRole();
+  // Who is signed in: the key's name beside its role. A tab restored from before the name was stored shows the role
+  // alone until the startup re-validation fills the name in.
+  const roleLabel = userRole ? t(`nav.roles.${userRole}`) : '';
+  const accountName = keyName ? t('nav.signedInAs', { name: keyName, role: roleLabel }) : roleLabel;
   const navItems = allNavItems.filter(
     item => (!item.adminOnly || userRole === 'admin') && (!item.unscopedOnly || !scoped),
   );
@@ -321,6 +326,29 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         </nav>
 
         <div className="sidebar-footer">
+          {userRole && (
+            <div
+              className="user-block"
+              title={accountName}
+              aria-label={accountName}
+              role="group"
+              data-testid="user-block"
+            >
+              {/* Without a name the expanded block shows the role alone; the rail keeps an avatar of the role's
+                  initial so it is never empty. */}
+              {(keyName || collapsed) && (
+                <span className={`user-avatar role-${userRole}`} aria-hidden="true">
+                  {userInitials(keyName || roleLabel)}
+                </span>
+              )}
+              {!collapsed && (
+                <span className="user-info" aria-hidden="true">
+                  {keyName && <span className="user-name">{keyName}</span>}
+                  <span className={`user-role role-${userRole}`}>{roleLabel}</span>
+                </span>
+              )}
+            </div>
+          )}
           <div className="language-menu" ref={languageMenuRef}>
             <button
               ref={languageButtonRef}

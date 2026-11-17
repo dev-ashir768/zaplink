@@ -62,6 +62,8 @@ function sidebarElement(
     setEngineType: () => undefined,
     scoped: false,
     setScoped: () => undefined,
+    keyName: null,
+    setKeyName: () => undefined,
   };
   const query = { isLoading: false, error: null, data: channels.all } as unknown as UseQueryResult<Channel[], Error>;
   return createElement(

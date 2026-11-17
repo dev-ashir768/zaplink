@@ -285,3 +285,18 @@ test('a startup 401 drops the cached scope with the role', async () => {
     globalThis.fetch = stub;
   }
 });
+
+test('startup validation carries the key name when the server reports one', () => {
+  assert.deepEqual(resolveStartupValidation(200, { valid: true, role: 'admin', name: 'Ops key' }), {
+    action: 'role',
+    role: 'admin',
+    scoped: false,
+    name: 'Ops key',
+  });
+  // An empty or non-string name is left out, so the cached one is not wiped by a malformed answer.
+  assert.deepEqual(resolveStartupValidation(200, { valid: true, role: 'admin', name: 42 }), {
+    action: 'role',
+    role: 'admin',
+    scoped: false,
+  });
+});

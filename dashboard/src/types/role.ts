@@ -14,4 +14,7 @@ export interface RoleContextType {
   /** Whether the key is restricted to selected sessions, so the cross-session routes refuse it. */
   scoped: boolean;
   setScoped: (scoped: boolean) => void;
+  /** The API key's name, as POST /auth/validate reported it; null until it has answered. */
+  keyName: string | null;
+  setKeyName: (keyName: string | null) => void;
 }

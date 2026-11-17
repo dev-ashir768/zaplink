@@ -74,3 +74,32 @@ test('every signed-in tab adopts the shared role, not only the first to reload',
     rtl.cleanup();
   }
 });
+
+test('the key name is stored per tab and cleared with null', () => {
+  let ctx: ReturnType<typeof useRole> | undefined;
+  function Probe() {
+    ctx = useRole();
+    return null;
+  }
+  rtl.render(createElement(RoleProvider, null, createElement(Probe)));
+  assert.equal(ctx?.keyName, null);
+
+  rtl.act(() => ctx?.setKeyName('Jane Doe'));
+  assert.equal(ctx?.keyName, 'Jane Doe');
+  assert.equal(sessionStorage.getItem('zaplink_key_name'), 'Jane Doe');
+
+  rtl.act(() => ctx?.setKeyName(null));
+  assert.equal(ctx?.keyName, null);
+  assert.equal(sessionStorage.getItem('zaplink_key_name'), null);
+});
+
+test('a reloaded tab restores the stored key name', () => {
+  sessionStorage.setItem('zaplink_key_name', 'Ops key');
+  let name: string | null | undefined;
+  function Probe() {
+    name = useRole().keyName;
+    return null;
+  }
+  rtl.render(createElement(RoleProvider, null, createElement(Probe)));
+  assert.equal(name, 'Ops key');
+});
