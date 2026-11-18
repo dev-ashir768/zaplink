@@ -4,6 +4,7 @@
 import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
 import { isKeyUnusable } from '../utils/authLifecycle';
 import { fetchAllPages } from '../utils/fetchAllPages';
+import { envelopeErrorMessage, envelopeErrors, unwrapEnvelope, type FieldError } from './envelope';
 
 // Resolve the API base URL. By default this is the same-origin relative path '/api',
 // correct when the dashboard and API are served from the same origin (the default
@@ -838,12 +839,16 @@ async function handleErrorResponse<T>(response: Response, sentKey: string | null
   // SESSION_NAME_TEARDOWN_PENDING, …) drive specific recovery UI, and a reverse-proxy 502 that
   // never reached the gateway carries no code at all — that distinction is exactly what the unlink
   // classifier keys on instead of fragile message heuristics.
-  const err = new Error(error.message || `HTTP ${response.status}`) as Error & {
+  // The gateway's envelope: `message`, plus the first rejected field of a validation 400 (`errors`).
+  const err = new Error(envelopeErrorMessage(error) || `HTTP ${response.status}`) as Error & {
     status?: number;
     code?: string;
     retryAfterSeconds?: number;
+    errors?: FieldError[];
   };
   err.status = response.status;
+  const fieldErrors = envelopeErrors(error);
+  if (fieldErrors.length > 0) err.errors = fieldErrors;
   if (typeof error.code === 'string') err.code = error.code;
   // Retry-After in seconds (an HTTP date is ignored): the media loaders wait at least that long before retrying a 503.
   const retryAfter = Number(response.headers.get('Retry-After') ?? Number.NaN);
@@ -875,7 +880,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     return undefined as T;
   }
 
-  return response.json();
+  // Success bodies arrive as { success: true, message, data }; callers get the payload.
+  return unwrapEnvelope<T>(await response.json());
 }
 
 /** Like {@link request} but returns a Blob — e.g. for status media downloads. */

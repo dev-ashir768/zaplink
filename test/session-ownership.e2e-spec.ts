@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -46,35 +47,38 @@ describe('Session ownership (e2e)', () => {
   });
 
   it('an operator with no sessions sees an empty list but can create one, which it then owns', async () => {
-    await http().get('/api/sessions').set('X-API-Key', arham.raw).expect(200, []);
+    await http()
+      .get('/api/sessions')
+      .set('X-API-Key', arham.raw)
+      .expect(200, { success: true, message: 'OK', data: [] });
 
     const created = await http()
       .post('/api/sessions')
       .set('X-API-Key', arham.raw)
       .send({ name: `own-a-${stamp}` })
       .expect(201);
-    sessA = (created.body as { id: string }).id;
-    expect(created.body).toMatchObject({ ownerKeyId: arham.id, ownerName: `Arham-${stamp}` });
+    sessA = (dataOf(created) as { id: string }).id;
+    expect(dataOf(created)).toMatchObject({ ownerKeyId: arham.id, ownerName: `Arham-${stamp}` });
 
     const z = await http()
       .post('/api/sessions')
       .set('X-API-Key', zain.raw)
       .send({ name: `own-z-${stamp}` })
       .expect(201);
-    sessZ = (z.body as { id: string }).id;
+    sessZ = (dataOf(z) as { id: string }).id;
 
     const adm = await http()
       .post('/api/sessions')
       .set('X-API-Key', adminKey)
       .send({ name: `own-admin-${stamp}` })
       .expect(201);
-    sessAdmin = (adm.body as { id: string }).id;
-    expect(adm.body).toMatchObject({ ownerKeyId: null, ownerName: null });
+    sessAdmin = (dataOf(adm) as { id: string }).id;
+    expect(dataOf(adm)).toMatchObject({ ownerKeyId: null, ownerName: null });
   });
 
   it("each operator lists only its own session; the other's is 403 on every session route", async () => {
-    expect(ids((await http().get('/api/sessions').set('X-API-Key', arham.raw).expect(200)).body)).toEqual([sessA]);
-    expect(ids((await http().get('/api/sessions').set('X-API-Key', zain.raw).expect(200)).body)).toEqual([sessZ]);
+    expect(ids(dataOf(await http().get('/api/sessions').set('X-API-Key', arham.raw).expect(200)))).toEqual([sessA]);
+    expect(ids(dataOf(await http().get('/api/sessions').set('X-API-Key', zain.raw).expect(200)))).toEqual([sessZ]);
 
     await http().get(`/api/sessions/${sessA}`).set('X-API-Key', arham.raw).expect(200);
     for (const path of [
@@ -105,21 +109,23 @@ describe('Session ownership (e2e)', () => {
 
   it("aggregate stats count only the caller's sessions", async () => {
     const a = await http().get('/api/sessions/stats/overview').set('X-API-Key', arham.raw).expect(200);
-    expect((a.body as { total: number }).total).toBe(1);
+    expect((dataOf(a) as { total: number }).total).toBe(1);
   });
 
   it('the admin sees every session and can filter by owner', async () => {
-    const all = ids((await http().get('/api/sessions').set('X-API-Key', adminKey).expect(200)).body);
+    const all = ids(dataOf(await http().get('/api/sessions').set('X-API-Key', adminKey).expect(200)));
     expect(all).toEqual(expect.arrayContaining([sessA, sessZ, sessAdmin]));
 
     expect(
-      ids((await http().get(`/api/sessions?owner=${arham.id}`).set('X-API-Key', adminKey).expect(200)).body),
+      ids(dataOf(await http().get(`/api/sessions?owner=${arham.id}`).set('X-API-Key', adminKey).expect(200))),
     ).toEqual([sessA]);
-    const adminOwned = ids((await http().get('/api/sessions?owner=admin').set('X-API-Key', adminKey).expect(200)).body);
+    const adminOwned = ids(
+      dataOf(await http().get('/api/sessions?owner=admin').set('X-API-Key', adminKey).expect(200)),
+    );
     expect(adminOwned).toContain(sessAdmin);
     expect(adminOwned).not.toContain(sessA);
     expect(adminOwned).not.toContain(sessZ);
-    const everyOwner = ids((await http().get('/api/sessions?owner=all').set('X-API-Key', adminKey).expect(200)).body);
+    const everyOwner = ids(dataOf(await http().get('/api/sessions?owner=all').set('X-API-Key', adminKey).expect(200)));
     expect(everyOwner).toEqual(expect.arrayContaining([sessA, sessZ, sessAdmin]));
   });
 
@@ -138,7 +144,7 @@ describe('Session ownership (e2e)', () => {
       .set('X-API-Key', adminKey)
       .send({ ownerKeyId: zain.id })
       .expect(200);
-    expect(res.body).toMatchObject({ ownerKeyId: zain.id, ownerName: `Zain-${stamp}` });
+    expect(dataOf(res)).toMatchObject({ ownerKeyId: zain.id, ownerName: `Zain-${stamp}` });
     await http().get(`/api/sessions/${sessA}`).set('X-API-Key', arham.raw).expect(403);
     await http().get(`/api/sessions/${sessA}`).set('X-API-Key', zain.raw).expect(200);
 
@@ -158,7 +164,7 @@ describe('Session ownership (e2e)', () => {
 
   it('an operator with assigned sessions sees owned ∪ assigned', async () => {
     await authService.update(arham.id, { allowedSessions: [sessAdmin] });
-    const seen = ids((await http().get('/api/sessions').set('X-API-Key', arham.raw).expect(200)).body);
+    const seen = ids(dataOf(await http().get('/api/sessions').set('X-API-Key', arham.raw).expect(200)));
     expect(seen.sort()).toEqual([sessA, sessAdmin].sort());
     await authService.update(arham.id, { allowedSessions: [] });
   });
@@ -169,7 +175,7 @@ describe('Session ownership (e2e)', () => {
       role: ApiKeyRole.VIEWER,
       allowedSessions: [sessZ],
     });
-    expect(ids((await http().get('/api/sessions').set('X-API-Key', viewer.rawKey).expect(200)).body)).toEqual([sessZ]);
+    expect(ids(dataOf(await http().get('/api/sessions').set('X-API-Key', viewer.rawKey).expect(200)))).toEqual([sessZ]);
     await http().get(`/api/sessions/${sessA}`).set('X-API-Key', viewer.rawKey).expect(403);
     await http()
       .post('/api/sessions')
@@ -179,18 +185,21 @@ describe('Session ownership (e2e)', () => {
     await http().delete(`/api/sessions/${sessZ}`).set('X-API-Key', viewer.rawKey).expect(403);
 
     const bare = await authService.createApiKey({ name: `viewer-bare-${stamp}`, role: ApiKeyRole.VIEWER });
-    await http().get('/api/sessions').set('X-API-Key', bare.rawKey).expect(200, []);
+    await http()
+      .get('/api/sessions')
+      .set('X-API-Key', bare.rawKey)
+      .expect(200, { success: true, message: 'OK', data: [] });
   });
 
   it("deleting an operator's key hands its sessions to the admins (not deleted) and the key list counts them", async () => {
     const keys = await http().get('/api/auth/api-keys').set('X-API-Key', adminKey).expect(200);
-    const row = (keys.body as Array<{ id: string; ownedSessions: number }>).find(k => k.id === arham.id);
+    const row = (dataOf(keys) as Array<{ id: string; ownedSessions: number }>).find(k => k.id === arham.id);
     expect(row?.ownedSessions).toBe(1);
 
     await http().delete(`/api/auth/api-keys/${arham.id}`).set('X-API-Key', adminKey).expect(204);
     const res = await http().get(`/api/sessions/${sessA}`).set('X-API-Key', adminKey).expect(200);
-    expect(res.body).toMatchObject({ id: sessA, ownerKeyId: null, ownerName: null });
-    expect(ids((await http().get('/api/sessions?owner=admin').set('X-API-Key', adminKey).expect(200)).body)).toContain(
+    expect(dataOf(res)).toMatchObject({ id: sessA, ownerKeyId: null, ownerName: null });
+    expect(ids(dataOf(await http().get('/api/sessions?owner=admin').set('X-API-Key', adminKey).expect(200)))).toContain(
       sessA,
     );
   });

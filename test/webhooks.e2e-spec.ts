@@ -6,6 +6,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -67,7 +68,7 @@ describe('Webhooks (e2e)', () => {
       .set('X-API-Key', apiKey)
       .send({ url: receiverUrl, events: ['*'], ...overrides })
       .expect(201);
-    return res.body as Record<string, unknown>;
+    return dataOf(res) as Record<string, unknown>;
   };
 
   beforeAll(async () => {
@@ -158,7 +159,7 @@ describe('Webhooks (e2e)', () => {
         .set('X-API-Key', apiKey)
         .expect(200);
 
-      const list = res.body as Array<{ id: string }>;
+      const list = dataOf(res) as Array<{ id: string }>;
       expect(list).toHaveLength(1);
       expect(list[0].id).toBe(created.id);
     });
@@ -172,7 +173,7 @@ describe('Webhooks (e2e)', () => {
         .set('X-API-Key', apiKey)
         .expect(200)
         .expect(res => {
-          if ((res.body as { id: string }).id !== created.id) throw new Error('wrong webhook returned');
+          if ((dataOf(res) as { id: string }).id !== created.id) throw new Error('wrong webhook returned');
         });
 
       await request(app.getHttpServer())
@@ -191,7 +192,7 @@ describe('Webhooks (e2e)', () => {
         .send({ events: ['message.received', 'session.status'], active: false })
         .expect(200);
 
-      const updated = res.body as { events: string[]; active: boolean };
+      const updated = dataOf(res) as { events: string[]; active: boolean };
       expect(updated.events).toEqual(['message.received', 'session.status']);
       expect(updated.active).toBe(false);
     });
@@ -202,7 +203,7 @@ describe('Webhooks (e2e)', () => {
 
       const res = await request(app.getHttpServer()).get('/api/webhooks').set('X-API-Key', apiKey).expect(200);
 
-      const ids = (res.body as Array<{ id: string }>).map(w => w.id);
+      const ids = (dataOf(res) as Array<{ id: string }>).map(w => w.id);
       expect(ids).toContain(created.id);
     });
 
@@ -468,7 +469,7 @@ describe('Webhooks (e2e)', () => {
         .set('X-API-Key', apiKey)
         .expect(200);
 
-      expect((res.body as { success: boolean }).success).toBe(true);
+      expect((dataOf(res) as { success: boolean }).success).toBe(true);
       await waitFor(() => received.length === 1);
       expect(received[0].headers['x-zaplink-event']).toBe('test');
     });

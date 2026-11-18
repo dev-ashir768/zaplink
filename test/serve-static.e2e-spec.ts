@@ -1,10 +1,12 @@
 import { Module, INestApplication, Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { DASHBOARD_STATIC_OPTIONS } from '../src/app.module';
+import { RESPONSE_ENVELOPE_PROVIDERS } from '../src/common/http';
 import { applyGlobalValidation } from '../src/config/app-validation';
 import { configureApp } from '../src/configure-app';
 import { NestFactory } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -64,12 +66,14 @@ class PingController {
 // The options app.module.ts passes to the module, so a change there is what these tests exercise.
 @Module({
   imports: [ServeStaticModule.forRoot({ rootPath: plainDist, ...DASHBOARD_STATIC_OPTIONS })],
+  providers: RESPONSE_ENVELOPE_PROVIDERS,
   controllers: [PingController],
 })
 class PlainServeStaticModule {}
 
 @Module({
   imports: [ServeStaticModule.forRoot({ rootPath: dottedDist, ...DASHBOARD_STATIC_OPTIONS })],
+  providers: RESPONSE_ENVELOPE_PROVIDERS,
   controllers: [PingController],
 })
 class DottedServeStaticModule {}
@@ -171,13 +175,13 @@ describe.each([
   it('lets Nest handle /api routes (real controller, not the SPA)', async () => {
     const res = await request(app.getHttpServer()).get('/api/ping');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true });
+    expect(dataOf(res)).toEqual({ ok: true });
   });
 
   it('lets Nest handle a mis-cased /api route, as routing matches it case-insensitively', async () => {
     const res = await request(app.getHttpServer()).get('/API/ping');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true });
+    expect(dataOf(res)).toEqual({ ok: true });
   });
 
   it('returns a JSON 404 (not the SPA) for unknown /api routes', async () => {
@@ -212,7 +216,7 @@ describe.each([
     it('answers 400 for a body nested past the bound', async () => {
       const res = await postJson(`${'['.repeat(150)}${']'.repeat(150)}`);
       expect(res.status).toBe(400);
-      expect(res.body).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+      expect(res.body).toMatchObject({ success: false, data: null });
     });
 
     it('answers 400 for a path parameter that cannot be decoded', async () => {

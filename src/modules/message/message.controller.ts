@@ -69,6 +69,7 @@ import {
 } from '../../common/openapi/engine-status-responses';
 import { IdempotentSend } from './idempotency/idempotent-send.decorator';
 import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
+import { ResponseMessage } from '../../common/http/api-response';
 
 // whatsapp-web.js drops these sends without an error, so its adapter refuses them up front
 // (ensureSendable in wwebjs-messaging.ts). The contract keeps one entry per status, so on a route
@@ -205,6 +206,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-text')
+  @ResponseMessage('Text message sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a text message' })
@@ -232,6 +234,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-template')
+  @ResponseMessage('Template message sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Render a stored text template and send it as a text message' })
@@ -257,6 +260,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-image')
+  @ResponseMessage('Image sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send an image message' })
@@ -287,6 +291,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-video')
+  @ResponseMessage('Video sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a video message' })
@@ -315,6 +320,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-audio')
+  @ResponseMessage('Audio sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send an audio/voice message' })
@@ -343,6 +349,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-document')
+  @ResponseMessage('Document sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a document/file' })
@@ -373,6 +380,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-location')
+  @ResponseMessage('Location sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a location message' })
@@ -394,6 +402,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-contact')
+  @ResponseMessage('Contact sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a contact card message' })
@@ -415,6 +424,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-sticker')
+  @ResponseMessage('Sticker sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a sticker message' })
@@ -443,6 +453,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-poll')
+  @ResponseMessage('Poll sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Send a native WhatsApp poll' })
@@ -470,6 +481,7 @@ export class MessageController {
   @ChatQuotedAllowed()
   @ChatScoped('fenced')
   @Post('reply')
+  @ResponseMessage('Reply sent')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Reply to a message' })
@@ -523,6 +535,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('forward')
+  @ResponseMessage('Message forwarded')
   @IdempotentSend()
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Forward a message to another chat' })
@@ -546,6 +559,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('react')
+  @ResponseMessage('Reaction sent')
   @HttpCode(HttpStatus.OK)
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Add or remove a reaction to a message' })
@@ -1023,6 +1037,7 @@ export class MessageController {
 
   @ChatScoped('fenced')
   @Post('send-bulk')
+  @ResponseMessage('Bulk send accepted')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Send messages to multiple recipients (async batch processing)' })

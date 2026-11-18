@@ -5,6 +5,7 @@ import { ServiceUnavailableException, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { createLogger, LoggerService } from '../services/logger.service';
 import { positiveIntFromEnv } from '../utils/env-int';
+import { rawErrorBody } from '../http/api-response';
 
 /** Per-entry buffer cap for an import (200 MiB — 4× the inbound media cap). Bounds a decompression bomb. */
 export const DEFAULT_IMPORT_MAX_BYTES = 200 * 1024 * 1024;
@@ -78,7 +79,7 @@ export function storedFileAttachment(res: Response, source: ExportFileSource, mi
     res.removeHeader('Content-Type');
     res.removeHeader('Content-Disposition');
     res.removeHeader('Content-Length');
-    res.status(500).json({ statusCode: 500, message: 'Internal server error' });
+    res.status(500).json(rawErrorBody(res, 'Internal server error'));
   });
 }
 

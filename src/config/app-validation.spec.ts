@@ -106,7 +106,12 @@ describe('the global pipes ahead of the DTO transform', () => {
 
     for (const padded of justUnder) expect(await pipe.transform(padded, body('body', SendTextMessageDto))).toBe(padded);
     await expect(runAll(justUnder[0], body('body', SendTextMessageDto))).rejects.toMatchObject({
-      response: { message: expect.arrayContaining(['mentions must contain no more than 1024 elements']) as string[] },
+      response: {
+        message: 'Validation failed',
+        errors: expect.arrayContaining([
+          { field: 'mentions', message: 'mentions must contain no more than 1024 elements' },
+        ]) as unknown,
+      },
     });
     expect(transform).toHaveBeenCalledTimes(1);
   });

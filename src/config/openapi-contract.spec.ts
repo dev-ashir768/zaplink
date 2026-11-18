@@ -226,7 +226,12 @@ describe('openapi.json structural invariants', () => {
 // running gateway kept serving a document that fails validation while the artifact was clean. A
 // structural check, because neither producer is reachable from a unit test.
 describe('both OpenAPI producers apply the same passes', () => {
-  const PASSES = ['dropUnexpressibleOperations', 'exemptPublicOperations', 'documentErrorResponses'];
+  const PASSES = [
+    'dropUnexpressibleOperations',
+    'exemptPublicOperations',
+    'documentErrorResponses',
+    'documentSuccessEnvelopes',
+  ];
   const producers = ['src/main.ts', 'scripts/export-openapi.ts'];
 
   it.each(PASSES)('%s runs in every producer', pass => {
@@ -244,7 +249,7 @@ describe('both OpenAPI producers apply the same passes', () => {
       );
       // drop must precede exempt: exempting an operation about to be deleted is wasted work, and the
       // reverse order would leave a security exemption attached to nothing. The error pass reads
-      // the exemption, so it runs last.
+      // the exemption; the success-envelope pass wraps what the others left, so it runs last.
       expect(order[0]).toBeGreaterThan(-1);
       for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
     }

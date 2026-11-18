@@ -1,4 +1,5 @@
 import { Module, DynamicModule, Type } from '@nestjs/common';
+import { RESPONSE_ENVELOPE_PROVIDERS } from './common/http';
 import { ServeStaticModule, ServeStaticModuleOptions } from '@nestjs/serve-static';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
@@ -266,6 +267,11 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
     CatalogModule, // Phase 3: Catalog API (WhatsApp Business)
     ...searchModules, // Global message search (opt-out via SEARCH_ENABLED=false; default ON)
     ...serveStaticModules, // Bundled dashboard SPA (production single-port setup)
+  ],
+  providers: [
+    // One response contract for the whole API: successes as { success, message, data }, every error as
+    // { success: false, message, errors, data: null, ... } (src/common/http).
+    ...RESPONSE_ENVELOPE_PROVIDERS,
   ],
 })
 export class AppModule {}

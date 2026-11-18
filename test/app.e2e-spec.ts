@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -37,8 +38,8 @@ describe('App smoke (e2e)', () => {
       .get('/api/health')
       .expect(200)
       .expect(res => {
-        const body = res.body as { status?: string };
-        if (body.status !== 'ok') throw new Error(`unexpected health body: ${JSON.stringify(res.body)}`);
+        const body = dataOf(res) as { status?: string };
+        if (body.status !== 'ok') throw new Error(`unexpected health body: ${JSON.stringify(dataOf(res))}`);
       });
   });
 
@@ -50,7 +51,7 @@ describe('App smoke (e2e)', () => {
       .get('/api/health')
       .expect(200)
       .expect(res => {
-        if ('version' in (res.body as object)) throw new Error('version disclosed without credentials');
+        if ('version' in (dataOf(res) as object)) throw new Error('version disclosed without credentials');
       });
 
     await request(app.getHttpServer())
@@ -58,7 +59,7 @@ describe('App smoke (e2e)', () => {
       .set('X-API-Key', rawKey)
       .expect(200)
       .expect(res => {
-        const body = res.body as { version?: string };
+        const body = dataOf(res) as { version?: string };
         if (typeof body.version !== 'string' || !body.version) {
           throw new Error('version missing for an authenticated caller');
         }
@@ -77,13 +78,13 @@ describe('App smoke (e2e)', () => {
 
     const sessions = await request(app.getHttpServer()).get(`/api/sessions?offset=${offset}`).set('X-API-Key', rawKey);
     expect(sessions.status).toBe(200);
-    expect(sessions.body).toEqual([]);
+    expect(dataOf(sessions)).toEqual([]);
 
     const messages = await request(app.getHttpServer())
       .get(`/api/sessions/0a941dac-a965-45e7-b318-74ae8be134f0/messages?offset=${offset}`)
       .set('X-API-Key', rawKey);
     expect(messages.status).toBe(200);
-    expect(messages.body).toMatchObject({ messages: [], total: 0 });
+    expect(dataOf(messages)).toMatchObject({ messages: [], total: 0 });
   });
 
   it('GET an unknown route returns 404', () => {

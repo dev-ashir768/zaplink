@@ -13,6 +13,7 @@ import { writeFileSync } from 'node:fs';
 import {
   createSwaggerConfig,
   documentErrorResponses,
+  documentSuccessEnvelopes,
   dropUnexpressibleOperations,
   exemptPublicOperations,
 } from '../src/config/swagger.config';
@@ -62,6 +63,7 @@ async function main() {
     dropUnexpressibleOperations(doc);
     exemptPublicOperations(doc);
     documentErrorResponses(doc);
+    documentSuccessEnvelopes(doc);
     writeFileSync(out, JSON.stringify(doc, null, 2) + '\n');
     console.log(
       `✓ OpenAPI snapshot written to ${out} (version ${doc.info.version}, ${Object.keys(doc.paths).length} paths)`,

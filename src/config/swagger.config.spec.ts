@@ -3,6 +3,7 @@ import * as path from 'path';
 import {
   createSwaggerConfig,
   documentErrorResponses,
+  documentSuccessEnvelopes,
   dropUnexpressibleOperations,
   ERROR_RESPONSE_SCHEMA,
   exemptPublicOperations,
@@ -11,6 +12,8 @@ import {
 } from './swagger.config';
 import type { OpenAPIObject, OperationObject } from '@nestjs/swagger';
 import { EnginePageError } from '../common/errors/engine-page.error';
+import { resolveException } from '../common/http/all-exceptions.filter';
+import { errorEnvelope } from '../common/http/api-response';
 
 describe('createSwaggerConfig', () => {
   // Regression test for issue #104: Swagger UI returned "Unauthorized" because the
@@ -184,10 +187,11 @@ describe('documentErrorResponses', () => {
     const schema = documentErrorResponses(fixtureDoc()).components?.schemas?.[ERROR_RESPONSE_SCHEMA] as {
       properties: Record<string, { description?: string }>;
     };
-    const body = new EnginePageError(
-      { name: 'Error', message: 'boom', build: '2.3000' },
-      new Error('boom'),
-    ).getResponse();
+    // The body the exception filter renders for it, envelope and extras together.
+    const resolved = resolveException(
+      new EnginePageError({ name: 'Error', message: 'boom', build: '2.3000' }, new Error('boom')),
+    );
+    const body = errorEnvelope(resolved.message, { ...resolved.extras, requestId: 'r' }, resolved.errors);
     expect(Object.keys(body).filter(key => !(key in schema.properties))).toEqual([]);
     expect(schema.properties.code.description).toContain('ENGINE_PAGE_ERROR');
   });
@@ -195,7 +199,7 @@ describe('documentErrorResponses', () => {
   it('registers the schema and is idempotent', () => {
     const once = documentErrorResponses(fixtureDoc());
     const schema = once.components?.schemas?.[ERROR_RESPONSE_SCHEMA] as { required?: string[] };
-    expect(schema.required).toEqual(['statusCode', 'message']);
+    expect(schema.required).toEqual(['success', 'message', 'errors', 'data']);
     expect(documentErrorResponses(JSON.parse(JSON.stringify(once)) as OpenAPIObject)).toEqual(
       JSON.parse(JSON.stringify(once)),
     );
@@ -326,5 +330,46 @@ describe('dropUnexpressibleOperations', () => {
     });
 
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('documentSuccessEnvelopes', () => {
+  it('wraps a 2xx JSON schema in the envelope and leaves 204, non-JSON and error responses alone', () => {
+    const item = { $ref: '#/components/schemas/Item' };
+    const doc = {
+      openapi: '3.0.0',
+      info: { title: 't', version: '0' },
+      paths: {
+        '/api/x': {
+          get: {
+            responses: {
+              '200': { description: 'ok', content: { 'application/json': { schema: item } } },
+              '404': { description: 'nf', content: { 'application/json': { schema: { type: 'object' } } } },
+            },
+          },
+          delete: { responses: { '204': { description: 'gone' } } },
+        },
+        '/api/metrics': {
+          get: {
+            responses: { '200': { description: 'm', content: { 'text/plain': { schema: { type: 'string' } } } } },
+          },
+        },
+      },
+    } as unknown as OpenAPIObject;
+    documentSuccessEnvelopes(doc);
+    const ok = (doc.paths['/api/x'].get!.responses['200'] as { content: Record<string, { schema: unknown }> }).content;
+    expect(ok['application/json'].schema).toEqual({
+      type: 'object',
+      required: ['success', 'message', 'data'],
+      properties: {
+        success: { type: 'boolean', enum: [true] },
+        message: { type: 'string', example: 'OK' },
+        data: item,
+      },
+    });
+    const notFound = doc.paths['/api/x'].get!.responses['404'] as { content: Record<string, { schema: unknown }> };
+    expect(notFound.content['application/json'].schema).toEqual({ type: 'object' });
+    const metrics = doc.paths['/api/metrics'].get!.responses['200'] as { content: Record<string, { schema: unknown }> };
+    expect(metrics.content['text/plain'].schema).toEqual({ type: 'string' });
   });
 });

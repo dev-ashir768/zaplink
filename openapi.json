@@ -119,7 +119,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuditListResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuditListResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -181,7 +201,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiKeyCreatedResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ApiKeyCreatedResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -231,9 +271,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ApiKeyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiKeyResponseDto"
+                      }
+                    }
                   }
                 }
               }
@@ -285,7 +345,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiKeyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ApiKeyResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -354,7 +434,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiKeyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ApiKeyResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -497,7 +597,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiKeyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ApiKeyResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -568,7 +688,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidateApiKeyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ValidateApiKeyResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -620,7 +760,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -717,9 +877,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionResponseDto"
+                      }
+                    }
                   }
                 }
               }
@@ -782,7 +962,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -937,7 +1137,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionConfigResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionConfigResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1018,7 +1238,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionConfigResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionConfigResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1100,7 +1340,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionProxyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionProxyResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1181,7 +1441,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionProxyResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionProxyResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1264,7 +1544,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1336,7 +1636,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1438,7 +1758,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1541,7 +1881,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 },
                 "example": {
                   "id": "8f3c2b1a-9d4e-4c7a-8b2f-1e6d5a4c3b2a",
@@ -1647,7 +2007,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1729,7 +2109,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QRCodeResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QRCodeResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1812,7 +2212,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PairingCodeResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PairingCodeResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -1922,9 +2342,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SessionGroupSummaryDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionGroupSummaryDto"
+                      }
+                    }
                   }
                 }
               }
@@ -2025,7 +2465,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupSummaryDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupSummaryDto"
+                    }
+                  }
                 }
               }
             }
@@ -2139,9 +2599,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChatSummaryDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ChatSummaryDto"
+                      }
+                    }
                   }
                 }
               }
@@ -2244,7 +2724,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -2347,7 +2847,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -2464,7 +2984,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -2566,12 +3106,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "nullable": true,
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ChatPresenceResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "nullable": true,
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ChatPresenceResponseDto"
+                        }
+                      ]
                     }
-                  ]
+                  }
                 }
               }
             }
@@ -2653,7 +3213,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -2755,7 +3335,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -2857,7 +3457,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -2959,7 +3579,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3061,7 +3701,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3164,7 +3824,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3266,7 +3946,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3338,7 +4038,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionsOverviewResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionsOverviewResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3400,7 +4120,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WebhookResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3470,9 +4210,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/WebhookResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookResponseDto"
+                      }
+                    }
                   }
                 }
               }
@@ -3534,7 +4294,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WebhookResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3613,7 +4393,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WebhookResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3756,7 +4556,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WebhookTestResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookTestResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -3836,9 +4656,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/WebhookDeliveryFailureDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDeliveryFailureDto"
+                      }
+                    }
                   }
                 }
               }
@@ -3891,7 +4731,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WebhookRedriveResultDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookRedriveResultDto"
+                    }
+                  }
                 }
               }
             }
@@ -3962,9 +4822,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/WebhookResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookResponseDto"
+                      }
+                    }
                   }
                 }
               }
@@ -4132,7 +5012,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageListResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageListResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -4232,7 +5132,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -4373,7 +5293,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -4504,7 +5444,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -4654,7 +5614,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -4805,7 +5785,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -4956,7 +5956,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5108,7 +6128,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5249,7 +6289,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5389,7 +6449,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5543,7 +6623,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5674,7 +6774,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5797,7 +6917,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -5922,7 +7062,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6034,7 +7194,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6135,7 +7315,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatchStatusResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/BatchStatusResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6206,7 +7406,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatchCancelResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/BatchCancelResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6315,9 +7535,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChatHistoryMessageDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ChatHistoryMessageDto"
+                      }
+                    }
                   }
                 }
               }
@@ -6432,9 +7672,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MessageReactionDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MessageReactionDto"
+                      }
+                    }
                   }
                 }
               }
@@ -6559,7 +7819,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageReceiptsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageReceiptsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6766,7 +8046,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6868,7 +8168,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -6984,7 +8304,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7086,7 +8426,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7188,7 +8548,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageActionResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageActionResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7290,7 +8670,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7392,7 +8792,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BulkMessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/BulkMessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7494,7 +8914,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TemplateResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/TemplateResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7574,9 +9014,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TemplateResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TemplateResponseDto"
+                      }
+                    }
                   }
                 }
               }
@@ -7638,7 +9098,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TemplateResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/TemplateResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7717,7 +9197,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TemplateResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/TemplateResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7851,7 +9351,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthCheckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/HealthCheckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7874,7 +9394,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LivenessResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LivenessResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7897,7 +9437,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReadinessResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ReadinessResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7930,7 +9490,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SettingsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SettingsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -7972,7 +9552,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraStatusResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraStatusResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8014,9 +9614,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AvailableEngineDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AvailableEngineDto"
+                      }
+                    }
                   }
                 }
               }
@@ -8059,7 +9679,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraCurrentEngineResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraCurrentEngineResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8102,7 +9742,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraCapabilitiesResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraCapabilitiesResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8145,7 +9805,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraUpdateCheckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraUpdateCheckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8187,7 +9867,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraHealthResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraHealthResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8213,7 +9913,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraConfigResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraConfigResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8264,7 +9984,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraConfigSaveResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraConfigSaveResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8326,7 +10066,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraRestartResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraRestartResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8388,7 +10148,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraExportDataResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraExportDataResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8451,7 +10231,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InfraImportDataResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InfraImportDataResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8513,7 +10313,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StorageFileCountResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StorageFileCountResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8575,7 +10395,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StorageExportResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StorageExportResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8648,7 +10488,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StorageImportResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StorageImportResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8738,9 +10598,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ContactDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContactDto"
+                      }
+                    }
                   }
                 }
               }
@@ -8833,7 +10713,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfilePicturesResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProfilePicturesResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -8906,9 +10806,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               }
@@ -9000,7 +10920,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactDto"
+                    }
+                  }
                 }
               }
             }
@@ -9109,7 +11049,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9198,7 +11158,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9290,7 +11270,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NumberCheckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/NumberCheckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9382,7 +11382,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactLidResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactLidResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9473,7 +11493,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfilePictureResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProfilePictureResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9564,7 +11604,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResolvedPhoneResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ResolvedPhoneResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9645,7 +11705,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9734,7 +11814,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -9826,7 +11926,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupJoinInfoDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupJoinInfoDto"
+                    }
+                  }
                 }
               }
             }
@@ -9927,7 +12047,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupInfoDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupInfoDto"
+                    }
+                  }
                 }
               }
             }
@@ -10029,7 +12169,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupJoinedResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupJoinedResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10120,7 +12280,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupSettingsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupSettingsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10229,7 +12409,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10350,7 +12550,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10459,7 +12679,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10570,7 +12810,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10681,7 +12941,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -10783,9 +13063,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GroupMembershipRequestDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GroupMembershipRequestDto"
+                      }
+                    }
                   }
                 }
               }
@@ -10898,7 +13198,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11010,7 +13330,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ParticipantsOperationResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11121,7 +13461,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11232,7 +13592,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11344,7 +13724,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11459,7 +13859,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11560,7 +13980,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupPictureResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupPictureResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11659,7 +14099,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11768,7 +14228,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11869,7 +14349,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupInviteCodeResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupInviteCodeResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -11970,7 +14470,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupInviteCodeRevokedResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/GroupInviteCodeRevokedResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12072,7 +14592,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProfileAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12164,7 +14704,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProfileAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12256,7 +14816,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProfileAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12346,7 +14926,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProfileAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12438,7 +15038,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CallLinkResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CallLinkResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12519,7 +15139,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CallAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CallAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12625,9 +15265,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LabelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LabelDto"
+                      }
+                    }
                   }
                 }
               }
@@ -12733,7 +15393,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LabelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LabelDto"
+                    }
+                  }
                 }
               }
             }
@@ -12857,7 +15537,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LabelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LabelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -12961,7 +15661,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LabelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LabelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -13067,9 +15787,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChatSummaryDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ChatSummaryDto"
+                      }
+                    }
                   }
                 }
               }
@@ -13185,9 +15925,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LabelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LabelDto"
+                      }
+                    }
                   }
                 }
               }
@@ -13310,7 +16070,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LabelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LabelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -13430,7 +16210,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LabelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LabelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -13532,9 +16332,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChannelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ChannelDto"
+                      }
+                    }
                   }
                 }
               }
@@ -13630,7 +16450,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelDto"
+                    }
+                  }
                 }
               }
             }
@@ -13721,7 +16561,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelDto"
+                    }
+                  }
                 }
               }
             }
@@ -13820,7 +16680,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -13930,9 +16810,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChannelMessageDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ChannelMessageDto"
+                      }
+                    }
                   }
                 }
               }
@@ -14039,7 +16939,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14151,7 +17071,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14263,7 +17203,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14389,7 +17349,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelAckResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelAckResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14515,7 +17495,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChannelDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelDto"
+                    }
+                  }
                 }
               }
             }
@@ -14611,7 +17611,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OverviewStatsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/OverviewStatsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14669,7 +17689,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageStatsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessageStatsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14730,7 +17770,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionStatsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SessionStatsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14827,7 +17887,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusListResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusListResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14887,7 +17967,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusListResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusListResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -14945,7 +18045,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusDeletedResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusDeletedResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -15116,7 +18236,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResultDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusResultDto"
+                    }
+                  }
                 }
               }
             }
@@ -15217,7 +18357,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResultDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusResultDto"
+                    }
+                  }
                 }
               }
             }
@@ -15328,7 +18488,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResultDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusResultDto"
+                    }
+                  }
                 }
               }
             }
@@ -15439,7 +18619,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResultDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/StatusResultDto"
+                    }
+                  }
                 }
               }
             }
@@ -15541,7 +18741,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConversionStatusResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConversionStatusResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -15603,7 +18823,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConvertedMediaResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConvertedMediaResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -15695,7 +18935,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConvertedMediaResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConvertedMediaResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -15776,7 +19036,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CatalogDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CatalogDto"
+                    }
+                  }
                 }
               }
             }
@@ -15893,7 +19173,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedProductsDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PaginatedProductsDto"
+                    }
+                  }
                 }
               }
             }
@@ -16006,7 +19306,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProductDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProductDto"
+                    }
+                  }
                 }
               }
             }
@@ -16111,7 +19431,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProductMessageResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProductMessageResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -16323,7 +19663,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SearchResultsResponseDto"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SearchResultsResponseDto"
+                    }
+                  }
                 }
               }
             }
@@ -16398,12 +19758,12 @@
   },
   "info": {
     "title": "ZapLink API",
-    "description": "Open Source WhatsApp API Gateway - Free, Self-Hosted HTTP API\n\n**Gateway-wide responses.** Three statuses are returned by middleware before routing, so any operation can emit them:\n\n- `415 Unsupported Media Type` — the request body carries a `Content-Encoding` other than `identity`. The aggregate in-flight body cap counts wire bytes, so a compressed body would be admitted on its compressed size and then inflated past the memory it is meant to bound. Send the body uncompressed.\n- `413 Payload Too Large`: the declared `Content-Length` is more than the gateway could hold in flight for this caller even when idle. The body is not read; retrying it unchanged cannot succeed.\n- `503 Service Unavailable` with `Retry-After` — the gateway already has too much request body data in flight (the body is not read; retry after the given delay), or, without `Retry-After`, shutdown teardown has begun: every route except `/api/health` and `/api/health/*` then answers it with `Connection: close`.\n\nEvery operation that takes an API key can also answer `429 Too Many Requests` (the per-IP rate-limit windows; with send pacing on, a send can also be refused with `code: SEND_PACING_LIMITED` and `retryAfterSeconds`) and `500 Internal Server Error` (an unexpected failure, or `code: ENGINE_PAGE_ERROR` when WhatsApp Web threw inside the page during a whatsapp-web.js send or status post). Error bodies follow the `ErrorResponse` schema.",
+    "description": "Open Source WhatsApp API Gateway - Free, Self-Hosted HTTP API\n\n**Gateway-wide responses.** Three statuses are returned by middleware before routing, so any operation can emit them:\n\n- `415 Unsupported Media Type` — the request body carries a `Content-Encoding` other than `identity`. The aggregate in-flight body cap counts wire bytes, so a compressed body would be admitted on its compressed size and then inflated past the memory it is meant to bound. Send the body uncompressed.\n- `413 Payload Too Large`: the declared `Content-Length` is more than the gateway could hold in flight for this caller even when idle. The body is not read; retrying it unchanged cannot succeed.\n- `503 Service Unavailable` with `Retry-After` — the gateway already has too much request body data in flight (the body is not read; retry after the given delay), or, without `Retry-After`, shutdown teardown has begun: every route except `/api/health` and `/api/health/*` then answers it with `Connection: close`.\n\nEvery operation that takes an API key can also answer `429 Too Many Requests` (the per-IP rate-limit windows; with send pacing on, a send can also be refused with `code: SEND_PACING_LIMITED` and `retryAfterSeconds`) and `500 Internal Server Error` (an unexpected failure, or `code: ENGINE_PAGE_ERROR` when WhatsApp Web threw inside the page during a whatsapp-web.js send or status post). Error bodies follow the `ErrorResponse` schema.\n\n**Response envelope.** Every JSON response is wrapped: a success as `{ \"success\": true, \"message\": string, \"data\": <payload> }`, an error as `{ \"success\": false, \"message\": string, \"errors\": [{ \"field\", \"message\" }], \"data\": null }` plus any machine-readable extras (`code`, `sessionId`, `requestId`, ...). The HTTP status is the real one. A 204, a file or stream download and the Prometheus scrape are not wrapped.",
     "version": "1.0.0",
     "contact": {
       "name": "ZapLink",
       "url": "https://github.com/dev-ashir768/zaplink",
-      "email": "info.ashirarif@gmail.com"
+      "email": ""
     }
   },
   "tags": [
@@ -23781,31 +27141,53 @@
       "ErrorResponse": {
         "type": "object",
         "required": [
-          "statusCode",
-          "message"
+          "success",
+          "message",
+          "errors",
+          "data"
         ],
         "properties": {
-          "statusCode": {
-            "type": "integer",
-            "description": "The HTTP status, mirrored from the status line."
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
           },
           "message": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "array",
-                "items": {
+            "type": "string",
+            "description": "What went wrong, for a person to read."
+          },
+          "errors": {
+            "type": "array",
+            "description": "One entry per rejected field of a validation 400, with its dotted path (`items.0.phone`). Empty for every other error, and for a validation 400 where validation detail is off (production default).",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
                   "type": "string"
                 }
               }
-            ],
-            "description": "What went wrong. A detailed validation 400 carries one string per rejected field."
+            }
           },
-          "error": {
+          "data": {
+            "type": "object",
+            "nullable": true,
+            "description": "Always null on an error."
+          },
+          "requestId": {
             "type": "string",
-            "description": "The status reason phrase, e.g. \"Not Found\". Not always present: a body built from a bare message omits it, including an unexpected 500, an oversized-body 413, the throttler 429, a production validation 400, and some errors raised with a plain message, such as the session start 504."
+            "description": "The X-Request-ID of the request; quote it when reporting a 500."
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "With the duplicate-name 409 of POST /api/sessions: the existing session."
           },
           "code": {
             "type": "string",

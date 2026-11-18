@@ -79,11 +79,11 @@ describe('Session name-scoped teardown fence: 409 code survives HTTP serializati
     const res = await request(app.getHttpServer()).delete(`/api/sessions/${sessionId}`).set('X-API-Key', adminKey);
 
     expect(res.status).toBe(409);
-    // The load-bearing assertion: the stable machine-readable code Nest's default filter copies from the
+    // The load-bearing assertion: the stable machine-readable code the global exception filter copies from the
     // object-response ConflictException survives into the REST caller's JSON body.
     expect(res.body).toMatchObject({
-      statusCode: 409,
-      error: 'Conflict',
+      success: false,
+      data: null,
       code: 'SESSION_NAME_TEARDOWN_PENDING',
     });
     // Message is a nested object on Nest's serialized body; assert it without an unsafe `any` access.
@@ -95,8 +95,8 @@ describe('Session name-scoped teardown fence: 409 code survives HTTP serializati
 
     expect(res.status).toBe(409);
     expect(res.body).toMatchObject({
-      statusCode: 409,
-      error: 'Conflict',
+      success: false,
+      data: null,
       code: 'SESSION_NAME_TEARDOWN_PENDING',
     });
   });

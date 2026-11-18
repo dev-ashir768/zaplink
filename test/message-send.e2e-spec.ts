@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -74,7 +75,7 @@ describe('Message send endpoints (e2e)', () => {
   const waitForBatch = async (batchId: string): Promise<BatchBody> => {
     for (let attempt = 0; attempt < 30; attempt++) {
       const res = await get(`batch/${batchId}`).expect(200);
-      const body = res.body as BatchBody;
+      const body = dataOf(res) as BatchBody;
       if (body.status !== 'pending' && body.status !== 'processing') return body;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -111,7 +112,7 @@ describe('Message send endpoints (e2e)', () => {
         footer: 'Thanks',
       })
       .expect(201);
-    templateId = (template.body as { id: string }).id;
+    templateId = (dataOf(template) as { id: string }).id;
   });
 
   afterAll(async () => {
@@ -124,7 +125,7 @@ describe('Message send endpoints (e2e)', () => {
   it('send-text returns 201 and hands chatId + text to the engine', async () => {
     const res = await post('send-text', { chatId: '628123@c.us', text: 'hello from e2e' }).expect(201);
 
-    expect(res.body).toEqual({ messageId: result.id, timestamp: result.timestamp });
+    expect(dataOf(res)).toEqual({ messageId: result.id, timestamp: result.timestamp });
     expect(engine.sendTextMessage).toHaveBeenCalledTimes(1);
     expect(engine.sendTextMessage).toHaveBeenCalledWith('628123@c.us', 'hello from e2e');
   });
@@ -155,7 +156,7 @@ describe('Message send endpoints (e2e)', () => {
       caption: 'a gif',
     }).expect(201);
 
-    expect(res.body).toEqual({ messageId: result.id, timestamp: result.timestamp });
+    expect(dataOf(res)).toEqual({ messageId: result.id, timestamp: result.timestamp });
     expect(engine.sendImageMessage).toHaveBeenCalledWith(
       '628123@c.us',
       expect.objectContaining({ data: base64, mimetype: 'image/gif', caption: 'a gif' }),
@@ -256,7 +257,7 @@ describe('Message send endpoints (e2e)', () => {
       vars: { customer: 'Ada', orderId: '42' },
     }).expect(201);
 
-    expect(res.body).toEqual({ messageId: result.id, timestamp: result.timestamp });
+    expect(dataOf(res)).toEqual({ messageId: result.id, timestamp: result.timestamp });
     expect(engine.sendTextMessage).toHaveBeenCalledTimes(1);
     expect(engine.sendTextMessage).toHaveBeenCalledWith('628123@c.us', 'Hi\n\nHello Ada, order 42 is ready.\n\nThanks');
   });
@@ -295,7 +296,7 @@ describe('Message send endpoints (e2e)', () => {
       text: 'replying',
     }).expect(201);
 
-    expect(res.body).toEqual({ messageId: result.id, timestamp: result.timestamp });
+    expect(dataOf(res)).toEqual({ messageId: result.id, timestamp: result.timestamp });
     expect(engine.replyToMessage).toHaveBeenCalledTimes(1);
     expect(engine.replyToMessage).toHaveBeenCalledWith('628123@c.us', 'wamid.quoted.1', 'replying');
   });
@@ -307,7 +308,7 @@ describe('Message send endpoints (e2e)', () => {
       messageId: 'wamid.src.1',
     }).expect(201);
 
-    expect(res.body).toEqual({ messageId: result.id, timestamp: result.timestamp });
+    expect(dataOf(res)).toEqual({ messageId: result.id, timestamp: result.timestamp });
     expect(engine.forwardMessage).toHaveBeenCalledTimes(1);
     expect(engine.forwardMessage).toHaveBeenCalledWith('628123@c.us', '628999@c.us', 'wamid.src.1');
   });
@@ -317,7 +318,7 @@ describe('Message send endpoints (e2e)', () => {
       messages: [{ chatId: '628111@c.us', type: 'text', content: { text: 'bulk one' } }],
     }).expect(202);
 
-    const body = res.body as {
+    const body = dataOf(res) as {
       batchId: string;
       status: string;
       totalMessages: number;
@@ -354,9 +355,9 @@ describe('Message send endpoints (e2e)', () => {
       ],
       options: { delayBetweenMessages: 1000, randomizeDelay: false },
     }).expect(202);
-    expect((res.body as { totalMessages: number }).totalMessages).toBe(2);
+    expect((dataOf(res) as { totalMessages: number }).totalMessages).toBe(2);
 
-    const settled = await waitForBatch((res.body as { batchId: string }).batchId);
+    const settled = await waitForBatch((dataOf(res) as { batchId: string }).batchId);
     expect(settled.status).toBe('completed');
     expect(settled.progress).toEqual({ total: 2, sent: 1, failed: 1, pending: 0, cancelled: 0 });
     expect(engine.sendTextMessage).toHaveBeenNthCalledWith(1, '628111@c.us', 'hey Bo');

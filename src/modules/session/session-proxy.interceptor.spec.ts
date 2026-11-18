@@ -409,8 +409,8 @@ describe('SessionProxyInterceptor', () => {
       await interceptor.intercept(context, next);
 
       expect(res.status).toHaveBeenCalledWith(503);
-      const errorBody = (res.json.mock.calls[0] as [{ statusCode: number; message: string }])[0];
-      expect(errorBody.statusCode).toBe(503);
+      const errorBody = (res.json.mock.calls[0] as [{ success: boolean; message: string }])[0];
+      expect(errorBody.success).toBe(false);
       expect(errorBody.message).toContain('peer-node');
       expect(handle).not.toHaveBeenCalled();
     });
@@ -443,7 +443,7 @@ describe('SessionProxyInterceptor', () => {
 
           expect(res.status).toHaveBeenCalledTimes(1);
           expect(res.status).toHaveBeenCalledWith(504);
-          expect((res.json.mock.calls[0] as [{ error: string }])[0].error).toBe('Gateway Timeout');
+          expect((res.json.mock.calls[0] as [{ message: string }])[0].message).toContain('did not answer within');
         },
       );
     });

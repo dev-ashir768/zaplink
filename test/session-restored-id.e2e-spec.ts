@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -52,7 +53,7 @@ describe('Session routes for a restored session with a non-UUID id (e2e)', () =>
 
     const res = await call('get', 'sales-bot').expect(200);
 
-    expect(res.body).toMatchObject({ id: 'sales-bot', name: 'restored-read' });
+    expect(dataOf(res)).toMatchObject({ id: 'sales-bot', name: 'restored-read' });
   });
 
   it('is stopped by its id and stays stopped', async () => {
@@ -60,7 +61,7 @@ describe('Session routes for a restored session with a non-UUID id (e2e)', () =>
 
     const res = await call('post', 'stop-bot/stop').expect(200);
 
-    expect(res.body).toMatchObject({ id: 'stop-bot', status: 'disconnected' });
+    expect(dataOf(res)).toMatchObject({ id: 'stop-bot', status: 'disconnected' });
     expect((await sessions.findOneByOrFail({ id: 'stop-bot' })).desiredState).toBe('stopped');
   });
 

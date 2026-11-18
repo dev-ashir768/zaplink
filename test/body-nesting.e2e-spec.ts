@@ -84,7 +84,7 @@ describe('Request body nesting bound over the real application (e2e)', () => {
     const res = await sendText(deepMentions, key);
 
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+    expect(res.body).toMatchObject({ success: false, data: null });
     expect(engine.sendTextMessage).not.toHaveBeenCalled();
   });
 });

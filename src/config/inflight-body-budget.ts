@@ -49,6 +49,7 @@ import { limiterKeyForIp, resolveClientIp } from '../common/utils/ip';
 import { markDroppedResponse } from '../common/middleware/request-metrics.middleware';
 import { createLogger } from '../common/services/logger.service';
 import { SlidingWindowLimiter } from '../modules/events/ws-rate-limit';
+import { rawErrorBody } from '../common/http/api-response';
 
 const logger = createLogger('InflightBodyBudget');
 
@@ -270,11 +271,11 @@ export function createInflightBodyBudget(budgetBytes: number, options?: Inflight
       dropConnection(req, res, 'refused');
       return;
     }
-    res.status(503).set('Retry-After', retryAfter).set('Connection', 'close').json({
-      statusCode: 503,
-      message: 'Too much request body data in flight; retry later',
-      error: 'Service Unavailable',
-    });
+    res
+      .status(503)
+      .set('Retry-After', retryAfter)
+      .set('Connection', 'close')
+      .json(rawErrorBody(res, 'Too much request body data in flight; retry later'));
   };
 
   /** Same never-read-the-body disposal as rejectBusy; only the reason and status differ. */
@@ -283,11 +284,7 @@ export function createInflightBodyBudget(budgetBytes: number, options?: Inflight
       dropConnection(req, res, 'refused');
       return;
     }
-    res.status(415).set('Connection', 'close').json({
-      statusCode: 415,
-      message: 'Compressed request bodies are not supported',
-      error: 'Unsupported Media Type',
-    });
+    res.status(415).set('Connection', 'close').json(rawErrorBody(res, 'Compressed request bodies are not supported'));
   };
 
   /** Same disposal again, for a body that could not be admitted even with nothing else in flight. */
@@ -296,11 +293,10 @@ export function createInflightBodyBudget(budgetBytes: number, options?: Inflight
       dropConnection(req, res, 'refused');
       return;
     }
-    res.status(413).set('Connection', 'close').json({
-      statusCode: 413,
-      message: 'Request body exceeds what this server can accept',
-      error: 'Payload Too Large',
-    });
+    res
+      .status(413)
+      .set('Connection', 'close')
+      .json(rawErrorBody(res, 'Request body exceeds what this server can accept'));
   };
 
   const middleware = (req: Request, res: Response, next: NextFunction): void => {

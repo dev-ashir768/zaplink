@@ -9,6 +9,7 @@ import {
 import { isValidationErrorDetailEnabled } from './bootstrap-security';
 import { containsNul } from '../common/validation/no-nul-character';
 import { BODY_WIDTH_MESSAGES, exceededBodyWidth } from '../common/validation/body-width';
+import { validationExceptionFactory } from '../common/http/validation-errors';
 import { ImportDataDto } from '../modules/infra/dto/import-data.dto';
 
 /**
@@ -71,7 +72,11 @@ export function applyGlobalValidation(app: INestApplication): void {
     new BodyWidthPipe(),
     new ValidationPipe({
       ...GLOBAL_VALIDATION_OPTIONS,
-      disableErrorMessages: !isValidationErrorDetailEnabled(process.env.VALIDATION_ERROR_DETAIL, process.env.NODE_ENV),
+      // The field list ({ field, message } with dotted paths) is the envelope's `errors`; withheld where
+      // validation detail is off, as disableErrorMessages withheld Nest's message list.
+      exceptionFactory: validationExceptionFactory(
+        isValidationErrorDetailEnabled(process.env.VALIDATION_ERROR_DETAIL, process.env.NODE_ENV),
+      ),
     }),
     new NulBodyPipe(),
   );

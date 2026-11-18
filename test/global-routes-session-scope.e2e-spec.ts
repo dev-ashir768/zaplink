@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -83,7 +84,7 @@ describe('Global read and create routes reject session-scoped keys (e2e)', () =>
       .set('X-API-Key', scopedOperatorKey)
       .send({ name: `e2e-owned-operator-${Date.now()}` })
       .expect(201);
-    expect((res.body as { ownerKeyId: string | null }).ownerKeyId).toEqual(expect.any(String));
+    expect((dataOf(res) as { ownerKeyId: string | null }).ownerKeyId).toEqual(expect.any(String));
   });
 
   it('lets an unrestricted key reach the global stats overview', async () => {
@@ -112,7 +113,7 @@ describe('Global read and create routes reject session-scoped keys (e2e)', () =>
         .get('/api/sessions/stats/overview')
         .set('X-API-Key', key)
         .expect(200)
-        .then(res => res.body as { total: number; byStatus: Record<string, number> });
+        .then(res => dataOf(res) as { total: number; byStatus: Record<string, number> });
 
     // Its assigned session plus the one it created above; the new admin-owned row is not counted.
     expect(await overview(scopedOperatorKey)).toMatchObject({ total: 2, byStatus: { created: 2 } });

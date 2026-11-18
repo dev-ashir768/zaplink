@@ -20,6 +20,7 @@ import { SESSION_SCOPED_KEY } from '../auth/decorators/auth.decorators';
 import { createLogger } from '../../common/services/logger.service';
 import { isTransientDbError } from '../../common/utils/db-errors';
 import { normalizeIp } from '../../common/utils/ip';
+import { rawErrorBody } from '../../common/http/api-response';
 
 /**
  * The request headers a forwarded call carries over. Everything else is this hop's business.
@@ -359,13 +360,15 @@ export class SessionProxyInterceptor implements NestInterceptor {
       });
       if (target === undefined || (typeof code === 'string' && NOT_DISPATCHED_CODES.has(code))) {
         // Nothing reached the owner: 503 is the honest, retryable answer.
-        response.status(503).json({
-          statusCode: 503,
-          message:
-            `this session is hosted on node '${ownerNodeId}', which could not be reached from this node — ` +
-            'check the owner node and its NODE_URL',
-          error: 'Service Unavailable',
-        });
+        response
+          .status(503)
+          .json(
+            rawErrorBody(
+              response,
+              `this session is hosted on node '${ownerNodeId}', which could not be reached from this node — ` +
+                'check the owner node and its NODE_URL',
+            ),
+          );
         return;
       }
       // Anything else may have happened after the request was sent (an unlisted error such as a TLS
@@ -374,15 +377,18 @@ export class SessionProxyInterceptor implements NestInterceptor {
       // sends on it.
       const timedOut = failure.name === 'TimeoutError' || failure.name === 'AbortError';
       const status = timedOut ? 504 : 502;
-      response.status(status).json({
-        statusCode: status,
-        message: timedOut
-          ? `node '${ownerNodeId}', which hosts this session, did not answer within ${timeoutMs}ms; ` +
-            'the request may still have been carried out there'
-          : `forwarding to node '${ownerNodeId}', which hosts this session, failed, possibly after the request ` +
-            'was sent; it may have been carried out there, check the owner node and its NODE_URL',
-        error: timedOut ? 'Gateway Timeout' : 'Bad Gateway',
-      });
+      response
+        .status(status)
+        .json(
+          rawErrorBody(
+            response,
+            timedOut
+              ? `node '${ownerNodeId}', which hosts this session, did not answer within ${timeoutMs}ms; ` +
+                  'the request may still have been carried out there'
+              : `forwarding to node '${ownerNodeId}', which hosts this session, failed, possibly after the request ` +
+                  'was sent; it may have been carried out there, check the owner node and its NODE_URL',
+          ),
+        );
     } finally {
       clearTimeout(timer);
     }

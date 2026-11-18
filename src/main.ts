@@ -12,6 +12,7 @@ import { applyLogLevelFromEnv, createLogger } from './common/services/logger.ser
 import {
   createSwaggerConfig,
   documentErrorResponses,
+  documentSuccessEnvelopes,
   dropUnexpressibleOperations,
   exemptPublicOperations,
 } from './config/swagger.config';
@@ -232,6 +233,7 @@ async function bootstrap() {
     dropUnexpressibleOperations(document);
     exemptPublicOperations(document);
     documentErrorResponses(document);
+    documentSuccessEnvelopes(document);
     SwaggerModule.setup('api/docs', app, document);
   }
 

@@ -195,7 +195,12 @@ describe('GET /sessions/:sessionId/status/:statusId/media', () => {
     expect(answer.status).toBe(500);
     expect(answer.headers['content-type']).toMatch(/^application\/json/);
     expect(answer.headers['content-disposition']).toBeUndefined();
-    expect(JSON.parse(answer.body.toString())).toEqual({ statusCode: 500, message: 'Internal server error' });
+    expect(JSON.parse(answer.body.toString())).toMatchObject({
+      success: false,
+      message: 'Internal server error',
+      errors: [],
+      data: null,
+    });
   });
 
   it('cuts the connection when the store fails after the first byte, so a short body never looks complete', async () => {

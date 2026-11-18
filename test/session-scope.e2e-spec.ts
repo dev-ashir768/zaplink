@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -81,7 +82,7 @@ describe('Session-scoped query endpoints (e2e)', () => {
   describe('GET /api/audit', () => {
     it('a key scoped to sessA sees sessA rows but never sessB (no sessionId param => no cross-tenant leak)', async () => {
       const res = await request(app.getHttpServer()).get('/api/audit').set('X-API-Key', scopedKey).expect(200);
-      const body = res.body as { data: AuditLog[]; total: number };
+      const body = dataOf(res) as { data: AuditLog[]; total: number };
       const sessions = body.data.map(r => r.sessionId);
       expect(sessions).toContain(sessA);
       expect(sessions).not.toContain(sessB);
@@ -93,14 +94,14 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .query({ sessionId: sessB })
         .set('X-API-Key', scopedKey)
         .expect(200);
-      const body = res.body as { data: AuditLog[]; total: number };
+      const body = dataOf(res) as { data: AuditLog[]; total: number };
       expect(body.data).toEqual([]);
       expect(body.total).toBe(0);
     });
 
     it('an unrestricted ADMIN key still sees both sessions', async () => {
       const res = await request(app.getHttpServer()).get('/api/audit').set('X-API-Key', adminKey).expect(200);
-      const body = res.body as { data: AuditLog[]; total: number };
+      const body = dataOf(res) as { data: AuditLog[]; total: number };
       const sessions = body.data.map(r => r.sessionId);
       expect(sessions).toContain(sessA);
       expect(sessions).toContain(sessB);
@@ -113,18 +114,18 @@ describe('Session-scoped query endpoints (e2e)', () => {
 
     it('returns only the exactly named session', async () => {
       const res = await list(adminKey, `name=${nameB}`).expect(200);
-      expect((res.body as Session[]).map(s => s.id)).toEqual([sessB]);
+      expect((dataOf(res) as Session[]).map(s => s.id)).toEqual([sessB]);
     });
 
     it('matches case-sensitively and returns [] for an unknown name', async () => {
-      await list(adminKey, `name=${nameB.toUpperCase()}`).expect(200, []);
-      await list(adminKey, 'name=no-such-session').expect(200, []);
+      await list(adminKey, `name=${nameB.toUpperCase()}`).expect(200, { success: true, message: 'OK', data: [] });
+      await list(adminKey, 'name=no-such-session').expect(200, { success: true, message: 'OK', data: [] });
     });
 
     it('a scoped key gets [] for a name outside its allowlist, and its own session by name', async () => {
-      await list(scopedKey, `name=${nameB}`).expect(200, []);
+      await list(scopedKey, `name=${nameB}`).expect(200, { success: true, message: 'OK', data: [] });
       const res = await list(scopedKey, `name=${nameA}`).expect(200);
-      expect((res.body as Session[]).map(s => s.id)).toEqual([sessA]);
+      expect((dataOf(res) as Session[]).map(s => s.id)).toEqual([sessA]);
     });
 
     it('rejects a repeated or empty name with 400', async () => {
@@ -139,7 +140,7 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .get('/api/webhooks/delivery-failures')
         .set('X-API-Key', scopedKey)
         .expect(200);
-      const sessions = (res.body as WebhookDeliveryFailure[]).map(r => r.sessionId);
+      const sessions = (dataOf(res) as WebhookDeliveryFailure[]).map(r => r.sessionId);
       expect(sessions).toContain(sessA);
       expect(sessions).not.toContain(sessB);
     });
@@ -150,7 +151,7 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .query({ sessionId: sessB })
         .set('X-API-Key', scopedKey)
         .expect(200);
-      expect(res.body).toEqual([]);
+      expect(dataOf(res)).toEqual([]);
     });
 
     it('an unrestricted ADMIN key still sees both sessions', async () => {
@@ -158,7 +159,7 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .get('/api/webhooks/delivery-failures')
         .set('X-API-Key', adminKey)
         .expect(200);
-      const sessions = (res.body as WebhookDeliveryFailure[]).map(r => r.sessionId);
+      const sessions = (dataOf(res) as WebhookDeliveryFailure[]).map(r => r.sessionId);
       expect(sessions).toContain(sessA);
       expect(sessions).toContain(sessB);
     });
@@ -168,10 +169,10 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .get('/api/webhooks/delivery-failures')
         .set('X-API-Key', adminKey)
         .expect(200);
-      expect((res.body as WebhookDeliveryFailure[]).map(r => r.sessionId)).toEqual(
+      expect((dataOf(res) as WebhookDeliveryFailure[]).map(r => r.sessionId)).toEqual(
         expect.arrayContaining([sessA, sessB]),
       );
-      expect(JSON.stringify(res.body)).not.toContain(RETAINED_BODY);
+      expect(JSON.stringify(dataOf(res))).not.toContain(RETAINED_BODY);
     });
   });
 
@@ -231,7 +232,7 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .set('X-API-Key', adminKey)
         .send({ name: 'e2e-lifecycle', role: 'viewer' })
         .expect(201);
-      const id = (created.body as { id: string }).id;
+      const id = (dataOf(created) as { id: string }).id;
       await request(app.getHttpServer())
         .put(`/api/auth/api-keys/${id}`)
         .set('X-API-Key', adminKey)
@@ -254,7 +255,7 @@ describe('Session-scoped query endpoints (e2e)', () => {
           .send({ name, role: 'operator', ...asObject })
           .expect(400);
         const listed = await request(app.getHttpServer()).get('/api/auth/api-keys').set('X-API-Key', adminKey);
-        expect((listed.body as Array<{ name: string }>).some(key => key.name === name)).toBe(false);
+        expect((dataOf(listed) as Array<{ name: string }>).some(key => key.name === name)).toBe(false);
       });
 
       it('is refused on update, and the stored restriction is kept', async () => {
@@ -263,14 +264,14 @@ describe('Session-scoped query endpoints (e2e)', () => {
           .set('X-API-Key', adminKey)
           .send({ name: `e2e-keep-${field}`, role: 'operator', allowedChats: ['628222@c.us'] })
           .expect(201);
-        const { id } = created.body as { id: string };
+        const { id } = dataOf(created) as { id: string };
         await request(app.getHttpServer())
           .put(`/api/auth/api-keys/${id}`)
           .set('X-API-Key', adminKey)
           .send(asObject)
           .expect(400);
         const read = await request(app.getHttpServer()).get(`/api/auth/api-keys/${id}`).set('X-API-Key', adminKey);
-        expect((read.body as { allowedChats?: string[] }).allowedChats).toEqual(['628222@c.us']);
+        expect((dataOf(read) as { allowedChats?: string[] }).allowedChats).toEqual(['628222@c.us']);
         await request(app.getHttpServer()).delete(`/api/auth/api-keys/${id}`).set('X-API-Key', adminKey).expect(204);
       });
     });
@@ -281,8 +282,8 @@ describe('Session-scoped query endpoints (e2e)', () => {
         .set('X-API-Key', adminKey)
         .send({ name: 'e2e-list-chats', role: 'operator', allowedChats: ['628111@c.us'] })
         .expect(201);
-      const { id } = created.body as { id: string; allowedChats?: string[] };
-      expect((created.body as { allowedChats?: string[] }).allowedChats).toEqual(['628111@c.us']);
+      const { id } = dataOf(created) as { id: string; allowedChats?: string[] };
+      expect((dataOf(created) as { allowedChats?: string[] }).allowedChats).toEqual(['628111@c.us']);
       await request(app.getHttpServer()).delete(`/api/auth/api-keys/${id}`).set('X-API-Key', adminKey).expect(204);
     });
 

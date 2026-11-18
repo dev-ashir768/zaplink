@@ -5,6 +5,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -138,7 +139,7 @@ describe('Session request forwarding (e2e)', () => {
       .expect(200);
 
     expect(ownerSeen).toHaveLength(0);
-    expect((res.body as { id: string }).id).toBe(session.id); // the LOCAL answer, straight from this node's database
+    expect((dataOf(res) as { id: string }).id).toBe(session.id); // the LOCAL answer, straight from this node's database
   });
 
   it('a lapsed owner is not forwarded to — the local node answers (takeover semantics)', async () => {
@@ -152,7 +153,7 @@ describe('Session request forwarding (e2e)', () => {
       .expect(200);
 
     expect(ownerSeen).toHaveLength(0);
-    expect((res.body as { id: string }).id).toBe(session.id);
+    expect((dataOf(res) as { id: string }).id).toBe(session.id);
   });
 
   it('relays a download larger than the node holds, byte for byte, through the whole app', async () => {

@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { applyGlobalValidation } from '../src/config/app-validation';
@@ -81,7 +82,7 @@ describe('Group invite-code role gate (e2e)', () => {
 
   it('serves an OPERATOR key the code + link', async () => {
     const res = await inviteCodeGet(operatorKey).expect(200);
-    expect(res.body).toEqual({
+    expect(dataOf(res)).toEqual({
       inviteCode: 'AbCdEf123456',
       inviteLink: 'https://chat.whatsapp.com/AbCdEf123456',
     });

@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { applyGlobalValidation } from '../src/config/app-validation';
@@ -88,7 +89,7 @@ describe('Contact LID lookup gate (e2e)', () => {
 
     const res = await lidGet(operatorKey).expect(200);
 
-    expect(res.body).toEqual({ number: '628123456789', lid: '234767895240796@lid' });
+    expect(dataOf(res)).toEqual({ number: '628123456789', lid: '234767895240796@lid' });
     expect(engine.getContactLid).toHaveBeenCalledWith('628123456789');
   });
 
@@ -97,7 +98,7 @@ describe('Contact LID lookup gate (e2e)', () => {
 
     const res = await lidGet(operatorKey).expect(200);
 
-    expect(res.body).toEqual({ number: '628123456789', lid: null });
+    expect(dataOf(res)).toEqual({ number: '628123456789', lid: null });
   });
 
   it('refuses a privacy id or a group id as the number (400) without asking the engine', async () => {
@@ -121,7 +122,7 @@ describe('Contact LID lookup gate (e2e)', () => {
       .set('X-API-Key', operatorKey)
       .expect(200);
 
-    expect(res.body).toEqual({ number: '628123456789', exists: true, whatsappId: '628123456789@c.us' });
+    expect(dataOf(res)).toEqual({ number: '628123456789', exists: true, whatsappId: '628123456789@c.us' });
     expect(engine.getContactLid).not.toHaveBeenCalled();
   });
 
@@ -149,6 +150,6 @@ describe('Contact LID lookup gate (e2e)', () => {
       .expect(200);
 
     expect(check).toHaveBeenCalledWith('6281270008896');
-    expect(res.body).toEqual({ number: '+62 812-7000-8896', exists: true, whatsappId: '6281270008896@c.us' });
+    expect(dataOf(res)).toEqual({ number: '+62 812-7000-8896', exists: true, whatsappId: '6281270008896@c.us' });
   });
 });

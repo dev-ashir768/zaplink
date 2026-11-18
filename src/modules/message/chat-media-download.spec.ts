@@ -247,7 +247,12 @@ describe('GET /sessions/:sessionId/messages/:chatId/:messageId/media', () => {
     expect(answer.headers['content-type']).toMatch(/^application\/json/);
     expect(answer.headers['content-disposition']).toBeUndefined();
     expect(answer.headers['content-length']).not.toBe('1000');
-    expect(JSON.parse(answer.body.toString())).toEqual({ statusCode: 500, message: 'Internal server error' });
+    expect(JSON.parse(answer.body.toString())).toMatchObject({
+      success: false,
+      message: 'Internal server error',
+      errors: [],
+      data: null,
+    });
   });
 
   it('serves the inline copy with its length when nothing is archived', async () => {

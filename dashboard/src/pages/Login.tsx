@@ -5,6 +5,7 @@ import { GithubIcon } from '../components/GithubIcon';
 import { CustomSelect } from '../components/CustomSelect';
 import { languageOptions, resolveSupportedLanguage, type SupportedLanguage } from '../i18n';
 import { API_BASE_URL } from '../services/api';
+import { envelopeErrorMessage, unwrapEnvelope } from '../services/envelope';
 import './Login.css';
 
 interface LoginProps {
@@ -47,7 +48,7 @@ export function Login({ onLogin }: LoginProps) {
         // The validate body already carries the key's role — hand it up so the app can set it
         // directly instead of re-validating the same key a second time.
         const data: { valid?: unknown; role?: string; engineType?: string; scoped?: unknown; name?: unknown } =
-          await response.json().catch(() => ({}));
+          unwrapEnvelope(await response.json().catch(() => ({}))) ?? {};
         // A 200 is the gateway's answer only if it says the key is valid, as the startup check requires: a reverse proxy
         // serving the app's HTML for a misrouted /api would otherwise sign any typed text in as a viewer.
         if (data.valid !== true) {
@@ -64,8 +65,8 @@ export function Login({ onLogin }: LoginProps) {
       } else {
         // A 5xx, or a body that is not the gateway's JSON (a proxy error page while it restarts), says
         // nothing about the key; a refusal keeps the gateway's reason (expired, revoked, rate limited).
-        const errorData: { message?: unknown } = await response.json().catch(() => ({}));
-        const reason = response.status < 500 && typeof errorData.message === 'string' ? errorData.message : '';
+        const errorData: unknown = await response.json().catch(() => ({}));
+        const reason = response.status < 500 ? envelopeErrorMessage(errorData) : '';
         setError(reason || t(response.status === 401 ? 'login.invalidKey' : 'login.connectionError'));
       }
     } catch {

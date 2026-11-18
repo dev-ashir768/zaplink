@@ -103,19 +103,26 @@ export const ERROR_RESPONSE_SCHEMA = 'ErrorResponse';
 
 const ERROR_RESPONSE: SchemaObject = {
   type: 'object',
-  required: ['statusCode', 'message'],
+  required: ['success', 'message', 'errors', 'data'],
   properties: {
-    statusCode: { type: 'integer', description: 'The HTTP status, mirrored from the status line.' },
-    message: {
-      oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
-      description: 'What went wrong. A detailed validation 400 carries one string per rejected field.',
-    },
-    error: {
-      type: 'string',
+    success: { type: 'boolean', enum: [false] },
+    message: { type: 'string', description: 'What went wrong, for a person to read.' },
+    errors: {
+      type: 'array',
       description:
-        'The status reason phrase, e.g. "Not Found". Not always present: a body built from a bare message ' +
-        'omits it, including an unexpected 500, an oversized-body 413, the throttler 429, ' +
-        'a production validation 400, and some errors raised with a plain message, such as the session start 504.',
+        'One entry per rejected field of a validation 400, with its dotted path (`items.0.phone`). Empty for ' +
+        'every other error, and for a validation 400 where validation detail is off (production default).',
+      items: {
+        type: 'object',
+        required: ['field', 'message'],
+        properties: { field: { type: 'string' }, message: { type: 'string' } },
+      },
+    },
+    data: { type: 'object', nullable: true, description: 'Always null on an error.' },
+    requestId: { type: 'string', description: 'The X-Request-ID of the request; quote it when reporting a 500.' },
+    sessionId: {
+      type: 'string',
+      description: 'With the duplicate-name 409 of POST /api/sessions: the existing session.',
     },
     code: {
       type: 'string',
@@ -194,6 +201,44 @@ export function documentErrorResponses(document: OpenAPIObject): OpenAPIObject {
   return document;
 }
 
+/** Wrap a success payload schema in the response envelope. */
+function successEnvelopeSchema(data: SchemaObject | ReferenceObject): SchemaObject {
+  return {
+    type: 'object',
+    required: ['success', 'message', 'data'],
+    properties: {
+      success: { type: 'boolean', enum: [true] },
+      message: { type: 'string', example: 'OK' },
+      data,
+    },
+  };
+}
+
+/**
+ * Document the success envelope the ResponseEnvelopeInterceptor applies: every 2xx JSON response schema
+ * becomes `{ success: true, message, data: <schema> }`. Non-JSON content (the metrics text, file
+ * downloads) and responses without a schema are left as they are, as the interceptor leaves them.
+ */
+export function documentSuccessEnvelopes(document: OpenAPIObject): OpenAPIObject {
+  for (const item of Object.values(document.paths ?? {})) {
+    for (const method of HTTP_METHODS) {
+      const op = (item as Record<string, OperationObject | undefined>)[method];
+      if (!op) continue;
+      for (const [status, response] of Object.entries(op.responses ?? {}) as [
+        string,
+        ResponseObject | ReferenceObject,
+      ][]) {
+        const code = Number(status);
+        if (!(code >= 200 && code < 300) || code === 204 || '$ref' in response) continue;
+        const json = response.content?.['application/json'];
+        if (!json?.schema) continue;
+        json.schema = successEnvelopeSchema(json.schema);
+      }
+    }
+  }
+  return document;
+}
+
 /**
  * Builds the OpenAPI document configuration for the ZapLink API.
  */
@@ -227,7 +272,12 @@ export function createSwaggerConfig(): Omit<OpenAPIObject, 'paths'> {
           'rate-limit windows; with send pacing on, a send can also be refused with `code: ' +
           'SEND_PACING_LIMITED` and `retryAfterSeconds`) and `500 Internal Server Error` (an ' +
           'unexpected failure, or `code: ENGINE_PAGE_ERROR` when WhatsApp Web threw inside the page ' +
-          'during a whatsapp-web.js send or status post). Error bodies follow the `ErrorResponse` schema.',
+          'during a whatsapp-web.js send or status post). Error bodies follow the `ErrorResponse` schema.\n\n' +
+          '**Response envelope.** Every JSON response is wrapped: a success as ' +
+          '`{ "success": true, "message": string, "data": <payload> }`, an error as ' +
+          '`{ "success": false, "message": string, "errors": [{ "field", "message" }], "data": null }` plus any ' +
+          'machine-readable extras (`code`, `sessionId`, `requestId`, ...). The HTTP status is the real one. ' +
+          'A 204, a file or stream download and the Prometheus scrape are not wrapped.',
       )
       .setVersion(version)
       .addApiKey({ type: 'apiKey', name: 'X-API-Key', in: 'header' }, API_KEY_SECURITY_SCHEME)

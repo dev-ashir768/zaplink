@@ -28,6 +28,7 @@ import { applyGlobalValidation } from '../src/config/app-validation';
 import { DASHBOARD_CSP_NONCE_PLACEHOLDER } from '../src/config/dashboard-csp';
 import { ActiveKeyIndex } from '../src/modules/auth/active-key-index';
 import { ShutdownService } from '../src/common/services/shutdown.service';
+import { RESPONSE_ENVELOPE_PROVIDERS } from '../src/common/http';
 import { documentErrorResponses, ERROR_RESPONSE_SCHEMA } from '../src/config/swagger.config';
 import * as bodyNesting from '../src/common/validation/body-nesting';
 import { SendTextMessageDto } from '../src/modules/message/dto/send-message.dto';
@@ -84,7 +85,10 @@ class IngressStubController {
   }
 }
 
-@Module({ controllers: [EchoController, ValidatedController, SessionStubController, IngressStubController] })
+@Module({
+  controllers: [EchoController, ValidatedController, SessionStubController, IngressStubController],
+  providers: RESPONSE_ENVELOPE_PROVIDERS,
+})
 class HttpSurfaceModule {}
 
 // A stand-in for the bundled document: the real dashboard/index.html carries the placeholder in a
@@ -238,8 +242,8 @@ describe('production HTTP surface (configureApp)', () => {
       .expect(400);
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({
-      statusCode: 400,
-      error: 'Bad Request',
+      success: false,
+      data: null,
       message: 'Request body must not nest objects or arrays more than 100 levels deep',
     });
     expect(res.headers['x-request-id']).toBeDefined();
@@ -358,7 +362,7 @@ describe('production HTTP surface (configureApp)', () => {
       .send(`{"chatId":"628123456789@c.us","text":"hi","mentions":${mentions}}`);
 
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+    expect(res.body).toMatchObject({ success: false, data: null });
   });
 
   // class-transformer copies every array element and every object key of a body before a validator can refuse
@@ -394,7 +398,7 @@ describe('production HTTP surface (configureApp)', () => {
             .send({ ...validText, ...padded });
 
           expect(res.status).toBe(400);
-          expect(res.body).toMatchObject({ statusCode: 400, error: 'Bad Request', message });
+          expect(res.body).toMatchObject({ success: false, data: null, message });
           expect(transform).not.toHaveBeenCalled();
         } finally {
           transform.mockRestore();
@@ -421,26 +425,32 @@ describe('production HTTP surface (configureApp)', () => {
     expect(res.status).toBe(413);
   });
 
-  it('sends the error field on a malformed-JSON 400 but not on the 413, as the ErrorResponse schema says', async () => {
+  it('answers a malformed-JSON 400 and the 413 with the error envelope the ErrorResponse schema documents', async () => {
     const malformed = await request(app.getHttpServer())
       .post('/api/echo')
       .set('Content-Type', 'application/json')
       .send('{bad');
     expect(malformed.status).toBe(400);
-    expect(malformed.body).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+    expect(malformed.body).toMatchObject({
+      success: false,
+      message: expect.stringContaining('JSON') as string,
+      errors: [],
+      data: null,
+    });
 
     const oversized = await request(app.getHttpServer())
       .post('/api/echo')
       .set('Content-Type', 'application/json')
       .send({ blob: 'x'.repeat(1100 * 1024) });
     expect(oversized.status).toBe(413);
+    expect(oversized.body).toMatchObject({ success: false, errors: [], data: null });
     expect(oversized.body).not.toHaveProperty('error');
 
     const schema = documentErrorResponses({ openapi: '3.0.0', info: { title: 't', version: '0' }, paths: {} })
-      .components?.schemas?.[ERROR_RESPONSE_SCHEMA] as { properties: { error: { description: string } } };
-    const omittedOn = schema.properties.error.description.split('omits it')[1];
-    expect(omittedOn).toContain('oversized-body 413');
-    expect(omittedOn).not.toMatch(/malformed/i);
+      .components?.schemas?.[ERROR_RESPONSE_SCHEMA] as { required: string[] };
+    for (const body of [malformed.body, oversized.body] as Record<string, unknown>[]) {
+      for (const key of schema.required) expect(body).toHaveProperty(key);
+    }
   });
 
   it('refuses a declared body the in-flight budget can never admit with 413, before reading it', async () => {
@@ -469,7 +479,7 @@ describe('production HTTP surface (configureApp)', () => {
     deleted.length = 0;
     for (const path of ['/api/sessions/abc/', '/api/sessions/abc/?x=1']) {
       const res = await request(app.getHttpServer()).delete(path).set('Origin', 'https://allowed.example').expect(404);
-      expect(res.body).toMatchObject({ statusCode: 404, error: 'Not Found' });
+      expect(res.body).toMatchObject({ success: false, data: null });
       expect(res.headers['x-request-id']).toBeDefined();
       // A browser can read the refusal only if it carries the CORS headers; helmet's must be there too.
       expect(res.headers['access-control-allow-origin']).toBe('https://allowed.example');
@@ -502,7 +512,7 @@ describe('production HTTP surface (configureApp)', () => {
     ingressHits.length = 0;
     for (const path of ['/api/sessions/abc%00', '/api/sessions/abc?name=%00', '/api/ingress/p%00/i/hook']) {
       const res = await request(app.getHttpServer()).get(path).set('Origin', 'https://allowed.example').expect(400);
-      expect(res.body).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+      expect(res.body).toMatchObject({ success: false, data: null });
       expect(res.headers['x-request-id']).toBeDefined();
       expect(res.headers['access-control-allow-origin']).toBe('https://allowed.example');
     }
@@ -517,7 +527,7 @@ describe('production HTTP surface (configureApp)', () => {
       .set('Content-Type', 'application/json')
       .send({ items: [{ variables: { name: 'a\u0000b' } }] });
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+    expect(res.body).toMatchObject({ success: false, data: null });
   });
 
   it('answers a compressed body with 415 rather than charging the budget its inflated size', async () => {
@@ -565,7 +575,10 @@ describe('in-flight body budget tiers (configureApp)', () => {
     recognise: (headers: { 'x-api-key'?: unknown }) => (headers['x-api-key'] === 'known-key' ? 'h' : undefined),
   };
 
-  @Module({ controllers: [EchoController], providers: [{ provide: ActiveKeyIndex, useValue: keyIndex }] })
+  @Module({
+    controllers: [EchoController],
+    providers: [{ provide: ActiveKeyIndex, useValue: keyIndex }, ...RESPONSE_ENVELOPE_PROVIDERS],
+  })
   class TieredSurfaceModule {}
 
   beforeAll(async () => {
@@ -660,7 +673,10 @@ describe('requests during shutdown teardown (configureApp)', () => {
     }
   }
 
-  @Module({ controllers: [TeardownProbeController], providers: [ShutdownService, TeardownProbe] })
+  @Module({
+    controllers: [TeardownProbeController],
+    providers: [ShutdownService, TeardownProbe, ...RESPONSE_ENVELOPE_PROVIDERS],
+  })
   class TeardownSurfaceModule {}
 
   it('refuses new requests once teardown begins, while admitted requests and the health probes complete', async () => {
@@ -697,9 +713,11 @@ describe('requests during shutdown teardown (configureApp)', () => {
       expect(refused.status).toBe(503);
       expect(refused.headers.connection).toBe('close');
       expect(refused.body).toEqual({
-        statusCode: 503,
+        success: false,
         message: 'Server is shutting down',
-        error: 'Service Unavailable',
+        errors: [],
+        data: null,
+        requestId: refused.headers['x-request-id'],
       });
       // The handler never ran for the refused request: only the drain-time call and the slow one did.
       expect(handled).toEqual(['work', 'slow']);

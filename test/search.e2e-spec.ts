@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/modules/auth/auth.service';
@@ -80,7 +81,7 @@ describe('GET /api/search (e2e)', () => {
   it('returns matching hits over the full route → provider → FTS stack (200)', async () => {
     const res = await request(app.getHttpServer()).get('/api/search?q=hello').set('X-API-Key', adminKey).expect(200);
 
-    const body = res.body as {
+    const body = dataOf(res) as {
       hits: Array<{ body: string; sessionId: string; snippet: string }>;
       total: number;
       provider: string;
@@ -118,7 +119,7 @@ describe('GET /api/search (e2e)', () => {
       .get('/api/search?q=zzzznomatch')
       .set('X-API-Key', adminKey)
       .expect(200);
-    const body = res.body as { hits: unknown[]; total: number };
+    const body = dataOf(res) as { hits: unknown[]; total: number };
     expect(body.hits).toEqual([]);
     expect(body.total).toBe(0);
   });
@@ -182,7 +183,7 @@ describe('GET /api/search?match=contains with SEARCH_CONTAINS_ENABLED=true (e2e)
     }
 
     expect(res.status).toBe(200);
-    const body = res.body as { hits: Array<{ sessionId: string; snippet: string }> };
+    const body = dataOf(res) as { hits: Array<{ sessionId: string; snippet: string }> };
     expect(body.hits.map(h => h.sessionId)).toEqual(['sess-search-2']);
     expect(body.hits[0].snippet).toContain('In<mark>voic</mark>e');
   }, 15_000);

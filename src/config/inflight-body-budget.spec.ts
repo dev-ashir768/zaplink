@@ -154,9 +154,10 @@ describe('createInflightBodyBudget middleware', () => {
     expect(headers['retry-after']).toBe('1');
     expect(headers['connection']).toBe('close');
     expect(state.payload).toEqual({
-      statusCode: 503,
+      success: false,
       message: 'Too much request body data in flight; retry later',
-      error: 'Service Unavailable',
+      errors: [],
+      data: null,
     });
     // Nothing was reserved for the rejected request and its stream was never tapped.
     expect(budget.currentBytes()).toBe(800);
@@ -175,9 +176,10 @@ describe('createInflightBodyBudget middleware', () => {
     expect(headers['retry-after']).toBeUndefined();
     expect(headers['connection']).toBe('close');
     expect(state.payload).toEqual({
-      statusCode: 413,
+      success: false,
       message: 'Request body exceeds what this server can accept',
-      error: 'Payload Too Large',
+      errors: [],
+      data: null,
     });
     expect(budget.currentBytes()).toBe(0);
     expect(res.listenerCount('finish')).toBe(0);
@@ -1149,9 +1151,10 @@ describe('compressed request bodies', () => {
 
     expect(reply.status).toBe(415);
     expect(JSON.parse(reply.body)).toEqual({
-      statusCode: 415,
+      success: false,
       message: 'Compressed request bodies are not supported',
-      error: 'Unsupported Media Type',
+      errors: [],
+      data: null,
     });
     expect(budget.currentBytes()).toBe(0);
   });
@@ -1177,7 +1180,9 @@ describe('compressed request bodies', () => {
     );
 
     expect(reply.status).toBe(415);
-    expect((JSON.parse(reply.body) as { error?: string }).error).toBe('Unsupported Media Type');
+    expect((JSON.parse(reply.body) as { message?: string }).message).toBe(
+      'Compressed request bodies are not supported',
+    );
   });
 
   it('refuses a compressed body whose Content-Length is not a safe integer', async () => {
@@ -1196,7 +1201,9 @@ describe('compressed request bodies', () => {
     );
 
     expect(reply.status).toBe(415);
-    expect((JSON.parse(reply.body) as { error?: string }).error).toBe('Unsupported Media Type');
+    expect((JSON.parse(reply.body) as { message?: string }).message).toBe(
+      'Compressed request bodies are not supported',
+    );
   });
 
   it('refuses an encoding LIST, matching what the parser would do with it', async () => {
@@ -1216,7 +1223,9 @@ describe('compressed request bodies', () => {
     );
 
     expect(reply.status).toBe(415);
-    expect((JSON.parse(reply.body) as { error?: string }).error).toBe('Unsupported Media Type');
+    expect((JSON.parse(reply.body) as { message?: string }).message).toBe(
+      'Compressed request bodies are not supported',
+    );
   });
 
   it('admits an ordinary body declaring Content-Encoding: identity', async () => {

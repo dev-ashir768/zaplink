@@ -71,6 +71,7 @@ import {
   SESSION_NOT_STARTED_400,
 } from '../../common/openapi/engine-status-responses';
 import { RequiresEngineCapability } from '../../engine/requires-engine-capability';
+import { ResponseMessage } from '../../common/http/api-response';
 
 /** The 400 the `:sessionId` pipe answers, as the routes that list it word it. */
 const SESSION_ID_400 = `The session id has characters other than letters, digits and hyphens, or is longer than ${MAX_SESSION_ID_LENGTH} characters`;
@@ -113,6 +114,7 @@ export class SessionController {
   }
 
   @Post()
+  @ResponseMessage('Session created')
   @RequireRole(ApiKeyRole.OPERATOR)
   // Creating a session has no existing session id for the class-level @SessionScoped fence to check.
   // An OPERATOR key may always create: the new session is owned by it (ownerKeyId) and so lands
@@ -434,6 +436,7 @@ export class SessionController {
   }
 
   @Post(':sessionId/start')
+  @ResponseMessage('Session started')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -493,6 +496,7 @@ export class SessionController {
   }
 
   @Post(':sessionId/stop')
+  @ResponseMessage('Session stopped')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Stop a session and disconnect WhatsApp' })
@@ -536,6 +540,7 @@ export class SessionController {
   }
 
   @Post(':sessionId/logout')
+  @ResponseMessage('Session logged out')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -610,6 +615,7 @@ export class SessionController {
   }
 
   @Post(':sessionId/force-kill')
+  @ResponseMessage('Session force-killed')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Force-kill a stuck session (SIGKILL its wedged engine, then tear it down)' })
@@ -661,6 +667,7 @@ export class SessionController {
   }
 
   @Post(':sessionId/pairing-code')
+  @ResponseMessage('Pairing code requested')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({
     summary: 'Request an 8-char pairing code to link via phone number (alternative to QR)',

@@ -10,6 +10,7 @@ import { useRole } from './hooks/useRole';
 import { RoleProvider } from './components/RoleProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { API_BASE_URL } from './services/api';
+import { unwrapEnvelope } from './services/envelope';
 import { clearActorState, isUserRole, resolveStartupValidation } from './utils/authLifecycle';
 import './App.css';
 
@@ -84,7 +85,7 @@ function AppContent() {
       headers: { 'X-API-Key': savedKey },
     })
       .then(async res => {
-        const decision = resolveStartupValidation(res.status, await res.json().catch(() => null));
+        const decision = resolveStartupValidation(res.status, unwrapEnvelope(await res.json().catch(() => null)));
         // Nothing cancels this request on logout. If the user has since signed out, or back in with
         // another key, the answer is about a key no longer in use: applying it would hand the new
         // session the old key's role, or log it out over the old key's 401.

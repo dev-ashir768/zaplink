@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import request from 'supertest';
+import { dataOf } from './helpers/envelope';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { applyGlobalValidation } from './../src/config/app-validation';
@@ -190,7 +191,7 @@ describe('Chat-restricted API keys (e2e)', () => {
     'GET %s lists only the allowed chat to a restricted key, and both to an open key',
     async (route, key, allowed, other) => {
       const listed = async (apiKey: string) =>
-        ((await get(`/api/sessions/${listSessionId}/${route}`, apiKey).expect(200)).body as Array<{ id: string }>).map(
+        (dataOf(await get(`/api/sessions/${listSessionId}/${route}`, apiKey).expect(200)) as Array<{ id: string }>).map(
           item => item.id,
         );
       expect(await listed(key())).toEqual([allowed]);
@@ -205,13 +206,13 @@ describe('Chat-restricted API keys (e2e)', () => {
     const pages: SearchHit[] = [];
     for (const offset of [0, 1, 2]) {
       const page = await get(`${path}&limit=1&offset=${offset}`, chatKey).expect(200);
-      const body = page.body as SearchResults;
+      const body = dataOf(page) as SearchResults;
       expect(body.total).toBe(2);
       pages.push(...body.hits);
     }
     expect(pages.map(hit => hit.chatId)).toEqual([ALLOWED, ALLOWED]);
     expect(new Set(pages.map(hit => hit.messageId)).size).toBe(2);
-    expect(((await get(path, openKey).expect(200)).body as SearchResults).total).toBe(3);
+    expect((dataOf(await get(path, openKey).expect(200)) as SearchResults).total).toBe(3);
   });
 
   it('refuses plugin search for a chat-restricted key before invoking the worker', async () => {
@@ -227,7 +228,7 @@ describe('Chat-restricted API keys (e2e)', () => {
         'Chat-restricted search requires the built-in search provider',
       );
       expect(dispatchSearch).not.toHaveBeenCalled();
-      expect(((await get('/api/search?q=scopingprobe', openKey).expect(200)).body as SearchResults).total).toBe(731);
+      expect((dataOf(await get('/api/search?q=scopingprobe', openKey).expect(200)) as SearchResults).total).toBe(731);
       expect(dispatchSearch).toHaveBeenCalledTimes(1);
     } finally {
       registry.unregister('plugin:e2e');

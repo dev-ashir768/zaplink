@@ -20,6 +20,7 @@ import { injectDashboardCspNonce } from './config/dashboard-csp';
 import { resolveCorsPolicy, isUpgradeInsecureRequestsEnabled, resolveBodyLimit } from './config/bootstrap-security';
 import { resolveRequestTimeoutMs } from './config/http-timeouts';
 import { parseTrustedProxies } from './common/utils/ip';
+import { rawErrorBody } from './common/http/api-response';
 import {
   BODY_NESTING_MESSAGE,
   exceedsBodyNesting,
@@ -221,7 +222,7 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
   // resolves its instance before anything else). No route takes one. After CORS, so a browser can read it.
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!req.originalUrl.includes('%00')) return next();
-    res.status(400).json({ statusCode: 400, message: 'URL must not contain an encoded NUL', error: 'Bad Request' });
+    res.status(400).json(rawErrorBody(res, 'URL must not contain an encoded NUL'));
   });
 
   // Providers some test modules lack. Looked up through ModuleRef: a failed app.get() aborts the
@@ -245,11 +246,7 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
     if (!shutdown?.isTearingDown()) return next();
     const path = req.path.toLowerCase();
     if (path === '/api/health' || path.startsWith('/api/health/')) return next();
-    res.status(503).set('Connection', 'close').json({
-      statusCode: 503,
-      message: 'Server is shutting down',
-      error: 'Service Unavailable',
-    });
+    res.status(503).set('Connection', 'close').json(rawErrorBody(res, 'Server is shutting down'));
   });
 
   // Aggregate in-flight body budget (DoS hardening): once too many body bytes are being buffered
@@ -344,7 +341,7 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
       !path.startsWith('/api/ingress/') &&
       path.endsWith('/')
     ) {
-      res.status(404).json({ statusCode: 404, message: `Cannot DELETE ${req.path}`, error: 'Not Found' });
+      res.status(404).json(rawErrorBody(res, `Cannot DELETE ${req.path}`));
       return;
     }
     next();
