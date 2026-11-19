@@ -890,6 +890,81 @@ describe('AuthService', () => {
       await expect(service.validateApiKey('revoked')).rejects.toThrow('API key is revoked');
     });
 
+    describe('key lookup cache', () => {
+      const byHashCalls = () =>
+        (repository.findOne as jest.Mock).mock.calls.filter(
+          ([opts]: [{ where: { keyHash?: string } }]) => opts.where.keyHash !== undefined,
+        ).length;
+
+      it('reads a key from the database once and serves repeat checks from memory', async () => {
+        (repository.findOne as jest.Mock).mockResolvedValue(createMockApiKey({ keyHash: hashKey('cached') }));
+        await service.validateApiKey('cached', undefined, undefined, { useCache: true });
+        await service.validateApiKey('cached', undefined, undefined, { useCache: true });
+        await service.validateApiKey('cached', undefined, undefined, { useCache: true });
+        expect(byHashCalls()).toBe(1);
+      });
+
+      it('is used only when the caller asks for it', async () => {
+        (repository.findOne as jest.Mock).mockResolvedValue(createMockApiKey({ keyHash: hashKey('fresh') }));
+        await service.validateApiKey('fresh');
+        await service.validateApiKey('fresh');
+        expect(byHashCalls()).toBe(2);
+      });
+
+      it('does not cache an unknown key', async () => {
+        (repository.findOne as jest.Mock).mockResolvedValue(null);
+        await expect(service.validateApiKey('missing', undefined, undefined, { useCache: true })).rejects.toThrow(
+          'Invalid API key',
+        );
+        await expect(service.validateApiKey('missing', undefined, undefined, { useCache: true })).rejects.toThrow(
+          'Invalid API key',
+        );
+        expect(byHashCalls()).toBe(2);
+      });
+
+      it('hands each caller its own copy of the cached row', async () => {
+        (repository.findOne as jest.Mock).mockResolvedValue(createMockApiKey({ keyHash: hashKey('copy') }));
+        const first = await service.validateApiKey('copy', undefined, undefined, { useCache: true });
+        first.allowedSessions = ['changed-by-a-request'];
+        const second = await service.validateApiKey('copy', undefined, undefined, { useCache: true });
+        expect(second.allowedSessions).not.toEqual(['changed-by-a-request']);
+      });
+
+      it('is cleared when a key is revoked, so the next check is refused', async () => {
+        setupKeys([
+          createMockApiKey({ id: 'uuid-1', keyHash: hashKey('soon-revoked') }),
+          createMockApiKey({ id: 'uuid-2', role: ApiKeyRole.ADMIN }),
+        ]);
+        (repository.findOne as jest.Mock).mockImplementation((options: { where: { id?: string; keyHash?: string } }) =>
+          Promise.resolve(
+            [...keys.values()].find(k =>
+              options.where.keyHash ? k.keyHash === options.where.keyHash : k.id === options.where.id,
+            ) ?? null,
+          ),
+        );
+
+        await expect(
+          service.validateApiKey('soon-revoked', undefined, undefined, { useCache: true }),
+        ).resolves.toBeDefined();
+        await service.revoke('uuid-1');
+        await expect(service.validateApiKey('soon-revoked', undefined, undefined, { useCache: true })).rejects.toThrow(
+          'API key is revoked',
+        );
+      });
+
+      it('can be turned off with API_KEY_CACHE_TTL_MS=0', async () => {
+        process.env.API_KEY_CACHE_TTL_MS = '0';
+        try {
+          (repository.findOne as jest.Mock).mockResolvedValue(createMockApiKey({ keyHash: hashKey('nocache') }));
+          await service.validateApiKey('nocache', undefined, undefined, { useCache: true });
+          await service.validateApiKey('nocache', undefined, undefined, { useCache: true });
+          expect(byHashCalls()).toBe(2);
+        } finally {
+          delete process.env.API_KEY_CACHE_TTL_MS;
+        }
+      });
+    });
+
     // Only a key that matches no row is marked unresolved, so its audit row may be sampled per IP; a
     // rejection of a stored key must stay a plain 401 so every attempt is audited.
     it('marks only an unknown key as unresolved, keeping the UnauthorizedException name', async () => {

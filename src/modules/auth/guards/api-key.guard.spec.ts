@@ -128,7 +128,7 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(authService.validateApiKey).toHaveBeenCalledWith('my-key', '127.0.0.1');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('my-key', '127.0.0.1', undefined, { useCache: true });
   });
 
   it('should accept Authorization Bearer header', async () => {
@@ -141,7 +141,9 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1', undefined, {
+      useCache: true,
+    });
   });
 
   // RFC 7235 section 2.1: the auth scheme is case-insensitive; MCP and metrics already read it so.
@@ -152,7 +154,9 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(createMockContext({ authorization: header }));
 
     expect(result).toBe(true);
-    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1', undefined, {
+      useCache: true,
+    });
   });
 
   it('should reject when API key validation fails', async () => {
@@ -420,7 +424,7 @@ describe('ApiKeyGuard', () => {
 
     const context = createMockContext({ 'x-api-key': 'key' }, { sessionId: 'sess-123' });
     await expect(guard.canActivate(context)).rejects.toThrow('API key not authorized for this session');
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined, { useCache: true });
   });
 
   it('lets an operator reach a session it owns, and hands controllers its owned ∪ assigned fence', async () => {
@@ -465,7 +469,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key' }, { id: 'plugin-x' });
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined, { useCache: true });
   });
 
   it('treats :id as the session id on a @SessionScoped controller (session scoping preserved)', async () => {
@@ -495,7 +499,7 @@ describe('ApiKeyGuard', () => {
     });
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined, { useCache: true });
   });
 
   it('uses the rightmost untrusted hop when the request comes from a trusted proxy', async () => {
@@ -513,7 +517,7 @@ describe('ApiKeyGuard', () => {
     );
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined, { useCache: true });
   });
 
   it('ignores X-Forwarded-For when the direct peer is not a trusted proxy', async () => {
@@ -527,7 +531,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key', 'x-forwarded-for': '10.0.0.5' }, {}, '203.0.113.99');
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.99');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.99', undefined, { useCache: true });
   });
 
   it('normalizes an IPv4-mapped IPv6 proxy address (e.g. ::ffff:10.0.0.1)', async () => {
@@ -540,7 +544,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key', 'x-forwarded-for': '203.0.113.50' }, {}, '::ffff:10.0.0.1');
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined, { useCache: true });
   });
 
   describe('chat scope enforcement', () => {

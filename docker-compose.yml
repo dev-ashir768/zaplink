@@ -285,6 +285,7 @@ services:
       # knob without a line here is inert no matter what the operator's .env says; compose-parity
       # .spec.ts derives the required set from .env.reference so a new knob cannot ship unreachable.
       - API_KEY_PEPPER=${API_KEY_PEPPER:-}
+      - API_KEY_CACHE_TTL_MS=${API_KEY_CACHE_TTL_MS:-5000}
       - BOOTSTRAP_KEY_FILE=${BOOTSTRAP_KEY_FILE:-}
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-}
       - VALIDATION_ERROR_DETAIL=${VALIDATION_ERROR_DETAIL:-}

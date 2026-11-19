@@ -164,7 +164,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
         fromMasterKey ? MASTER_KEY_PREFIX : undefined,
       );
       isNewKey = true;
-      this.keyIndex?.refreshSoon();
+      this.onKeysChanged();
 
       // Save raw key to file for startup script to read (owner-only — it's the raw admin key).
       let saved = true;
@@ -305,7 +305,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     });
 
     const saved = await this.apiKeyRepository.save(apiKey);
-    this.keyIndex?.refreshSoon();
+    this.onKeysChanged();
     this.logger.log(`API key created: ${saved.name}`, {
       keyId: saved.id,
       role: saved.role,
@@ -383,7 +383,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       // The row's post-write state, for the eviction comparison below.
       saved = await this.findOne(id);
     }
-    this.keyIndex?.refreshSoon();
+    this.onKeysChanged();
 
     // One fingerprint definition, two callers: this immediate eviction and the gateway's periodic
     // re-validation sweep. Sharing it keeps the two from disagreeing about what an authorization
@@ -407,7 +407,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     this.removeBootstrapKeyFileIfMatching(apiKey);
     this.evictActiveSockets(id, 'deleted');
     await this.releaseOwnedSessions(id);
-    this.keyIndex?.refreshSoon();
+    this.onKeysChanged();
     this.logger.log(`API key deleted: ${apiKey.name}`, {
       keyId: id,
       action: 'api_key_deleted',
@@ -431,7 +431,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     // key keeps receiving events on already-subscribed sockets until they happen to disconnect.
     this.evictActiveSockets(id, 'revoked');
     await this.releaseOwnedSessions(id);
-    this.keyIndex?.refreshSoon();
+    this.onKeysChanged();
     return saved;
   }
 
@@ -545,6 +545,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       .set(patch)
       .where('"id" = :id', { id })
       .execute();
+    this.keyCache.clear();
     if (!result.affected) {
       await this.findOne(id);
     }
@@ -586,7 +587,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     rawKey: string,
     clientIp?: string,
     sessionId?: string,
-    { recordUsage = true }: { recordUsage?: boolean } = {},
+    { recordUsage = true, useCache = false }: { recordUsage?: boolean; useCache?: boolean } = {},
   ): Promise<ApiKey> {
     // Trim before hashing so every surface agrees on what the credential is. HTTP already strips
     // surrounding whitespace from header values, so a pasted key with a stray space/newline
@@ -594,7 +595,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     // literal string) — the dashboard then runs commands fine while never receiving events, and the
     // session looks permanently disconnected. Whitespace is never part of a key.
     const keyHash = this.hashKey(rawKey?.trim());
-    const apiKey = await this.apiKeyRepository.findOne({ where: { keyHash } });
+    const apiKey = useCache
+      ? await this.findKeyByHash(keyHash)
+      : await this.apiKeyRepository.findOne({ where: { keyHash } });
 
     if (!apiKey) {
       throw new UnresolvedApiKeyException('Invalid API key');
@@ -645,6 +648,48 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     if (recordUsage) await this.usageTracker.record(apiKey);
 
     return apiKey;
+  }
+
+  /**
+   * Every authenticated REST request looks its key up by hash (the ApiKeyGuard opts in with useCache;
+   * WebSocket and other callers always read the row fresh). The row is kept in memory for a few seconds
+   * (API_KEY_CACHE_TTL_MS, default 5000; 0 turns it off) so a busy client does not cost one database
+   * round trip per call. Any create, update, revoke or delete in this process clears the cache at
+   * once; a change made directly in the database by another process shows up within the TTL.
+   * Each caller gets its own shallow copy, so nothing a request does to the row leaks to the next one.
+   */
+  private readonly keyCache = new Map<string, { row: ApiKey; at: number }>();
+  private static readonly KEY_CACHE_MAX = 1000;
+
+  private keyCacheTtlMs(): number {
+    const raw = Number(process.env.API_KEY_CACHE_TTL_MS ?? 5000);
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  }
+
+  private async findKeyByHash(keyHash: string): Promise<ApiKey | null> {
+    const ttl = this.keyCacheTtlMs();
+    const now = Date.now();
+    if (ttl > 0) {
+      const hit = this.keyCache.get(keyHash);
+      if (hit && now - hit.at < ttl) return this.copyKey(hit.row);
+    }
+    const row = await this.apiKeyRepository.findOne({ where: { keyHash } });
+    // Unknown keys are never cached, so a key created a moment ago always works.
+    if (row && ttl > 0) {
+      if (this.keyCache.size >= AuthService.KEY_CACHE_MAX) this.keyCache.clear();
+      this.keyCache.set(keyHash, { row: this.copyKey(row), at: now });
+    }
+    return row;
+  }
+
+  private copyKey(row: ApiKey): ApiKey {
+    return Object.assign(Object.create(Object.getPrototypeOf(row) as object) as ApiKey, row);
+  }
+
+  /** A key row changed: drop the cached rows and let the active-key index reload. */
+  private onKeysChanged(): void {
+    this.keyCache.clear();
+    this.keyIndex?.refreshSoon();
   }
 
   private hashKey(rawKey: string): string {

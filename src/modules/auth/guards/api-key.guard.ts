@@ -104,7 +104,7 @@ export class ApiKeyGuard implements CanActivate {
     // Validate API key
     // The route session is checked below against the key's EFFECTIVE fence (allowedSessions ∪ owned
     // sessions for non-admin keys), not the raw allowlist validateApiKey would check.
-    const storedKey = await this.authService.validateApiKey(apiKeyHeader, clientIp);
+    const storedKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, undefined, { useCache: true });
 
     // Stamp the resolved actor into the per-request async context so downstream audit log writes —
     // which fire from services deep in the call stack without DI access to the key — can attribute
